@@ -12,6 +12,8 @@ Jeu de belote coinchée tunisienne à 4, jouable dans le navigateur.
 - `src/ui/` : l'interface React (accueil, salon, table de jeu).
 - `supabase/` : schéma de la base, règles de sécurité (RLS) et fonction serveur `game`.
 - `docs/SUPABASE.md` : les étapes à faire une seule fois sur le site de Supabase.
+- `src/voice/`, `src/ui/online/voice/` : le vocal (WebRTC entre les 4 joueurs).
+- `docs/VOCAL.md` : fonctionnement du vocal et configuration du serveur TURN.
 
 ## Multijoueur : comment ça marche
 
@@ -23,6 +25,8 @@ Jeu de belote coinchée tunisienne à 4, jouable dans le navigateur.
    (table `player_views`, protégée par RLS).
 4. En cas de coupure, le joueur rouvre le site : « Reprendre la partie » le replace
    à sa place avec sa main.
+5. Vocal : les navigateurs se connectent directement entre eux (WebRTC). La mise en
+   relation passe par le canal privé du salon (Supabase Realtime, réservé aux membres).
 
 ## Jouer
 

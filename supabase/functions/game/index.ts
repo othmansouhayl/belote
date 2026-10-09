@@ -2,8 +2,16 @@
 // enregistre l'état + les vues filtrées. Le code du moteur est copié dans _shared
 // au déploiement (npm run edge:sync) pour rester identique à celui du navigateur.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH, handleRequest } from '../_shared/server/index.ts';
-import type { RoomAggregate, RoomStore, ServerDeps, StoredView } from '../_shared/server/index.ts';
+import {
+  ROOM_CODE_ALPHABET,
+  ROOM_CODE_LENGTH,
+  handleRequest,
+  handleVoiceConfig,
+  parseCloudflareResponse,
+  staticTurnServer,
+} from '../_shared/server/index.ts';
+import type { RoomAggregate, RoomStore, ServerDeps, StoredView, TurnEnv } from '../_shared/server/index.ts';
+import type { IceServer } from '../_shared/voice/protocol.ts';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -72,6 +80,30 @@ const store: RoomStore = {
   save: (room, expectedVersion, views) => saveRoom(room, expectedVersion, views),
 };
 
+const turnEnv: TurnEnv = {
+  TURN_URLS: Deno.env.get('TURN_URLS'),
+  TURN_USERNAME: Deno.env.get('TURN_USERNAME'),
+  TURN_CREDENTIAL: Deno.env.get('TURN_CREDENTIAL'),
+  CLOUDFLARE_TURN_KEY_ID: Deno.env.get('CLOUDFLARE_TURN_KEY_ID'),
+  CLOUDFLARE_TURN_API_TOKEN: Deno.env.get('CLOUDFLARE_TURN_API_TOKEN'),
+};
+
+/** Serveurs TURN : identifiants temporaires Cloudflare (24 h) ou identifiants fixes. */
+async function fetchTurnServers(): Promise<readonly IceServer[] | null> {
+  const { CLOUDFLARE_TURN_KEY_ID: keyId, CLOUDFLARE_TURN_API_TOKEN: token } = turnEnv;
+  if (keyId && token) {
+    const response = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(keyId)}/credentials/generate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ttl: 86_400 }),
+    });
+    if (!response.ok) throw new Error(`Cloudflare TURN : ${response.status}`);
+    return parseCloudflareResponse(await response.json());
+  }
+  const fixed = staticTurnServer(turnEnv);
+  return fixed ? [fixed] : null;
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -95,6 +127,9 @@ Deno.serve(async (req) => {
   }
 
   try {
+    if (typeof body === 'object' && body !== null && (body as { type?: unknown }).type === 'voice-config') {
+      return json(await handleVoiceConfig(store, auth.user.id, body, fetchTurnServers));
+    }
     return json(await handleRequest(store, deps, auth.user.id, body));
   } catch (error) {
     // Ne jamais journaliser l'état du salon : il contient les mains cachées (§11.4).

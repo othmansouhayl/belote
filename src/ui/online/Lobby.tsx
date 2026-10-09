@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
+import { MicOffIcon } from '../icons.tsx';
 import type { Seat } from '../../engine/index.ts';
 import type { RoomView } from '../../server/types.ts';
 import { inviteLink } from './client.ts';
@@ -11,6 +13,9 @@ interface LobbyProps {
   readonly onReady: (ready: boolean) => void;
   readonly onLeave: () => void;
   readonly onCopied: (text: string) => void;
+  readonly voiceBar: ReactNode;
+  readonly speakingSeats: ReadonlySet<Seat>;
+  readonly voiceMutedSeats: ReadonlySet<Seat>;
 }
 
 const TEAMS: readonly { readonly name: string; readonly seats: readonly [Seat, Seat] }[] = [
@@ -18,7 +23,8 @@ const TEAMS: readonly { readonly name: string; readonly seats: readonly [Seat, S
   { name: 'Équipe 2', seats: [1, 3] },
 ];
 
-export function Lobby({ view, presentSeats, busy, onSeat, onReady, onLeave, onCopied }: LobbyProps) {
+export function Lobby(props: LobbyProps) {
+  const { view, presentSeats, busy, onSeat, onReady, onLeave, onCopied, voiceBar, speakingSeats, voiceMutedSeats } = props;
   const [shareFailed, setShareFailed] = useState(false);
   const link = inviteLink(view.code);
   const me = view.players.find((p) => p.seat === view.mySeat);
@@ -56,6 +62,7 @@ export function Lobby({ view, presentSeats, busy, onSeat, onReady, onLeave, onCo
             Inviter des amis
           </button>
         </div>
+        {voiceBar}
         {shareFailed && (
           <p className="screen__hint">
             Copiez ce lien : <span className="selectable">{link}</span>
@@ -79,10 +86,15 @@ export function Lobby({ view, presentSeats, busy, onSeat, onReady, onLeave, onCo
                 );
               }
               return (
-                <div key={seat} className={`slot${isMe ? ' slot--me' : ''}`}>
+                <div key={seat} className={`slot${isMe ? ' slot--me' : ''}${speakingSeats.has(seat) ? ' slot--speaking' : ''}`}>
                   <span className="slot__name">
                     {player.nickname}
                     {isMe && ' (vous)'}
+                    {voiceMutedSeats.has(seat) && (
+                      <span className="slot__mic-off" title="Micro coupé">
+                        <MicOffIcon size={14} />
+                      </span>
+                    )}
                   </span>
                   <span className={`slot__state${player.ready ? ' slot__state--ready' : ''}`}>
                     {player.ready ? '✓ Prêt' : presentSeats.has(seat) || isMe ? 'Pas prêt' : 'Hors ligne'}

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { SEATS, winningCard } from '../engine/index.ts';
 import type { GameAction, PlayerView, Seat, Team } from '../engine/index.ts';
 import { BiddingPanel } from './BiddingPanel.tsx';
@@ -24,10 +25,14 @@ interface GameTableProps {
   /** Vrai pendant l'envoi d'une action au serveur : on évite les doubles envois. */
   readonly busy?: boolean;
   readonly banner?: string | null;
+  readonly voiceBar?: ReactNode;
+  readonly speakingSeats?: ReadonlySet<Seat>;
+  readonly voiceMutedSeats?: ReadonlySet<Seat>;
 }
 
 export function GameTable(props: GameTableProps) {
   const { view, names, effects, onAction, cont, menuLabel, onMenu, absentSeats, busy = false, banner } = props;
+  const { voiceBar, speakingSeats, voiceMutedSeats } = props;
   const { pausedTrick, notice, beloteBubble } = effects;
   const mySeat = view.seat;
   const myTeam = (mySeat % 2) as Team;
@@ -81,6 +86,7 @@ export function GameTable(props: GameTableProps) {
 
       <main className="table">
         {banner && <div className="banner" role="status">{banner}</div>}
+        {voiceBar}
         {SEATS.map((seat) => {
           const bidBubble = bidBubbles.get(seat);
           return (
@@ -96,6 +102,8 @@ export function GameTable(props: GameTableProps) {
               cardsLeft={view.handCounts[seat] ?? 0}
               bubble={beloteBubble?.seat === seat ? beloteBubble.text : (bidBubble?.text ?? null)}
               highlightBubble={beloteBubble?.seat === seat || (bidBubble?.strong ?? false)}
+              speaking={speakingSeats?.has(seat) ?? false}
+              voiceMuted={voiceMutedSeats?.has(seat) ?? false}
             />
           );
         })}

@@ -1039,3 +1039,91 @@ button:focus-visible {
   color: #4a5750;
   opacity: 1;
 }
+
+/* Vocal */
+.voice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.voice--table {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 25;
+  max-width: 45%;
+}
+
+.voice--lobby {
+  justify-content: center;
+}
+
+.voice__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.35);
+  font-weight: 700;
+}
+
+.voice__btn--live {
+  background: #2e9d5b;
+  border-color: #2e9d5b;
+}
+
+.voice__btn--muted {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.voice__btn--leave {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.voice__btn--unlock {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #2b2104;
+}
+
+.voice__state {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 0.85rem;
+}
+
+.voice__problem {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  font-size: 0.8rem;
+}
+
+.seat--speaking .seat__badge {
+  border-color: #4cd97b;
+  box-shadow: 0 0 0 4px rgba(76, 217, 123, 0.35);
+}
+
+.seat__mic-off,
+.slot__mic-off {
+  display: inline-flex;
+  margin-left: 4px;
+  color: var(--danger);
+  vertical-align: middle;
+}
+
+.slot--speaking {
+  border-color: #4cd97b;
+  box-shadow: 0 0 0 3px rgba(76, 217, 123, 0.35);
+}

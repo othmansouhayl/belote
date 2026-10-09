@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const target = `${root}supabase/functions/_shared`;
 rmSync(target, { recursive: true, force: true });
-for (const dir of ['engine', 'server']) {
+for (const dir of ['engine', 'server', 'voice']) {
   cpSync(`${root}src/${dir}`, `${target}/${dir}`, { recursive: true });
 }
 console.log('Code partagé copié dans supabase/functions/_shared');

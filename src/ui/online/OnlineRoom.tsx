@@ -8,6 +8,8 @@ import { useTableEffects } from '../useTableEffects.ts';
 import { Lobby } from './Lobby.tsx';
 import { sendRequest } from './client.ts';
 import { useAbsentSeats, useRoom } from './useRoom.ts';
+import { VoiceBar } from './voice/VoiceBar.tsx';
+import { useVoice } from './voice/useVoice.ts';
 
 interface OnlineRoomProps {
   readonly roomId: string;
@@ -18,7 +20,7 @@ interface OnlineRoomProps {
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
 export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
-  const { view, connection, presentSeats, removed, error } = useRoom(roomId);
+  const { view, connection, presentSeats, removed, error, sendVoice, onVoice } = useRoom(roomId);
   const [busy, setBusy] = useState(false);
 
   const names = useMemo<SeatNames>(() => {
@@ -37,6 +39,15 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
     view?.settings.absenceDelaySeconds ?? 30,
     connection === 'online',
   );
+
+  const voice = useVoice({
+    roomId,
+    mySeat: view?.mySeat ?? null,
+    online: connection === 'online',
+    presentSeats,
+    sendVoice,
+    onVoice,
+  });
 
   const send = useCallback(
     async (request: DistributiveOmit<RoomRequest, 'roomId'>) => {
@@ -80,6 +91,9 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
             if (await send({ type: 'leave' })) onExit(true);
           }}
           onCopied={showNotice}
+          voiceBar={<VoiceBar voice={voice} className="voice--lobby" />}
+          speakingSeats={voice.snapshot.speaking}
+          voiceMutedSeats={voice.snapshot.mutedSeats}
         />
         {effects.notice && (
           <div className="toast toast--fixed" role="status">
@@ -102,6 +116,9 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
       busy={busy}
       absentSeats={absentSeats}
       banner={banner}
+      voiceBar={<VoiceBar voice={voice} className="voice--table" />}
+      speakingSeats={voice.snapshot.speaking}
+      voiceMutedSeats={voice.snapshot.mutedSeats}
       onAction={(action: GameAction) => void send({ type: 'game', action })}
       cont={{
         label: game.phase === 'gameOver' ? 'Rejouer avec la même table' : 'Manche suivante',
