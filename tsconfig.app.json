@@ -17,5 +17,5 @@
     "skipLibCheck": true
   },
   "include": ["src"],
-  "exclude": ["src/engine"]
+  "exclude": ["src/engine", "src/bots"]
 }
