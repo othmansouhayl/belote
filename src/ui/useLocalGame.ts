@@ -34,6 +34,8 @@ export function useLocalGame() {
 
   const perform = useCallback((seat: Seat, action: GameAction) => {
     const before = gameRef.current;
+    // Un double appui rapide arrive après que le tour est passé : on l'ignore.
+    if (seat === HUMAN && before.currentPlayer !== HUMAN) return;
     const result = applyAction(before, seat, action);
     if (!result.ok) {
       setNotice(result.error);
