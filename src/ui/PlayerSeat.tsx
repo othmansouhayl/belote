@@ -1,4 +1,5 @@
 import type { Seat } from '../engine/index.ts';
+import { MicOffIcon } from './icons.tsx';
 import { positionOf } from './labels.ts';
 
 interface PlayerSeatProps {
@@ -12,17 +13,24 @@ interface PlayerSeatProps {
   readonly cardsLeft: number;
   readonly bubble: string | null;
   readonly highlightBubble: boolean;
+  readonly speaking?: boolean;
+  readonly voiceMuted?: boolean;
 }
 
 export function PlayerSeat(props: PlayerSeatProps) {
-  const { seat, mySeat, name, isDealer, isActive, isTaker, isAbsent, cardsLeft, bubble, highlightBubble } = props;
+  const { seat, mySeat, name, isDealer, isActive, isTaker, isAbsent, cardsLeft, bubble, highlightBubble, speaking, voiceMuted } = props;
   const team = seat % 2 === mySeat % 2 ? 'us' : 'them';
   return (
     <div
-      className={`seat seat--${positionOf(seat, mySeat)} seat--${team}${isActive ? ' seat--active' : ''}${isAbsent ? ' seat--absent' : ''}`}
+      className={`seat seat--${positionOf(seat, mySeat)} seat--${team}${isActive ? ' seat--active' : ''}${isAbsent ? ' seat--absent' : ''}${speaking ? ' seat--speaking' : ''}`}
     >
       <div className="seat__badge">
         <span className="seat__name">{name}</span>
+        {voiceMuted && (
+          <span className="seat__mic-off" title="Micro coupé">
+            <MicOffIcon size={14} />
+          </span>
+        )}
         {isDealer && (
           <span className="seat__chip" title="Donneur">
             D

@@ -7,6 +7,7 @@ on:
       - 'supabase/**'
       - 'src/engine/**'
       - 'src/server/**'
+      - 'src/voice/**'
       - 'scripts/sync-edge-shared.mjs'
       - '.github/workflows/supabase.yml'
   workflow_dispatch:
@@ -42,6 +43,24 @@ jobs:
         run: supabase link --project-ref "$PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
       - name: Tables et règles de sécurité
         run: supabase --yes db push --password "$SUPABASE_DB_PASSWORD"
+      - name: Secrets du serveur TURN (facultatif, voir docs/VOCAL.md)
+        env:
+          TURN_URLS: ${{ secrets.TURN_URLS }}
+          TURN_USERNAME: ${{ secrets.TURN_USERNAME }}
+          TURN_CREDENTIAL: ${{ secrets.TURN_CREDENTIAL }}
+          CLOUDFLARE_TURN_KEY_ID: ${{ secrets.CLOUDFLARE_TURN_KEY_ID }}
+          CLOUDFLARE_TURN_API_TOKEN: ${{ secrets.CLOUDFLARE_TURN_API_TOKEN }}
+        run: |
+          env_file="$(mktemp)"
+          for name in TURN_URLS TURN_USERNAME TURN_CREDENTIAL CLOUDFLARE_TURN_KEY_ID CLOUDFLARE_TURN_API_TOKEN; do
+            if [ -n "${!name}" ]; then printf '%s=%s\n' "$name" "${!name}" >> "$env_file"; fi
+          done
+          if [ -s "$env_file" ]; then
+            supabase secrets set --project-ref "$PROJECT_ID" --env-file "$env_file"
+          else
+            echo "Aucun serveur TURN configuré : le vocal utilisera seulement STUN."
+          fi
+          rm -f "$env_file"
       - name: Copie du moteur pour la fonction serveur
         run: node scripts/sync-edge-shared.mjs
       - name: Fonction serveur « game »

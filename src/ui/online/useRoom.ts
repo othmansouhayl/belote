@@ -24,6 +24,7 @@ export function useRoom(roomId: string) {
   const version = useRef(0);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const mySeat = useRef<Seat | null>(null);
+  const voiceListeners = useRef(new Set<(payload: unknown) => void>());
 
   const apply = useCallback((row: ViewRow) => {
     if (row.version < version.current) return;
@@ -61,13 +62,16 @@ export function useRoom(roomId: string) {
       await refresh();
 
       const channel = client.channel(`salon:${roomId}`, {
-        config: { private: true, presence: { key: crypto.randomUUID() } },
+        config: { private: true, presence: { key: crypto.randomUUID() }, broadcast: { self: false, ack: false } },
       });
       channelRef.current = channel;
       channel
         .on('postgres_changes', { event: '*', schema: 'public', table: 'player_views', filter: `room_id=eq.${roomId}` }, (payload) => {
           if (payload.eventType === 'DELETE') void refresh();
           else apply(payload.new as ViewRow);
+        })
+        .on('broadcast', { event: 'voice' }, ({ payload }) => {
+          for (const listener of voiceListeners.current) listener(payload);
         })
         .on('presence', { event: 'sync' }, () => {
           const seats = Object.values(channel.presenceState<{ seat: Seat }>())
@@ -111,7 +115,18 @@ export function useRoom(roomId: string) {
     if (seat !== null && connection === 'online') void channelRef.current?.track({ seat });
   }, [seat, connection]);
 
-  return { view, connection, presentSeats, removed, error, refresh };
+  /** Messages du vocal (signalisation WebRTC), réservés aux membres du salon par la RLS. */
+  const sendVoice = useCallback((payload: unknown) => {
+    void channelRef.current?.send({ type: 'broadcast', event: 'voice', payload });
+  }, []);
+  const onVoice = useCallback((listener: (payload: unknown) => void) => {
+    voiceListeners.current.add(listener);
+    return () => {
+      voiceListeners.current.delete(listener);
+    };
+  }, []);
+
+  return { view, connection, presentSeats, removed, error, refresh, sendVoice, onVoice };
 }
 
 /** Joueurs déconnectés depuis plus longtemps que le délai d'absence du salon (§11.5). */
