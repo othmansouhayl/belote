@@ -10,9 +10,12 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "simulate": "tsx scripts/simulate.ts"
+    "simulate": "tsx scripts/simulate.ts",
+    "test:db": "./scripts/test-db.sh",
+    "edge:sync": "node scripts/sync-edge-shared.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

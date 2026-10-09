@@ -16,5 +16,5 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true
   },
-  "include": ["src/engine", "src/bots"]
+  "include": ["src/engine", "src/bots", "src/server"]
 }
