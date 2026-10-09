@@ -1,4 +1,5 @@
 import type { FinalContract, Team } from '../engine/index.ts';
+import { SoundToggle } from './SoundToggle.tsx';
 import { SUIT_SYMBOLS, contractValueLabel, isRed } from './labels.ts';
 import type { SeatNames } from './labels.ts';
 
@@ -19,6 +20,7 @@ export function TopBar({ scores, myTeam, target, contract, names, subtitle, menu
       <div className="score score--us">
         <span className="score__label">Nous</span>
         <span className="score__value">{scores[myTeam]}</span>
+        <span className="score__bar" style={{ ['--p' as string]: Math.min(1, scores[myTeam] / target) }} />
       </div>
       <div className="topbar__center">
         {contract ? (
@@ -41,10 +43,16 @@ export function TopBar({ scores, myTeam, target, contract, names, subtitle, menu
       <div className="score score--them">
         <span className="score__label">Eux</span>
         <span className="score__value">{scores[myTeam === 0 ? 1 : 0]}</span>
+        <span className="score__bar" style={{ ['--p' as string]: Math.min(1, scores[myTeam === 0 ? 1 : 0] / target) }} />
       </div>
-      <button type="button" className="topbar__menu" aria-label={menuLabel} title={menuLabel} onClick={onMenu}>
-        ☰
-      </button>
+      <div className="topbar__actions">
+        <SoundToggle />
+        <button type="button" className="icon-btn" aria-label={menuLabel} title={menuLabel} onClick={onMenu}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+      </div>
     </header>
   );
 }

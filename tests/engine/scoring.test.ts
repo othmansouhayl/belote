@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TOTAL_HAND_POINTS, applyHandScore, calculateHandPoints, resolveContract } from '../../src/engine/index.ts';
+import { DEFAULT_RULES, TOTAL_HAND_POINTS, applyHandScore, calculateHandPoints, resolveContract } from '../../src/engine/index.ts';
 import type { HandResult, Seat, Suit } from '../../src/engine/index.ts';
 import { contract, rules, tricksFrom } from './helpers.ts';
 
@@ -170,6 +170,10 @@ describe('Test 12 — coinche et surcoinche (×2 et ×4)', () => {
 });
 
 describe('Fin de partie', () => {
+  it('la partie se joue en 1500 points par défaut (validé)', () => {
+    expect(DEFAULT_RULES.targetScore).toBe(1500);
+  });
+
   const r = rules({ targetScore: 1000 });
   const result = (a: number, b: number) => ({ handScore: [a, b] }) as unknown as HandResult;
 

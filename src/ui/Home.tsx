@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { ROOM_CODE_LENGTH } from '../server/rooms.ts';
+import { cardImageUrl } from './CardView.tsx';
+import { SoundToggle } from './SoundToggle.tsx';
 import { onlineConfigured } from './online/client.ts';
 import type { SavedRoom } from './online/client.ts';
+
+/** Les quatre Valets, maîtres de l'atout en belote. */
+const HERO_CARDS = ['V-trefle', 'V-carreau', 'V-pique', 'V-coeur'];
 
 interface HomeProps {
   readonly nickname: string;
@@ -25,14 +30,23 @@ export function Home(props: HomeProps) {
   const invited = initialCode.length > 0;
 
   return (
-    <div className="screen">
-      <header className="screen__header">
-        <h1 className="screen__title">Belote coinchée tunisienne</h1>
-        <p className="screen__text">Jouez à quatre, entre amis, où que vous soyez.</p>
+    <div className="screen home">
+      <SoundToggle className="home__sound" />
+      <header className="home__hero">
+        <div className="hero-fan" aria-hidden="true">
+          {HERO_CARDS.map((id, i) => (
+            <img key={id} className="hero-fan__card" src={cardImageUrl(id)} alt="" style={{ ['--i' as string]: i }} />
+          ))}
+        </div>
+        <h1 className="home__title">
+          Belote
+          <span className="home__subtitle">coinchée tunisienne</span>
+        </h1>
+        <p className="home__tagline">Jouez à quatre, entre amis, où que vous soyez.</p>
       </header>
 
       {savedRoom && (
-        <section className="card-panel">
+        <section className="card-panel card-panel--resume">
           <p className="screen__text">Vous avez une partie en cours (salon {savedRoom.code}).</p>
           <button type="button" className="btn btn--primary btn--wide" disabled={busy} onClick={() => onResume(savedRoom)}>
             Reprendre la partie
@@ -40,7 +54,7 @@ export function Home(props: HomeProps) {
         </section>
       )}
 
-      <section className="card-panel">
+      <section className="card-panel card-panel--main">
         <h2 className="card-panel__title">Jouer en ligne avec des amis</h2>
         {onlineConfigured ? (
           <>
@@ -103,6 +117,14 @@ export function Home(props: HomeProps) {
           Jouer seul contre 3 bots
         </button>
       </section>
+
+      <footer className="home__footer">
+        <span>Règles tunisiennes</span>
+        <span aria-hidden="true">·</span>
+        <span>Partie en 1500 points</span>
+        <span aria-hidden="true">·</span>
+        <span>Vocal intégré</span>
+      </footer>
     </div>
   );
 }
