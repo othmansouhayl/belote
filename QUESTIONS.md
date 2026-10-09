@@ -2,40 +2,40 @@
 
 > Ce fichier liste toutes les règles marquées `À CONFIRMER` dans `regles.md`,
 > plus les points explicitement demandés à clarifier. Pour chacune, une
-> valeur par défaut raisonnable est déjà posée dans
-> `src/engine/rulesConfig.ts` afin de ne pas bloquer le développement
-> (conformément à la section 14 de `regles.md`). Rien ici n'est définitif :
-> chaque ligne reste ouverte jusqu'à ta validation.
+> valeur par défaut raisonnable est posée dans `src/engine/rulesConfig.ts`
+> afin de ne pas bloquer le développement (section 14 de `regles.md`).
 >
-> Légende « Bloquant » : **Oui** = je te pose la question avant de coder car
-> un mauvais choix changerait la portée ou l'architecture du moteur.
-> **Non** = simple paramètre de configuration, facile à changer plus tard
-> sans rien casser ; je pars sur la valeur par défaut en attendant ta réponse.
+> Statut : **Validé** = tranché par le propriétaire du jeu, la valeur est
+> définitive. **Ouvert** = valeur par défaut provisoire, simple paramètre
+> facile à changer plus tard sans réécrire le moteur.
 
-| # | Règle | Référence | Paramètre `rulesConfig.ts` | Valeur par défaut retenue | Question à trancher | Bloquant |
+## Règles validées
+
+| # | Règle | Référence | Paramètre `rulesConfig.ts` | Valeur retenue | Statut |
+|---|---|---|---|---|---|
+| 7 | Couper / surcouper quand le partenaire est déjà maître du pli | §7.4 | `requireTrumpWhenPartnerMaster` | `false` : si le partenaire tient le pli, on joue la carte qu'on veut (aucune obligation de couper ni de surcouper) | **Validé** |
+| 8 | Monter à l'atout quand l'atout est demandé | §7.2 | `requireHigherTrumpWhenTrumpLed` | `true` : si l'atout est demandé et qu'on a un atout plus fort que le meilleur déjà posé, on doit le jouer | **Validé** |
+| 11 | Annonces de combinaisons (tierce, cinquante, cent, carré) | — | `allowAnnonces` | `false` : pas d'annonces, seule la belote/rebelote compte | **Validé** |
+| 14 | Valeur du capot | §9.3 | `capotAnnouncedSuccessPoints`, `capotAnnouncedFailurePoints`, `capotUnannouncedPoints` | Capot **annoncé** réussi : 500 pour le preneur. Capot **annoncé** chuté : 500 pour l'adverse. Capot **non annoncé** (contrat ordinaire où le preneur fait les 8 plis) : 250 pour le preneur | **Validé** |
+
+## Règles encore ouvertes
+
+| # | Règle | Référence | Paramètre `rulesConfig.ts` | Valeur par défaut | Question à trancher | Statut |
 |---|---|---|---|---|---|---|
-| 1 | Sens de rotation (parole et jeu) | §4 | `playDirection` | `'counterclockwise'` (sens anti-horaire, le plus courant) | Dans quel sens tournez-vous à votre table : vers la gauche (anti-horaire) ou vers la droite (horaire) ? | Non |
-| 2 | Enchérir après avoir passé | §5.2, §14.2 | `allowRebidAfterPass` | `false` (un joueur qui a passé ne reparle plus pour cette donne) | Chez vous, un joueur qui a passé peut-il annoncer à nouveau plus tard dans la même donne ? | Non |
-| 3 | Toutes les enchères passées sans contrat | §5.3 | `noBidRedeal` | `true` (la donne est annulée, le joueur suivant redistribue) | Confirmes-tu que si personne n'annonce, on redistribue (et pas, par ex., une donne à l'atout imposé) ? | Non |
-| 4 | Surenchérir dans la même couleur que son partenaire | §5.4, §14.3 | `allowOverbidSameSuit` | `true` (autorisé) | Un partenaire peut-il monter l'enchère dans la couleur déjà annoncée par son coéquipier ? | Non |
-| 5 | Coupe obligatoire si on ne peut pas fournir | §7.3, §14.4 | `requireTrumpWhenVoid` | `true` (on doit couper si on a de l'atout et pas la couleur demandée) | Confirmes-tu que couper est obligatoire dans toutes les situations ? | Non |
-| 6 | Surcoupe obligatoire si possible | §7.4, §14.5 | `requireOvertrump` | `true` (il faut monter à l'atout si on en a un plus fort) | Confirmes-tu l'obligation de surcouper quand c'est possible ? | Non |
-| 7 | **Surcoupe quand le partenaire est déjà maître du pli** | §7.4 (ajout demandé) | `requireOvertrumpWhenPartnerMaster` | `false` (si le partenaire tient déjà le pli avec l'atout le plus fort, pas besoin de monter par-dessus) | Doit-on surcouper même quand c'est le partenaire qui est déjà maître du pli, ou seulement quand c'est un adversaire ? | **Oui** |
-| 8 | **Obligation de monter à l'atout quand l'atout est demandé** | §7.2/7.3 (ajout demandé) | `requireHigherTrumpWhenTrumpLed` | `true` (si l'atout est la couleur demandée et qu'on en a, on doit si possible jouer un atout plus fort que le meilleur atout déjà posé) | Quand l'atout est demandé, faut-il obligatoirement monter dessus si on le peut, ou juste fournir n'importe quel atout ? | **Oui** |
-| 9 | Multiplicateurs coinche / surcoinche et éléments concernés | §6.3, §14.8 | `coincheMultiplier: 2`, `surcoincheMultiplier: 4` | ×2 / ×4, appliqués au score de la manche (points de plis + bonus), pas au score cible | Confirmes-tu ×2 et ×4, et que c'est bien le score de la manche entière qui est multiplié (pas seulement l'excédent) ? | Non |
-| 10 | Belote/rebelote et traitement en cas de chute ou coinche | §8, §14.8 | `beloteAlwaysScored` | `true` (les 20 points de belote restent acquis au camp qui la détient, même si le contrat chute ou est coinché) | La belote reste-t-elle acquise même quand le contrat chute ? | Non |
-| 11 | **Annonces complémentaires (tierce, cinquante, cent, carré)** | ajout demandé | `allowAnnonces` | `false` (désactivées — hors périmètre de la phase 1) | Joue-t-on avec des annonces de combinaisons (tierce/50/100/carré) à ta table, ou seulement la belote/rebelote ? | **Oui** |
-| 12 | Calcul du contrat réussi | §9.1, §14.6 | `contractSuccessScoring` | L'équipe preneuse marque ses points de plis réalisés (+ dix de der + bonus), avec un minimum égal à la valeur annoncée ; l'équipe adverse marque ses points de plis réalisés | Est-ce bien ainsi que vous comptez un contrat réussi, ou arrondissez-vous (ex. au multiple de 10 supérieur) ? | Non |
-| 13 | Calcul du contrat chuté | §9.2, §14.7 | `contractFailureScoring` | L'équipe adverse (défense) marque 162 + la valeur du contrat annoncé ; l'équipe preneuse marque 0 (hors belote, cf. #10) | Confirmes-tu « 162 + valeur du contrat » pour la défense en cas de chute (et pas 160, ou un barème fixe) ? | Non |
-| 14 | **Rang et valeur du capot dans les enchères** | §5.1, §9.3, §14.9 (ajout demandé) | `capotRank`, `capotFixedPoints` | Le capot est une enchère disponible à tout moment après la première annonce (pas de palier de points propre) ; s'il réussit, l'équipe preneuse marque un forfait fixe de 250 points ; s'il chute, la défense marque 250 points | Le capot doit-il être annoncé à un palier précis (ex. seulement après 160, ou remplace un montant) ? Quelle valeur en cas de réussite/chute : 250 fixes, ou 162+bonus comme un contrat normal ? | **Oui** |
-| 15 | Score cible de fin de partie et égalité | §10, §14.10 | `targetScore`, `tieBreakRule` | `targetScore: 1000`, `tieBreakRule: 'extraHand'` (en cas d'égalité une fois la cible atteinte, on rejoue une donne de départage) ; la partie s'arrête à la fin de la donne qui atteint/dépasse la cible (pas en cours de donne) | 1000 points te convient comme valeur par défaut de salon (modifiable à la création) ? | Non |
-
-## Pourquoi seulement 4 questions sont vraiment bloquantes
-
-Les lignes marquées **Oui** changent la *portée* du moteur (faut-il construire
-un système d'annonces de combinaisons ?) ou une mécanique de jeu visible à
-chaque pli/enchère que les joueurs noteront immédiatement si elle est fausse
-(surcoupe quand le partenaire est maître, obligation de monter à l'atout,
-rang du capot). Toutes les autres lignes sont de simples booléens ou nombres
-dans `rulesConfig.ts` : les changer plus tard ne demande aucune
-réécriture du moteur, donc je pars sur leur valeur par défaut sans attendre.
+| 1 | Sens de rotation (parole et jeu) | §4 | `playDirection` | `'counterclockwise'` (anti-horaire : après le donneur, c'est le joueur à sa droite) | Dans quel sens tournez-vous : anti-horaire ou horaire ? | Ouvert |
+| 2 | Enchérir après avoir passé | §5.2 | `allowRebidAfterPass` | `false` (qui a passé ne reparle plus dans cette donne, sauf pour coincher) | Un joueur qui a passé peut-il annoncer à nouveau plus tard ? | Ouvert |
+| 3 | Tout le monde passe sans contrat | §5.3 | `noBidRedeal` | `true` (donne annulée, le donneur suivant redistribue) | Confirmes-tu la redistribution ? | Ouvert |
+| 4 | Surenchérir dans la même couleur | §5.4 | `allowOverbidSameSuit` | `true` (autorisé) | Peut-on monter l'enchère dans une couleur déjà annoncée ? | Ouvert |
+| 5 | Coupe obligatoire quand on ne peut pas fournir | §7.3 | `requireTrumpWhenVoid` | `true` (sauf partenaire maître, cf. #7) | La coupe est-elle obligatoire dans toutes les autres situations ? | Ouvert |
+| 6 | Surcoupe obligatoire sur un atout adverse | §7.4 | `requireOvertrump` | `true` | Faut-il surcouper un adversaire quand c'est possible ? | Ouvert |
+| 9 | Multiplicateurs coinche / surcoinche | §6.3 | `coincheMultiplier`, `surcoincheMultiplier` | ×2 / ×4, appliqués au score de la manche du camp qui marque (hors belote) | Confirmes-tu ×2 et ×4 ? Qu'est-ce qui est multiplié exactement ? | Ouvert |
+| 10 | Belote : annonce, chute et coinche | §8 | `beloteAlwaysScored`, `beloteCountsForContract` | Annonce automatique (le moteur détecte Roi + Dame d'atout dans la même main et affiche « Belote » puis « Rebelote »). Les 20 points restent au camp qui la détient même en cas de chute, ne sont jamais multipliés, et comptent pour atteindre le contrat | La belote reste-t-elle acquise quand le contrat chute ? Compte-t-elle pour atteindre le contrat ? Le joueur peut-il choisir de ne pas l'annoncer ? | Ouvert |
+| 12 | Calcul du contrat réussi | §9.1 | `contractSuccessScoring` | `'contractOnly'` : réussi si le preneur atteint la valeur annoncée ET fait strictement plus de points que la défense (§9.1). Le preneur marque **la valeur du contrat** ; la défense marque ses points réalisés. Choisi pour rester cohérent avec ton barème du capot (250 non annoncé, 500 annoncé, toujours au-dessus d'un contrat à 160). Autre option prête : `'contractPlusPoints'` (points réalisés + contrat) | Le preneur marque-t-il seulement son annonce, ou ses points + son annonce ? Arrondissez-vous à la dizaine ? | Ouvert |
+| 13 | Calcul du contrat chuté | §9.2 | `contractFailureScoring` | La défense marque 160 + la valeur du contrat ; le preneur marque 0 (hors belote) | Confirmes-tu « 160 + valeur du contrat » ? | Ouvert |
+| 15 | Score cible et égalité | §10 | `targetScore`, `tieBreakRule` | 1000 points ; la partie se termine à la fin de la donne qui fait dépasser la cible ; en cas d'égalité, on joue une donne de plus | 1000 points te convient comme valeur par défaut ? | Ouvert |
+| 16 | Rang du capot dans les enchères | §5.1 | `capotRank` | Enchère la plus haute, au-dessus de 160, annonçable à tout moment (y compris en ouverture) | Le capot peut-il être annoncé à tout moment, ou seulement après une certaine enchère ? | Ouvert |
+| 17 | Capot et coinche / surcoinche | §9.3 | `capotMultiplied` | `true` (les 500 ou 250 sont multipliés par ×2 ou ×4) | Le capot est-il multiplié en cas de coinche ou de surcoinche ? | Ouvert |
+| 18 | Capot non annoncé fait par la défense | §9.3 | `defenseCapotPoints` | Pas de bonus particulier : c'est une chute normale (160 + contrat pour la défense) | Si la défense fait les 8 plis, a-t-elle droit à un bonus ? | Ouvert |
+| 19 | Sous-couper quand on ne peut pas surcouper | §7.4 | `requireUndertrump` | `true` : si un adversaire a coupé plus fort que tous vos atouts, vous devez quand même jouer un atout (plus faible) | Quand on ne peut pas surcouper, doit-on quand même jouer un atout, ou peut-on se défausser ? | Ouvert |
+| 20 | Moment de la coinche | §6.1 | — (règle du moteur) | On ne peut coincher qu'à son tour de parole. Les deux défenseurs ont toujours un tour avant la fin des enchères. Un joueur qui a passé peut encore coincher | Chez vous, peut-on coincher à tout moment, même hors de son tour ? | Ouvert |
+| 21 | Qui peut surcoincher | §6.2 | — (règle du moteur) | Après une coinche, les deux joueurs de l'équipe preneuse parlent chacun une fois (dans l'ordre de jeu) : surcoinche ou passe | Confirmes-tu que le partenaire du preneur peut aussi surcoincher ? | Ouvert |
