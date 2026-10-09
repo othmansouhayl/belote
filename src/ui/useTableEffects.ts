@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CompletedTrick, PlayerView, Seat } from '../engine/index.ts';
 import { SUIT_SYMBOLS, contractValueLabel } from './labels.ts';
+import { playSound } from './sound.ts';
 import type { SeatNames } from './labels.ts';
 
 const TRICK_PAUSE = 1300;
@@ -29,8 +30,13 @@ export function useTableEffects(view: PlayerView | null, names: SeatNames): Tabl
   useLayoutEffect(() => {
     const before = previous.current;
     previous.current = view;
-    if (!view || !before) return;
+    if (!view) return;
+    if (!before) {
+      if (view.phase === 'bidding') playSound('deal');
+      return;
+    }
     const sameHand = before.handNumber === view.handNumber && before.redeals === view.redeals;
+    playTransitionSounds(before, view, sameHand);
     if (view.redeals > before.redeals) setNotice('Tout le monde a passé : nouvelle donne.');
     if (sameHand && view.tricksPlayed > before.tricksPlayed && view.lastTrick) setPausedTrick(view.lastTrick);
     if (sameHand && view.beloteEvents.length > before.beloteEvents.length) {
@@ -64,4 +70,30 @@ export function useTableEffects(view: PlayerView | null, names: SeatNames): Tabl
   }, [beloteBubble]);
 
   return { pausedTrick, notice, beloteBubble, showNotice: setNotice };
+}
+
+/** Sons déclenchés par ce qui vient de changer à la table. */
+function playTransitionSounds(before: PlayerView, view: PlayerView, sameHand: boolean) {
+  if (!sameHand && view.phase === 'bidding') {
+    playSound('deal');
+    return;
+  }
+  const newBids = view.bidding.history.slice(before.bidding.history.length);
+  const last = newBids[newBids.length - 1]?.action;
+  if (last?.type === 'coinche' || last?.type === 'surcoinche') playSound('coinche');
+  else if (last?.type === 'bid') playSound('bid');
+
+  const cardsBefore = before.tricksPlayed * 4 + (before.trick?.cards.length ?? 0);
+  const cardsNow = view.tricksPlayed * 4 + (view.trick?.cards.length ?? 0);
+  if (sameHand && cardsNow > cardsBefore) playSound('card');
+  if (sameHand && view.tricksPlayed > before.tricksPlayed) playSound('trick', 0.85);
+  if (sameHand && view.beloteEvents.length > before.beloteEvents.length) playSound('belote', 0.15);
+
+  const myTurnNow = view.currentPlayer === view.seat && (view.phase === 'bidding' || view.phase === 'playing');
+  const myTurnBefore = before.currentPlayer === before.seat && before.phase === view.phase;
+  if (myTurnNow && !myTurnBefore) playSound('turn', view.tricksPlayed > before.tricksPlayed ? 1.3 : 0.2);
+
+  if (before.phase !== 'gameOver' && view.phase === 'gameOver' && view.winner !== null) {
+    playSound(view.winner === view.seat % 2 ? 'win' : 'lose', 1.3);
+  }
 }

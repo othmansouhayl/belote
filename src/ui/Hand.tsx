@@ -52,7 +52,7 @@ export function Hand({ cards, trump, playable, onPlay }: HandProps) {
               }
             }}
           >
-            <CardView card={card} />
+            <CardView card={card} trump={trump} />
           </button>
         );
       })}

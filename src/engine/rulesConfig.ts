@@ -80,9 +80,9 @@ export interface RulesConfig {
   readonly capotMultiplied: boolean;
 
   // Fin de partie
-  /** À CONFIRMER [15] : paramètre de salon. */
+  /** VALIDÉ [15] : 1500 points (paramètre de salon). */
   readonly targetScore: number;
-  /** À CONFIRMER [15] : en cas d'égalité au-delà de la cible, on joue une donne de plus. */
+  /** À CONFIRMER [24] : en cas d'égalité au-delà de la cible, on joue une donne de plus. */
   readonly tieBreakRule: 'extraHand';
 }
 
@@ -127,7 +127,7 @@ export const DEFAULT_RULES: RulesConfig = {
   capotUnannouncedPoints: 250,
   capotMultiplied: true,
 
-  targetScore: 1000,
+  targetScore: 1500,
   tieBreakRule: 'extraHand',
 };
 

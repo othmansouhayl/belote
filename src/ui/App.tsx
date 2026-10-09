@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createDeck } from '../engine/index.ts';
+import { preloadCards } from './CardView.tsx';
 import { Home } from './Home.tsx';
 import { LocalGame } from './LocalGame.tsx';
 import { OnlineRoom } from './online/OnlineRoom.tsx';
@@ -24,6 +26,8 @@ export function App() {
   const [savedRoom, setSavedRoom] = useState<SavedRoom | null>(loadSavedRoom);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => preloadCards(createDeck().map((c) => c.id)), []);
 
   const enterRoom = async (request: { type: 'create' } | { type: 'join'; code: string }) => {
     setBusy(true);

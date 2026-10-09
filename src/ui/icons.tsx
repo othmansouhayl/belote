@@ -32,3 +32,11 @@ export function SpeakerIcon() {
     </svg>
   );
 }
+
+export function SpeakerOffIcon() {
+  return (
+    <svg {...base}>
+      <path d="M11 5 6 9H3v6h3l5 4zM22 9l-6 6M16 9l6 6" />
+    </svg>
+  );
+}

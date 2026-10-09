@@ -107,7 +107,12 @@ export function GameTable(props: GameTableProps) {
             />
           );
         })}
-        {shownTrick && <TrickArea cards={shownTrick.cards} winner={pausedTrick ? pausedTrick.winner : null} mySeat={mySeat} />}
+        {shownTrick && <TrickArea
+            cards={shownTrick.cards}
+            winner={pausedTrick ? pausedTrick.winner : null}
+            mySeat={mySeat}
+            trump={trump}
+          />}
         {masterSeat !== null && (
           <p className="table__hint">{masterSeat === mySeat ? 'Vous êtes maître' : `${names[masterSeat]} est maître`}</p>
         )}
