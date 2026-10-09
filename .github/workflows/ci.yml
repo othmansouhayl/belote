@@ -20,3 +20,5 @@ jobs:
         run: npm test
       - name: Simulation de 500 parties
         run: npm run simulate
+      - name: Construction du site
+        run: npm run build
