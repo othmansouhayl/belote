@@ -4,3 +4,6 @@ dist
 .env
 .env.*
 !.env.example
+supabase/functions/_shared/
+supabase/.temp/
+supabase/.branches/

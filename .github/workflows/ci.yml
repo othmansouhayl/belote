@@ -18,6 +18,8 @@ jobs:
         run: npm run typecheck
       - name: Tests du moteur
         run: npm test
+      - name: Tests de sécurité de la base (Postgres local)
+        run: ./scripts/test-db.sh
       - name: Simulation de 500 parties
         run: npm run simulate
       - name: Construction du site

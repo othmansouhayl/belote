@@ -8,3 +8,4 @@ export { applyBid, bidLabel, bidValues, createBiddingState, getLegalBids, valida
 export { getLegalCards, resolveTrick, validatePlay, winningCard } from './play.ts';
 export { TOTAL_HAND_POINTS, applyHandScore, calculateHandPoints, resolveContract } from './scoring.ts';
 export { applyAction, createGame, legalBids, legalCards, startNextHand, type CreateGameOptions } from './game.ts';
+export { getPlayerView, type PlayerView } from './view.ts';

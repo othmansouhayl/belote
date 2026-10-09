@@ -1,0 +1,10 @@
+# Configuration Supabase du projet (utilisée par la CLI pour le déploiement).
+project_id = "belote"
+
+[auth]
+enable_anonymous_sign_ins = true
+
+[functions.game]
+# L'identité du joueur est vérifiée dans la fonction elle-même (auth.getUser),
+# ce qui fonctionne avec les anciennes comme les nouvelles clés Supabase.
+verify_jwt = false
