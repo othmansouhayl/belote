@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ROOM_CODE_LENGTH } from '../server/rooms.ts';
+import { ROOM_CODE_LENGTH, TARGET_SCORES } from '../server/rooms.ts';
 import { cardImageUrl } from './CardView.tsx';
 import { SoundToggle } from './SoundToggle.tsx';
+import { promptInstall, useInstallState } from './install.ts';
 import { onlineConfigured } from './online/client.ts';
 import type { SavedRoom } from './online/client.ts';
 
@@ -15,7 +16,7 @@ interface HomeProps {
   readonly savedRoom: SavedRoom | null;
   readonly busy: boolean;
   readonly error: string | null;
-  readonly onLocal: () => void;
+  readonly onLocal: (targetScore: number) => void;
   readonly onCreate: () => void;
   readonly onJoin: (code: string) => void;
   readonly onResume: (room: SavedRoom) => void;
@@ -24,10 +25,12 @@ interface HomeProps {
 export function Home(props: HomeProps) {
   const { nickname, onNickname, initialCode, savedRoom, busy, error, onLocal, onCreate, onJoin, onResume } = props;
   const [code, setCode] = useState(initialCode);
+  const [localTarget, setLocalTarget] = useState(1500);
   const cleanCode = code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, ROOM_CODE_LENGTH);
   const nicknameOk = nickname.trim().length > 0;
   // Arrivé par un lien d'invitation : « Rejoindre » devient l'action principale.
   const invited = initialCode.length > 0;
+  const install = useInstallState();
 
   return (
     <div className="screen home">
@@ -112,11 +115,36 @@ export function Home(props: HomeProps) {
       </section>
 
       <section className="card-panel">
-        <h2 className="card-panel__title">S'entraîner</h2>
-        <button type="button" className="btn btn--ghost btn--wide" onClick={onLocal}>
+        <h2 className="card-panel__title">S'entraîner contre les bots</h2>
+        <div className="segmented" role="group" aria-label="Score à atteindre">
+          {TARGET_SCORES.map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={`segmented__option${localTarget === t ? ' segmented__option--on' : ''}`}
+              aria-pressed={localTarget === t}
+              onClick={() => setLocalTarget(t)}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="btn btn--ghost btn--wide" onClick={() => onLocal(localTarget)}>
           Jouer seul contre 3 bots
         </button>
       </section>
+
+      {install === 'prompt' && (
+        <button type="button" className="btn btn--ghost btn--wide install-btn" onClick={() => void promptInstall()}>
+          Installer l'application sur ce téléphone
+        </button>
+      )}
+      {install === 'ios' && (
+        <p className="install-hint">
+          Pour l'installer sur iPhone : touchez le bouton <strong>Partager</strong> de Safari, puis{' '}
+          <strong>« Sur l'écran d'accueil »</strong>.
+        </p>
+      )}
 
       <footer className="home__footer">
         <span>Règles tunisiennes</span>

@@ -87,6 +87,7 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
           busy={busy}
           onSeat={(seat) => void send({ type: 'seat', seat })}
           onReady={(ready) => void send({ type: 'ready', ready })}
+          onSettings={(settings) => void send({ type: 'settings', settings })}
           onLeave={async () => {
             if (await send({ type: 'leave' })) onExit(true);
           }}
@@ -126,6 +127,7 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
         waitingNames,
         onContinue: () => void send({ type: 'continue' }),
       }}
+      onHome={() => onExit(false)}
       menuLabel="Retour à l'accueil"
       onMenu={() => {
         if (window.confirm('Revenir à l’accueil ? Votre place est gardée : vous pourrez reprendre la partie.')) onExit(false);

@@ -5,7 +5,8 @@ import type { GameAction, PlayerView, Seat, Team } from '../engine/index.ts';
 import { BiddingPanel } from './BiddingPanel.tsx';
 import { Hand } from './Hand.tsx';
 import { PlayerSeat } from './PlayerSeat.tsx';
-import { GameOverDialog, HandResultDialog } from './ResultDialogs.tsx';
+import { EndScreen } from './EndScreen.tsx';
+import { HandResultDialog } from './ResultDialogs.tsx';
 import type { ContinueState } from './ResultDialogs.tsx';
 import { TopBar } from './TopBar.tsx';
 import { TrickArea } from './TrickArea.tsx';
@@ -28,11 +29,13 @@ interface GameTableProps {
   readonly voiceBar?: ReactNode;
   readonly speakingSeats?: ReadonlySet<Seat>;
   readonly voiceMutedSeats?: ReadonlySet<Seat>;
+  /** Retour direct à l'accueil depuis l'écran de fin de partie. */
+  readonly onHome?: () => void;
 }
 
 export function GameTable(props: GameTableProps) {
   const { view, names, effects, onAction, cont, menuLabel, onMenu, absentSeats, busy = false, banner } = props;
-  const { voiceBar, speakingSeats, voiceMutedSeats } = props;
+  const { voiceBar, speakingSeats, voiceMutedSeats, onHome } = props;
   const { pausedTrick, notice, beloteBubble } = effects;
   const mySeat = view.seat;
   const myTeam = (mySeat % 2) as Team;
@@ -135,6 +138,7 @@ export function GameTable(props: GameTableProps) {
           />
         )}
         <Hand
+          dealKey={`${view.handNumber}-${view.redeals}`}
           cards={view.hand}
           trump={trump}
           playable={playable}
@@ -153,15 +157,16 @@ export function GameTable(props: GameTableProps) {
         />
       )}
       {view.phase === 'gameOver' && !pausedTrick && view.winner !== null && (
-        <GameOverDialog
+        <EndScreen
           winner={view.winner}
-          lastHand={view.lastHandResult}
+          history={view.handHistory}
           scores={view.scores}
-          hands={view.handHistory.length}
+          target={view.config.targetScore}
           myTeam={myTeam}
           mySeat={mySeat}
           names={names}
           cont={cont}
+          onHome={onHome}
         />
       )}
     </div>

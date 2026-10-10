@@ -2,7 +2,8 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { MicOffIcon } from '../icons.tsx';
 import type { Seat } from '../../engine/index.ts';
-import type { RoomView } from '../../server/types.ts';
+import type { RoomSettings, RoomView } from '../../server/types.ts';
+import { RoomSettingsPanel } from './RoomSettingsPanel.tsx';
 import { inviteLink } from './client.ts';
 
 interface LobbyProps {
@@ -16,6 +17,7 @@ interface LobbyProps {
   readonly voiceBar: ReactNode;
   readonly speakingSeats: ReadonlySet<Seat>;
   readonly voiceMutedSeats: ReadonlySet<Seat>;
+  readonly onSettings: (settings: RoomSettings) => void;
 }
 
 const TEAMS: readonly { readonly name: string; readonly seats: readonly [Seat, Seat] }[] = [
@@ -24,7 +26,8 @@ const TEAMS: readonly { readonly name: string; readonly seats: readonly [Seat, S
 ];
 
 export function Lobby(props: LobbyProps) {
-  const { view, presentSeats, busy, onSeat, onReady, onLeave, onCopied, voiceBar, speakingSeats, voiceMutedSeats } = props;
+  const { view, presentSeats, busy, onSeat, onReady, onLeave, onCopied, voiceBar, speakingSeats, voiceMutedSeats, onSettings } = props;
+  const hostName = view.players.find((p) => p.seat === view.hostSeat)?.nickname ?? null;
   const [shareFailed, setShareFailed] = useState(false);
   const link = inviteLink(view.code);
   const me = view.players.find((p) => p.seat === view.mySeat);
@@ -90,6 +93,7 @@ export function Lobby(props: LobbyProps) {
                   <span className="slot__name">
                     {player.nickname}
                     {isMe && ' (vous)'}
+                    {seat === view.hostSeat && <span className="slot__host">Hôte</span>}
                     {voiceMutedSeats.has(seat) && (
                       <span className="slot__mic-off" title="Micro coupé">
                         <MicOffIcon size={14} />
@@ -106,6 +110,14 @@ export function Lobby(props: LobbyProps) {
         ))}
         <p className="screen__hint">Les partenaires sont assis face à face. Touchez une place libre pour changer d'équipe.</p>
       </section>
+
+      <RoomSettingsPanel
+        settings={view.settings}
+        editable={view.hostSeat === view.mySeat}
+        hostName={hostName}
+        busy={busy}
+        onChange={onSettings}
+      />
 
       <footer className="screen__footer">
         <p className="screen__status" aria-live="polite">

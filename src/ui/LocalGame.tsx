@@ -18,8 +18,13 @@ function initialSeed(): string {
 }
 
 /** Partie hors ligne contre 3 bots : tout se passe dans le navigateur. */
-export function LocalGame({ onExit }: { readonly onExit: () => void }) {
-  const [game, setGame] = useState<GameState>(() => createGame({ seed: initialSeed() }));
+interface LocalGameProps {
+  readonly targetScore: number;
+  readonly onExit: () => void;
+}
+
+export function LocalGame({ targetScore, onExit }: LocalGameProps) {
+  const [game, setGame] = useState<GameState>(() => createGame({ seed: initialSeed(), rules: { targetScore } }));
   const gameRef = useRef(game);
   gameRef.current = game;
 
@@ -58,12 +63,12 @@ export function LocalGame({ onExit }: { readonly onExit: () => void }) {
   const onContinue = useCallback(() => {
     const current = gameRef.current;
     if (current.phase === 'gameOver') {
-      setGame(createGame({ seed: newSeed() }));
+      setGame(createGame({ seed: newSeed(), rules: { targetScore } }));
       return;
     }
     const next = startNextHand(current);
     if (next.ok) setGame(next.state);
-  }, []);
+  }, [targetScore]);
 
   return (
     <GameTable
@@ -77,6 +82,7 @@ export function LocalGame({ onExit }: { readonly onExit: () => void }) {
         waitingNames: [],
         onContinue,
       }}
+      onHome={onExit}
       menuLabel="Retour à l'accueil"
       onMenu={() => {
         if (window.confirm('Quitter cette partie et revenir à l’accueil ?')) onExit();

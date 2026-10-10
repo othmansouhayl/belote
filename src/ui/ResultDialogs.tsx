@@ -1,4 +1,4 @@
-import type { HandResult, Seat, Team } from '../engine/index.ts';
+import type { HandResult, Team } from '../engine/index.ts';
 import { SUIT_SYMBOLS, contractValueLabel } from './labels.ts';
 import type { SeatNames } from './labels.ts';
 
@@ -87,56 +87,6 @@ export function HandResultDialog({ result, scores, target, myTeam, names, cont }
             </tr>
           </tbody>
         </table>
-        <ContinueButton cont={cont} />
-      </div>
-    </div>
-  );
-}
-
-interface GameOverDialogProps {
-  readonly winner: Team;
-  readonly lastHand: HandResult | null;
-  readonly scores: readonly [number, number];
-  readonly hands: number;
-  readonly myTeam: Team;
-  readonly mySeat: Seat;
-  readonly names: SeatNames;
-  readonly cont: ContinueState;
-}
-
-export function GameOverDialog({ winner, lastHand, scores, hands, myTeam, mySeat, names, cont }: GameOverDialogProps) {
-  const them: Team = myTeam === 0 ? 1 : 0;
-  const winners = ([0, 1, 2, 3] as Seat[]).filter((s) => s % 2 === winner);
-  const winnerText =
-    winner === myTeam
-      ? `${names[winners.find((s) => s !== mySeat)!]} et vous remportez la partie`
-      : `${names[winners[0]!]} et ${names[winners[1]!]} remportent la partie`;
-  return (
-    <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="game-over-title">
-      <div className="dialog">
-        <h2 id="game-over-title" className={`dialog__title ${winner === myTeam ? 'dialog__title--good' : 'dialog__title--bad'}`}>
-          {winner === myTeam ? 'Victoire !' : 'Défaite'}
-        </h2>
-        <p className="dialog__subtitle">
-          {winnerText} en {hands} manche{hands > 1 ? 's' : ''}.
-        </p>
-        {lastHand && (
-          <p className="dialog__note">
-            Dernière manche : contrat {lastHand.success ? 'réussi' : 'chuté'} ({names[lastHand.contract.bidder]},{' '}
-            {contractValueLabel(lastHand.contract.value)} {SUIT_SYMBOLS[lastHand.contract.suit]}), Nous +
-            {lastHand.handScore[myTeam]}, Eux +{lastHand.handScore[them]}.
-          </p>
-        )}
-        <div className="final-score">
-          <div>
-            <span className="final-score__label">Nous</span>
-            <span className="final-score__value">{scores[myTeam]}</span>
-          </div>
-          <div>
-            <span className="final-score__label">Eux</span>
-            <span className="final-score__value">{scores[them]}</span>
-          </div>
-        </div>
         <ContinueButton cont={cont} />
       </div>
     </div>
