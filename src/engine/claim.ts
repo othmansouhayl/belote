@@ -1,5 +1,7 @@
-import type { Card, Suit } from './types.ts';
+import type { Card, CompletedTrick, Seat, Suit, Trick } from './types.ts';
+import type { RulesConfig } from './rulesConfig.ts';
 import { cardStrength, createDeck } from './deck.ts';
+import { getLegalCards, winningCard } from './play.ts';
 
 /**
  * « تي إفرش عاد » : le joueur qui a la main peut étaler ses cartes quand elles sont toutes
@@ -42,6 +44,44 @@ export function canClaimWith(hand: readonly Card[], played: readonly Card[], tru
     if (beaten) return false;
   }
   return true;
+}
+
+/**
+ * Vrai si `seat`, à son tour de jouer, peut étaler ses cartes : soit il entame et toutes ses
+ * cartes sont maîtresses, soit un pli est en cours et il a une carte qui le remporte à coup sûr
+ * (quoi que jouent ceux qui n'ont pas encore joué), le reste de sa main étant maître ensuite.
+ * Exemple : Valet + 9 d'atout quand un adversaire a entamé une autre couleur.
+ */
+export function canClaimNow(
+  hand: readonly Card[],
+  completedTricks: readonly CompletedTrick[],
+  trick: Trick,
+  seat: Seat,
+  trump: Suit,
+  config: RulesConfig,
+): boolean {
+  if (hand.length < 2) return false;
+  const played = completedTricks.flatMap((t) => t.cards.map((p) => p.card));
+  if (trick.cards.length === 0) return canClaimWith(hand, played, trump);
+
+  const onTable = trick.cards.map((p) => p.card);
+  const known = new Set([...hand, ...played, ...onTable].map((c) => c.id));
+  const hidden = createDeck().filter((c) => !known.has(c.id));
+  const strength = (c: Card) => cardStrength(c, trump);
+  const stillToPlay = 3 - trick.cards.length;
+
+  for (const card of getLegalCards(hand, trick, seat, trump, config)) {
+    if (winningCard([...trick.cards, { seat, card }], trump).seat !== seat) continue;
+    if (stillToPlay > 0) {
+      // Personne après lui ne doit pouvoir reprendre le pli : ni surcouper, ni monter, ni couper.
+      const higherTrump = hidden.some((h) => h.suit === trump && strength(h) > strength(card));
+      if (card.suit === trump ? higherTrump : hidden.some((h) => h.suit === trump)) continue;
+      if (card.suit !== trump && hidden.some((h) => h.suit === card.suit && strength(h) > strength(card))) continue;
+    }
+    const rest = hand.filter((c) => c.id !== card.id);
+    if (canClaimWith(rest, [...played, ...onTable, card], trump)) return true;
+  }
+  return false;
 }
 
 /** Ordre dans lequel le joueur étale ses cartes : atouts puis autres couleurs, du plus fort au plus faible. */

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   SEATS,
+  canClaimNow,
   TOTAL_HAND_POINTS,
   applyAction,
   canClaim,
@@ -13,7 +14,7 @@ import {
 } from '../../src/engine/index.ts';
 import type { Card, GameAction, GameState } from '../../src/engine/index.ts';
 import { botView, chooseBotAction } from '../../src/bots/simpleBot.ts';
-import { cards } from './helpers.ts';
+import { cards, rules, trick } from './helpers.ts';
 
 /** Toutes les cartes d'une couleur sauf celles listées. */
 const allOf = (suit: Card['suit'], except: Card[] = []) =>
@@ -51,6 +52,39 @@ describe('« تي إفرش عاد » : étaler ses cartes quand elles sont toute
     // Le 8 d'atout est caché : le Valet le fait tomber, puis le 7 devient maître.
     const played = createDeck().filter((c) => c.suit === 'coeur' && !['V', '7', '8'].includes(c.rank));
     expect(canClaimWith(cards('VC 7C'), played, 'coeur')).toBe(true);
+  });
+});
+
+describe('« تي إفرش عاد » en cours de pli (à son tour de jouer)', () => {
+  // 6 plis déjà joués : peu importe lesquels pour ces cas, seules comptent les cartes connues.
+  const noTricks = [] as const;
+
+  it('Valet + 9 d’atout alors qu’un adversaire a entamé Carreau (cas de la capture)', () => {
+    // Sami (place 1) a entamé le 10 de Carreau ; c'est à la place 2 (Valet + 9 de Cœur, atout).
+    expect(canClaimNow(cards('VC 9C'), noTricks, trick(1, '10K'), 2, 'coeur', rules())).toBe(true);
+  });
+
+  it('refusé si un joueur qui n’a pas encore joué peut couper', () => {
+    // As de Pique en main sur une entame Pique : un atout caché peut encore couper.
+    expect(canClaimNow(cards('AP 10P'), noTricks, trick(1, '7P'), 2, 'coeur', rules())).toBe(false);
+  });
+
+  it('dernier à jouer : il suffit de remporter le pli en cours, puis d’avoir des cartes maîtresses', () => {
+    // Tous les atouts (Cœur) sont déjà tombés ; Pique entamé, le joueur est le dernier à jouer.
+    const seatOf = (i: number) => (i % 4) as 0 | 1 | 2 | 3;
+    const played = [
+      { leader: 0 as const, winner: 0 as const, cards: cards('7C 8C DC RC').map((card, i) => ({ seat: seatOf(i), card })) },
+      { leader: 0 as const, winner: 0 as const, cards: cards('VC 9C AC 10C').map((card, i) => ({ seat: seatOf(i), card })) },
+    ];
+    expect(canClaimNow(cards('AP 10P'), played, trick(3, '7P 8P 9P'), 2, 'coeur', rules())).toBe(true);
+    // Avec As + Roi en dernier : le Roi remporte ce pli, puis l'As est maître.
+    expect(canClaimNow(cards('AP RP'), played, trick(3, '7P 8P 9P'), 2, 'coeur', rules())).toBe(true);
+    // Mais s'il reste un joueur après lui, le 10 de Pique caché peut prendre le Roi : refusé.
+    expect(canClaimNow(cards('AP RP'), played, trick(0, '7P 8P'), 2, 'coeur', rules())).toBe(false);
+  });
+
+  it('refusé quand le pli en cours ne peut pas être gagné', () => {
+    expect(canClaimNow(cards('VC 9C'), noTricks, trick(3, '7P'), 0, 'pique', rules())).toBe(false);
   });
 });
 

@@ -18,7 +18,7 @@ import { applyBid, createBiddingState, getLegalBids, validateBid } from './biddi
 import { getLegalCards, resolveTrick, validatePlay } from './play.ts';
 import { applyHandScore, resolveContract } from './scoring.ts';
 import type { HandRemainder } from './scoring.ts';
-import { canClaimWith } from './claim.ts';
+import { canClaimNow } from './claim.ts';
 import { createRng, randomInt } from './random.ts';
 import { nextSeat, teamOf } from './seats.ts';
 
@@ -106,16 +106,12 @@ export function legalCards(state: GameState, seat: Seat): Card[] {
 }
 
 /**
- * Vrai si `seat` peut étaler ses cartes (« تي إفرش عاد ») : c'est à lui d'entamer un pli,
- * il lui reste au moins 2 cartes, et elles sont toutes maîtresses d'après ce qu'il sait.
+ * Vrai si `seat` peut étaler ses cartes (« تي إفرش عاد ») : c'est à lui de jouer, il lui reste
+ * au moins 2 cartes, et il est sûr de gagner tous les plis restants d'après ce qu'il sait.
  */
 export function canClaim(state: GameState, seat: Seat): boolean {
-  if (state.phase !== 'playing' || state.currentPlayer !== seat || !state.contract) return false;
-  if (!state.trick || state.trick.cards.length > 0) return false;
-  const hand = state.hands[seat] ?? [];
-  if (hand.length < 2) return false;
-  const played = state.completedTricks.flatMap((t) => t.cards.map((c) => c.card));
-  return canClaimWith(hand, played, state.contract.suit);
+  if (state.phase !== 'playing' || state.currentPlayer !== seat || !state.contract || !state.trick) return false;
+  return canClaimNow(state.hands[seat] ?? [], state.completedTricks, state.trick, seat, state.contract.suit, state.config);
 }
 
 /** Point d'entrée unique : applique l'action d'un joueur ou explique pourquoi elle est refusée. */
@@ -131,10 +127,12 @@ export function applyAction(state: GameState, seat: Seat, action: GameAction): A
   if (state.phase !== 'playing') return { ok: false, error: 'Les enchères ne sont pas terminées.' };
   if (action.type === 'claim') {
     if (!canClaim(state, seat)) {
-      return { ok: false, error: 'Vous ne pouvez étaler vos cartes que si elles sont toutes maîtresses, à votre tour d’entamer.' };
+      return { ok: false, error: 'Vous ne pouvez étaler vos cartes que si vous êtes sûr de gagner tous les plis restants.' };
     }
     const revealed = { seat, cards: state.hands[seat] ?? [] };
-    const remainder = { team: teamOf(seat), cards: state.hands.flat() };
+    // Le pli en cours et toutes les cartes restantes reviennent à l'équipe du joueur.
+    const onTable = state.trick?.cards.map((p) => p.card) ?? [];
+    const remainder = { team: teamOf(seat), cards: [...state.hands.flat(), ...onTable] };
     return { ok: true, state: endHand({ ...state, revealed }, state.completedTricks, remainder, { type: 'claim', seat }) };
   }
   return applyPlayAction(state, seat, action.cardId);

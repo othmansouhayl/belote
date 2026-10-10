@@ -8,5 +8,5 @@ export { applyBid, bidLabel, bidValues, createBiddingState, getLegalBids, valida
 export { getLegalCards, resolveTrick, validatePlay, winningCard } from './play.ts';
 export { TOTAL_HAND_POINTS, applyHandScore, calculateHandPoints, resolveContract, type HandRemainder } from './scoring.ts';
 export { applyAction, canClaim, createGame, legalBids, legalCards, startNextHand, type CreateGameOptions } from './game.ts';
-export { canClaimWith, claimOrder } from './claim.ts';
+export { canClaimNow, canClaimWith, claimOrder } from './claim.ts';
 export { getPlayerView, type PlayerView } from './view.ts';
