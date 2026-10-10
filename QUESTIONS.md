@@ -21,6 +21,12 @@
 
 ## Règles encore ouvertes
 
+> Plusieurs de ces règles peuvent désormais être choisies par l'hôte de chaque salon
+> (« Réglages de la partie ») : score à atteindre, calcul du contrat réussi (#12),
+> reparler après avoir passé (#2), monter dans la couleur du partenaire (#4),
+> sous-couper (#19), belote toujours comptée (#10), capot multiplié (#17) et délai
+> « hors ligne » (#22). Les valeurs ci-dessous restent celles proposées par défaut.
+
 | # | Règle | Référence | Paramètre `rulesConfig.ts` | Valeur par défaut | Question à trancher | Statut |
 |---|---|---|---|---|---|---|
 | 1 | Sens de rotation (parole et jeu) | §4 | `playDirection` | `'counterclockwise'` (anti-horaire : après le donneur, c'est le joueur à sa droite) | Dans quel sens tournez-vous : anti-horaire ou horaire ? | Ouvert |

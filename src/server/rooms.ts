@@ -1,10 +1,46 @@
 import { SEATS, SUITS, applyAction, createGame, getPlayerView, startNextHand } from '../engine/index.ts';
-import type { BidAction, GameAction, Seat } from '../engine/index.ts';
-import type { RoomAggregate, RoomPlayer, RoomRequest, RoomView, ServerDeps, StoredView } from './types.ts';
+import type { BidAction, GameAction, RulesConfig, Seat } from '../engine/index.ts';
+import type { RoomAggregate, RoomPlayer, RoomRequest, RoomSettings, RoomView, ServerDeps, StoredView } from './types.ts';
 
 export const DEFAULT_ABSENCE_DELAY_SECONDS = 30;
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const ROOM_CODE_LENGTH = 6;
+
+/** Valeurs proposées dans les réglages du salon (le serveur refuse toute autre valeur). */
+export const TARGET_SCORES = [500, 1000, 1500, 2000] as const;
+export const ABSENCE_DELAYS = [15, 30, 60, 120] as const;
+const BOOLEAN_RULES = [
+  'allowRebidAfterPass',
+  'allowOverbidSameSuit',
+  'requireUndertrump',
+  'beloteAlwaysScored',
+  'capotMultiplied',
+] as const satisfies readonly (keyof RulesConfig)[];
+
+/** Valide les réglages envoyés par l'hôte : seules les règles prévues, avec des valeurs prévues. */
+export function parseSettings(raw: unknown): RoomSettings | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const r = raw as { rules?: unknown; absenceDelaySeconds?: unknown };
+  if (typeof r.rules !== 'object' || r.rules === null) return null;
+  const rules = r.rules as Record<string, unknown>;
+  const target = TARGET_SCORES.find((t) => t === rules.targetScore);
+  const delay = ABSENCE_DELAYS.find((d) => d === r.absenceDelaySeconds);
+  const scoring = rules.contractSuccessScoring;
+  if (target === undefined || delay === undefined) return null;
+  if (scoring !== 'contractOnly' && scoring !== 'contractPlusPoints') return null;
+  const parsed: Record<string, unknown> = { targetScore: target, contractSuccessScoring: scoring };
+  for (const key of BOOLEAN_RULES) {
+    if (typeof rules[key] !== 'boolean') return null;
+    parsed[key] = rules[key];
+  }
+  return { rules: parsed as Partial<RulesConfig>, absenceDelaySeconds: delay };
+}
+
+/** Hôte actuel : le créateur, ou à défaut le joueur à la plus petite place. */
+export function hostOf(room: RoomAggregate): RoomPlayer | undefined {
+  const sorted = [...room.players].sort((a, b) => a.seat - b.seat);
+  return sorted.find((p) => p.playerId === room.hostId) ?? sorted[0];
+}
 
 export type RoomResult = { readonly ok: true; readonly room: RoomAggregate } | { readonly ok: false; readonly error: string };
 
@@ -72,6 +108,10 @@ export function parseRequest(raw: unknown): RoomRequest | null {
       return typeof r.seat === 'number' && SEATS.includes(r.seat as Seat) ? { type: 'seat', roomId, seat: r.seat as Seat } : null;
     case 'ready':
       return typeof r.ready === 'boolean' ? { type: 'ready', roomId, ready: r.ready } : null;
+    case 'settings': {
+      const settings = parseSettings(r.settings);
+      return settings ? { type: 'settings', roomId, settings } : null;
+    }
     case 'leave':
     case 'continue':
       return { type: r.type, roomId };
@@ -92,6 +132,7 @@ export function createRoom(playerId: string, nickname: string, deps: ServerDeps)
     status: 'lobby',
     settings: { rules: {}, absenceDelaySeconds: DEFAULT_ABSENCE_DELAY_SECONDS },
     players: [{ playerId, nickname, seat: 0, ready: false }],
+    hostId: playerId,
     game: null,
     acks: [],
   };
@@ -143,9 +184,18 @@ export function applyRoomRequest(
       }
       return { ok: true, room: updated };
     }
+    case 'settings': {
+      if (room.status !== 'lobby') return fail('Les réglages ne peuvent plus changer une fois la partie lancée.');
+      if (hostOf(room)?.playerId !== playerId) return fail("Seul l'hôte du salon peut modifier les réglages.");
+      // Chacun doit revoir les réglages avant de se déclarer prêt.
+      const players = room.players.map((p) => ({ ...p, ready: false }));
+      return { ok: true, room: { ...room, settings: request.settings, players } };
+    }
     case 'leave': {
       if (room.status !== 'lobby') return fail('Impossible de quitter pendant une partie : votre place vous attend.');
-      return { ok: true, room: { ...room, players: room.players.filter((p) => p.playerId !== playerId) } };
+      const remaining = { ...room, players: room.players.filter((p) => p.playerId !== playerId) };
+      // Si l'hôte part, le joueur restant à la plus petite place le remplace.
+      return { ok: true, room: { ...remaining, hostId: hostOf(remaining)?.playerId } };
     }
     case 'game': {
       if (!room.game) return fail("La partie n'a pas commencé.");
@@ -175,6 +225,7 @@ export function buildViews(room: RoomAggregate): StoredView[] {
     .sort((a, b) => a.seat - b.seat)
     .map(({ seat, nickname, ready }) => ({ seat, nickname, ready }));
   const ackSeats = room.players.filter((p) => room.acks.includes(p.playerId)).map((p) => p.seat);
+  const hostSeat = hostOf(room)?.seat ?? null;
   return room.players.map((p) => {
     const view: RoomView = {
       roomId: room.id,
@@ -183,6 +234,7 @@ export function buildViews(room: RoomAggregate): StoredView[] {
       mySeat: p.seat,
       players,
       settings: room.settings,
+      hostSeat,
       ackSeats,
       game: room.game ? getPlayerView(room.game, p.seat) : null,
     };

@@ -14,6 +14,8 @@ function sortHand(hand: readonly Card[], trump: Suit | null): Card[] {
 }
 
 interface HandProps {
+  /** Change à chaque nouvelle donne : les cartes sont alors distribuées en animation. */
+  readonly dealKey: string;
   readonly cards: readonly Card[];
   readonly trump: Suit | null;
   /** Cartes jouables ; null quand ce n'est pas au joueur de jouer. */
@@ -21,7 +23,7 @@ interface HandProps {
   readonly onPlay: (card: Card) => void;
 }
 
-export function Hand({ cards, trump, playable, onPlay }: HandProps) {
+export function Hand({ dealKey, cards, trump, playable, onPlay }: HandProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const sorted = useMemo(() => sortHand(cards, trump), [cards, trump]);
   const playableIds = useMemo(() => new Set(playable?.map((c) => c.id) ?? []), [playable]);
@@ -31,8 +33,8 @@ export function Hand({ cards, trump, playable, onPlay }: HandProps) {
   }, [playable]);
 
   return (
-    <div className="hand" style={{ ['--count' as string]: sorted.length }}>
-      {sorted.map((card) => {
+    <div key={dealKey} className="hand hand--deal" style={{ ['--count' as string]: sorted.length }}>
+      {sorted.map((card, index) => {
         const canPlay = playableIds.has(card.id);
         const isSelected = selected === card.id;
         const dimmed = playable !== null && !canPlay;
@@ -42,6 +44,7 @@ export function Hand({ cards, trump, playable, onPlay }: HandProps) {
             type="button"
             className={`hand__slot${isSelected ? ' hand__slot--selected' : ''}${dimmed ? ' hand__slot--dimmed' : ''}${canPlay ? ' hand__slot--playable' : ''}`}
             disabled={!canPlay}
+            style={{ ['--k' as string]: index }}
             aria-label={isSelected ? `Jouer ${cardLabel(card)}` : cardLabel(card)}
             onClick={() => {
               if (isSelected) {

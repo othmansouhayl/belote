@@ -7,7 +7,10 @@ import { OnlineRoom } from './online/OnlineRoom.tsx';
 import { loadNickname, loadSavedRoom, saveNickname, saveRoom, sendRequest } from './online/client.ts';
 import type { SavedRoom } from './online/client.ts';
 
-type Screen = { readonly kind: 'home' } | { readonly kind: 'local' } | { readonly kind: 'online'; readonly room: SavedRoom };
+type Screen =
+  | { readonly kind: 'home' }
+  | { readonly kind: 'local'; readonly targetScore: number }
+  | { readonly kind: 'online'; readonly room: SavedRoom };
 
 function inviteCodeFromUrl(): string {
   return new URLSearchParams(window.location.search).get('salon')?.toUpperCase() ?? '';
@@ -51,7 +54,9 @@ export function App() {
     setScreen({ kind: 'online', room });
   };
 
-  if (screen.kind === 'local') return <LocalGame onExit={() => setScreen({ kind: 'home' })} />;
+  if (screen.kind === 'local') {
+    return <LocalGame targetScore={screen.targetScore} onExit={() => setScreen({ kind: 'home' })} />;
+  }
 
   if (screen.kind === 'online') {
     return (
@@ -77,7 +82,7 @@ export function App() {
       savedRoom={savedRoom}
       busy={busy}
       error={error}
-      onLocal={() => setScreen({ kind: 'local' })}
+      onLocal={(targetScore) => setScreen({ kind: 'local', targetScore })}
       onCreate={() => void enterRoom({ type: 'create' })}
       onJoin={(code) => void enterRoom({ type: 'join', code })}
       onResume={(room) => void enterRoom({ type: 'join', code: room.code })}

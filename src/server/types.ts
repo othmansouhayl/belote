@@ -22,6 +22,8 @@ export interface RoomAggregate {
   readonly status: 'lobby' | 'playing';
   readonly settings: RoomSettings;
   readonly players: readonly RoomPlayer[];
+  /** Créateur du salon : seul à pouvoir modifier les réglages (absent des anciens salons). */
+  readonly hostId?: string;
   readonly game: GameState | null;
   /** Joueurs ayant demandé à continuer (manche suivante ou revanche). */
   readonly acks: readonly string[];
@@ -35,6 +37,7 @@ export interface RoomView {
   readonly mySeat: Seat;
   readonly players: readonly { readonly seat: Seat; readonly nickname: string; readonly ready: boolean }[];
   readonly settings: RoomSettings;
+  readonly hostSeat: Seat | null;
   readonly ackSeats: readonly Seat[];
   readonly game: PlayerView | null;
 }
@@ -44,6 +47,7 @@ export type RoomRequest =
   | { readonly type: 'join'; readonly code: string; readonly nickname: string }
   | { readonly type: 'seat'; readonly roomId: string; readonly seat: Seat }
   | { readonly type: 'ready'; readonly roomId: string; readonly ready: boolean }
+  | { readonly type: 'settings'; readonly roomId: string; readonly settings: RoomSettings }
   | { readonly type: 'leave'; readonly roomId: string }
   | { readonly type: 'game'; readonly roomId: string; readonly action: GameAction }
   | { readonly type: 'continue'; readonly roomId: string };

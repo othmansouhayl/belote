@@ -32,6 +32,10 @@ Jeu de belote coinchée tunisienne à 4, jouable dans le navigateur.
 
 Le jeu est en ligne sur https://othmansouhayl.github.io/belote/ (mis à jour à chaque fusion dans `main`).
 
+Le site s'installe comme une application (Android : bouton « Installer » sur l'accueil ;
+iPhone : Safari → Partager → « Sur l'écran d'accueil »). Une fois installé, le mode
+contre les bots fonctionne aussi sans connexion.
+
 Astuce : ajoutez `?graine=mot` à l'adresse pour rejouer exactement la même donne
 (pratique pour signaler un problème).
 
