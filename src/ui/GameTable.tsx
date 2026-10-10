@@ -36,15 +36,21 @@ interface GameTableProps {
   readonly voiceMutedSeats?: ReadonlySet<Seat>;
   /** Retour direct à l'accueil depuis l'écran de fin de partie. */
   readonly onHome?: () => void;
+  /** Spectateur : il voit la table (cartes posées, enchères, scores) mais ne joue pas. */
+  readonly spectator?: boolean;
 }
 
 export function GameTable(props: GameTableProps) {
   const { view, names, effects, onAction, cont, menuLabel, onMenu, absentSeats, busy = false, banner } = props;
-  const { voiceBar, speakingSeats, voiceMutedSeats, onHome } = props;
+  const { voiceBar, speakingSeats, voiceMutedSeats, onHome, spectator = false } = props;
   const { pausedTrick, notice, beloteBubble, finale } = effects;
   const mySeat = view.seat;
   const myTeam = (mySeat % 2) as Team;
-  const myTurn = view.currentPlayer === mySeat && !pausedTrick && !busy;
+  const myTurn = !spectator && view.currentPlayer === mySeat && !pausedTrick && !busy;
+  const viewerSeat = spectator ? null : mySeat;
+  const teamLabels: readonly [string, string] = spectator
+    ? [`${names[0]} & ${names[2]}`, `${names[1]} & ${names[3]}`]
+    : ['Nous', 'Eux'];
   const trump = view.contract?.suit ?? null;
 
   const playable = useMemo(() => {
@@ -78,16 +84,17 @@ export function GameTable(props: GameTableProps) {
   const shownTrick = pausedTrick ?? view.trick;
   const masterSeat =
     view.trick && view.trick.cards.length > 0 && trump && !pausedTrick ? winningCard(view.trick.cards, trump).seat : null;
-  const waiting = view.currentPlayer !== null && view.currentPlayer !== mySeat && !pausedTrick ? view.currentPlayer : null;
+  const waiting =
+    view.currentPlayer !== null && (spectator || view.currentPlayer !== mySeat) && !pausedTrick ? view.currentPlayer : null;
 
   let status = '';
   if (busy) {
     status = 'Envoi en cours…';
   } else if (pausedTrick) {
-    status = pausedTrick.winner === mySeat ? 'Vous remportez le pli' : `${names[pausedTrick.winner]} remporte le pli`;
-  } else if (view.currentPlayer === mySeat && view.phase === 'bidding') {
+    status = pausedTrick.winner === viewerSeat ? 'Vous remportez le pli' : `${names[pausedTrick.winner]} remporte le pli`;
+  } else if (myTurn && view.phase === 'bidding') {
     status = 'À vous de parler';
-  } else if (view.currentPlayer === mySeat && view.phase === 'playing') {
+  } else if (myTurn && view.phase === 'playing') {
     status = onlyCard
       ? 'Une seule carte possible : elle est jouée pour vous'
       : canClaim
@@ -107,10 +114,11 @@ export function GameTable(props: GameTableProps) {
         names={names}
         menuLabel={menuLabel}
         onMenu={onMenu}
+        teamLabels={teamLabels}
       />
 
       <main className="table">
-        {banner && <div className="banner" role="status">{banner}</div>}
+        {banner && !spectator && <div className="banner" role="status">{banner}</div>}
         {voiceBar}
         {SEATS.map((seat) => {
           const bidBubble = bidBubbles.get(seat);
@@ -129,6 +137,7 @@ export function GameTable(props: GameTableProps) {
               highlightBubble={beloteBubble?.seat === seat || (bidBubble?.strong ?? false)}
               speaking={speakingSeats?.has(seat) ?? false}
               voiceMuted={voiceMutedSeats?.has(seat) ?? false}
+              showOwnBacks={spectator}
             />
           );
         })}
@@ -139,11 +148,11 @@ export function GameTable(props: GameTableProps) {
             trump={trump}
           />}
         {view.phase === 'playing' && view.lastTrick && !pausedTrick && (
-          <LastTrick trick={view.lastTrick} mySeat={mySeat} names={names} trump={trump} />
+          <LastTrick trick={view.lastTrick} mySeat={mySeat} names={names} trump={trump} spectator={spectator} />
         )}
-        {finale && !pausedTrick && <FinaleOverlay finale={finale} mySeat={mySeat} names={names} trump={trump} />}
+        {finale && !pausedTrick && <FinaleOverlay finale={finale} mySeat={viewerSeat} names={names} trump={trump} />}
         {masterSeat !== null && (
-          <p className="table__hint">{masterSeat === mySeat ? 'Vous êtes maître' : `${names[masterSeat]} est maître`}</p>
+          <p className="table__hint">{masterSeat === viewerSeat ? 'Vous êtes maître' : `${names[masterSeat]} est maître`}</p>
         )}
         {notice && (
           <div className="toast" role="status">
@@ -153,6 +162,7 @@ export function GameTable(props: GameTableProps) {
       </main>
 
       <footer className="dock">
+        {spectator && banner && <p className="dock__watch">{banner}</p>}
         <p className={`dock__status${myTurn ? ' dock__status--turn' : ''}`} aria-live="polite">
           {status}
         </p>
@@ -188,6 +198,8 @@ export function GameTable(props: GameTableProps) {
           myTeam={myTeam}
           names={names}
           cont={cont}
+          teamLabels={teamLabels}
+          spectator={spectator}
         />
       )}
       {view.phase === 'gameOver' && !pausedTrick && !finale && view.winner !== null && (
@@ -201,6 +213,8 @@ export function GameTable(props: GameTableProps) {
           names={names}
           cont={cont}
           onHome={onHome}
+          teamLabels={teamLabels}
+          spectator={spectator}
         />
       )}
     </div>

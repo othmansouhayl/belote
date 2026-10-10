@@ -27,6 +27,35 @@ export interface RoomAggregate {
   readonly game: GameState | null;
   /** Joueurs ayant demandé à continuer (manche suivante ou revanche). */
   readonly acks: readonly string[];
+  /** Table du Café Tarek (1 à 6) choisie à la création ; absente pour les anciens salons. */
+  readonly tableNumber?: number;
+}
+
+/**
+ * Ce que tout le monde voit d'une table du café (la maquette 3D de l'accueil) :
+ * jamais le code du salon, jamais une carte.
+ */
+export interface CafeTableInfo {
+  readonly status: 'lobby' | 'playing' | 'finished';
+  readonly players: readonly { readonly seat: Seat; readonly nickname: string }[];
+  readonly scores: readonly [number, number] | null;
+  readonly targetScore: number;
+}
+
+/** Ce que reçoit un spectateur : uniquement les informations publiques de la partie. */
+export interface WatchView {
+  readonly roomId: string;
+  readonly tableNumber: number;
+  readonly status: RoomAggregate['status'];
+  readonly players: RoomView['players'];
+  readonly game: PlayerView | null;
+}
+
+/** Données publiques d'un salon installé à une table du café. */
+export interface PublicTableData {
+  readonly tableNumber: number;
+  readonly info: CafeTableInfo;
+  readonly watch: WatchView;
 }
 
 /** Ce que chaque joueur reçoit : informations du salon + sa vue filtrée de la partie. */
@@ -34,6 +63,8 @@ export interface RoomView {
   readonly roomId: string;
   readonly code: string;
   readonly status: RoomAggregate['status'];
+  /** Table du café (1 à 6), ou null pour un salon sans table. */
+  readonly tableNumber?: number | null;
   readonly mySeat: Seat;
   readonly players: readonly { readonly seat: Seat; readonly nickname: string; readonly ready: boolean }[];
   readonly settings: RoomSettings;
@@ -43,7 +74,7 @@ export interface RoomView {
 }
 
 export type RoomRequest =
-  | { readonly type: 'create'; readonly nickname: string }
+  | { readonly type: 'create'; readonly nickname: string; readonly table?: number }
   | { readonly type: 'join'; readonly code: string; readonly nickname: string }
   | { readonly type: 'seat'; readonly roomId: string; readonly seat: Seat }
   | { readonly type: 'ready'; readonly roomId: string; readonly ready: boolean }
@@ -74,8 +105,16 @@ export interface StoredView {
 export interface RoomStore {
   loadById(roomId: string): Promise<RoomAggregate | null>;
   loadByCode(code: string): Promise<RoomAggregate | null>;
-  /** Crée le salon ; false si le code est déjà pris. */
-  insert(room: RoomAggregate, views: readonly StoredView[]): Promise<boolean>;
+  /**
+   * Crée le salon (et réserve sa table du café) : 'conflict' si le code est déjà pris,
+   * 'tableTaken' si la table est occupée par une partie active.
+   */
+  insert(room: RoomAggregate, views: readonly StoredView[], table: PublicTableData | null): Promise<'ok' | 'conflict' | 'tableTaken'>;
   /** Enregistre si la version n'a pas changé entre-temps ; false en cas de conflit. */
-  save(room: RoomAggregate, expectedVersion: number, views: readonly StoredView[]): Promise<boolean>;
+  save(
+    room: RoomAggregate,
+    expectedVersion: number,
+    views: readonly StoredView[],
+    table: PublicTableData | null,
+  ): Promise<boolean>;
 }

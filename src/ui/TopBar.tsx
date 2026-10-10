@@ -12,13 +12,15 @@ interface TopBarProps {
   readonly subtitle?: string;
   readonly menuLabel: string;
   readonly onMenu: () => void;
+  /** Noms des équipes (« Nous » / « Eux » pour un joueur, les pseudos pour un spectateur). */
+  readonly teamLabels?: readonly [string, string];
 }
 
-export function TopBar({ scores, myTeam, target, contract, names, subtitle, menuLabel, onMenu }: TopBarProps) {
+export function TopBar({ scores, myTeam, target, contract, names, subtitle, menuLabel, onMenu, teamLabels = ['Nous', 'Eux'] }: TopBarProps) {
   return (
     <header className="topbar">
       <div className="score score--us">
-        <span className="score__label">Nous</span>
+        <span className="score__label">{teamLabels[0]}</span>
         <span className="score__value">{scores[myTeam]}</span>
         <span className="score__bar" style={{ ['--p' as string]: Math.min(1, scores[myTeam] / target) }} />
       </div>
@@ -41,7 +43,7 @@ export function TopBar({ scores, myTeam, target, contract, names, subtitle, menu
         )}
       </div>
       <div className="score score--them">
-        <span className="score__label">Eux</span>
+        <span className="score__label">{teamLabels[1]}</span>
         <span className="score__value">{scores[myTeam === 0 ? 1 : 0]}</span>
         <span className="score__bar" style={{ ['--p' as string]: Math.min(1, scores[myTeam === 0 ? 1 : 0] / target) }} />
       </div>

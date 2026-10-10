@@ -29,7 +29,7 @@ export interface TableEffects {
 }
 
 /** Déduit les animations et messages en comparant la vue précédente à la nouvelle. */
-export function useTableEffects(view: PlayerView | null, names: SeatNames): TableEffects {
+export function useTableEffects(view: PlayerView | null, names: SeatNames, spectator = false): TableEffects {
   const previous = useRef<PlayerView | null>(null);
   const [pausedTrick, setPausedTrick] = useState<CompletedTrick | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -45,7 +45,7 @@ export function useTableEffects(view: PlayerView | null, names: SeatNames): Tabl
       return;
     }
     const sameHand = before.handNumber === view.handNumber && before.redeals === view.redeals;
-    playTransitionSounds(before, view, sameHand);
+    playTransitionSounds(before, view, sameHand, spectator);
     if (view.redeals > before.redeals) setNotice('Tout le monde a passé : nouvelle donne.');
     if (sameHand && view.tricksPlayed > before.tricksPlayed && view.lastTrick) setPausedTrick(view.lastTrick);
     if (sameHand && view.beloteEvents.length > before.beloteEvents.length) {
@@ -66,10 +66,10 @@ export function useTableEffects(view: PlayerView | null, names: SeatNames): Tabl
     if (before.phase === 'bidding' && view.phase === 'playing' && view.contract) {
       const c = view.contract;
       const doubled = c.surcoinchedBy !== null ? ', surcoinché' : c.coinchedBy !== null ? ', coinché' : '';
-      const who = c.bidder === view.seat ? 'Vous prenez' : `${names[c.bidder]} prend`;
+      const who = c.bidder === view.seat && !spectator ? 'Vous prenez' : `${names[c.bidder]} prend`;
       setNotice(`${who} à ${contractValueLabel(c.value)} ${SUIT_SYMBOLS[c.suit]}${doubled}`);
     }
-  }, [view, names]);
+  }, [view, names, spectator]);
 
   useEffect(() => {
     if (!pausedTrick) return;
@@ -100,7 +100,7 @@ export function useTableEffects(view: PlayerView | null, names: SeatNames): Tabl
 }
 
 /** Sons déclenchés par ce qui vient de changer à la table. */
-function playTransitionSounds(before: PlayerView, view: PlayerView, sameHand: boolean) {
+function playTransitionSounds(before: PlayerView, view: PlayerView, sameHand: boolean, spectator: boolean) {
   if (!sameHand && view.phase === 'bidding') {
     playSound('deal');
     return;
@@ -118,9 +118,9 @@ function playTransitionSounds(before: PlayerView, view: PlayerView, sameHand: bo
 
   const myTurnNow = view.currentPlayer === view.seat && (view.phase === 'bidding' || view.phase === 'playing');
   const myTurnBefore = before.currentPlayer === before.seat && before.phase === view.phase;
-  if (myTurnNow && !myTurnBefore) playSound('turn', view.tricksPlayed > before.tricksPlayed ? 1.3 : 0.2);
+  if (myTurnNow && !myTurnBefore && !spectator) playSound('turn', view.tricksPlayed > before.tricksPlayed ? 1.3 : 0.2);
 
-  if (before.phase !== 'gameOver' && view.phase === 'gameOver' && view.winner !== null) {
+  if (before.phase !== 'gameOver' && view.phase === 'gameOver' && view.winner !== null && !spectator) {
     playSound(view.winner === view.seat % 2 ? 'win' : 'lose', 1.3);
   }
 }

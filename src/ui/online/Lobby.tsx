@@ -37,7 +37,7 @@ export function Lobby(props: LobbyProps) {
   const share = async () => {
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'Café Tarek', text: `Rejoins ma table de belote au Café Tarek ! Code : ${view.code}`, url: link });
+        await navigator.share({ title: 'Café Tarek', text: `Rejoins-moi${view.tableNumber ? ` à la table ${view.tableNumber}` : ''} au Café Tarek ! Code : ${view.code}`, url: link });
         return;
       }
       await navigator.clipboard.writeText(link);
@@ -56,7 +56,7 @@ export function Lobby(props: LobbyProps) {
   return (
     <div className="screen">
       <header className="screen__header">
-        <p className="screen__eyebrow">Salon privé</p>
+        <p className="screen__eyebrow">{view.tableNumber ? `Café Tarek · table ${view.tableNumber}` : 'Salon privé'}</p>
         <h1 className="room-code" aria-label={`Code du salon : ${view.code.split('').join(' ')}`}>
           {view.code}
         </h1>

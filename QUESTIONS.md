@@ -27,6 +27,9 @@
 | 25 | Cartes étalées (« تي إفرش عاد ») | — | — (règle du moteur) | Quand c'est à son tour de jouer et qu'il est sûr de gagner tous les plis restants d'après ses cartes et celles déjà jouées (sans regarder les mains des autres), un bouton « تي إفرش عاد » apparaît. Ça marche aussi en cours de pli : par exemple Valet + 9 d'atout quand un adversaire a entamé une autre couleur. En l'appuyant, il montre ses cartes, son équipe remporte tous les plis restants (points des cartes + dix de der) et la manche s'arrête. Les bots le font aussi | **Validé** |
 | 26 | Capot annoncé chuté (« يروووووووح ») | §9.3 | — (règle du moteur) | Dès que la défense gagne un pli, « يروووووووح » s'affiche, les cartes restantes sont ramassées (pour la défense) et la manche s'arrête | **Validé** |
 | 27 | Carte unique | — | — (interface) | Quand un joueur n'a qu'une seule carte jouable, elle est jouée automatiquement après une demi-seconde | **Validé** |
+| 28 | Café Tarek : les tables | — | — (accueil) | L'accueil est la maquette 3D du café. Les **6 tables du fond** (près de la télé) sont les parties en ligne ; on s'assoit à une table libre pour la créer, on rejoint une table occupée avec son code. La **terrasse** dehors = partie contre les bots. Si les 6 tables sont prises : « Café complet », on peut regarder une partie | **Validé** |
+| 29 | Spectateurs | — | — (règle du salon) | N'importe qui peut regarder une partie en cours **sans le code** : il voit les cartes posées, les enchères, les scores et les pseudos, jamais une main. Il n'a ni vocal ni action | Ouvert (choix par défaut) |
+| 30 | Table abandonnée | — | `CAFE_TABLE_STALE_MINUTES` | Une table sans aucune action depuis 30 minutes redevient libre (la partie reste accessible par son code) | Ouvert (choix par défaut) |
 | 15 | Score cible de la partie | §10 | `targetScore` | 1500 points (la partie se termine à la fin de la donne qui fait atteindre ou dépasser 1500) | **Validé** |
 
 ## Règles encore ouvertes

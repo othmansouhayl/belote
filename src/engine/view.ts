@@ -50,6 +50,14 @@ export interface PlayerView {
   readonly canClaim: boolean;
 }
 
+/**
+ * Vue d'un spectateur : uniquement les informations publiques (cartes posées, enchères,
+ * scores, cartes étalées). Aucune main, aucune action possible. Orientée depuis la place 0.
+ */
+export function getSpectatorView(state: GameState): PlayerView {
+  return { ...getPlayerView(state, 0), hand: [], legalBids: [], legalCardIds: [], canClaim: false };
+}
+
 export function getPlayerView(state: GameState, seat: Seat): PlayerView {
   const tricksWon: [number, number] = [0, 0];
   for (const trick of state.completedTricks) tricksWon[teamOf(trick.winner)] += 1;

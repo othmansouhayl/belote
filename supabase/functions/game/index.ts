@@ -10,7 +10,7 @@ import {
   parseCloudflareResponse,
   staticTurnServer,
 } from '../_shared/server/index.ts';
-import type { RoomAggregate, RoomStore, ServerDeps, StoredView, TurnEnv } from '../_shared/server/index.ts';
+import type { PublicTableData, RoomAggregate, RoomStore, ServerDeps, StoredView, TurnEnv } from '../_shared/server/index.ts';
 import type { IceServer } from '../_shared/voice/protocol.ts';
 
 const CORS_HEADERS = {
@@ -61,23 +61,31 @@ async function load(column: 'id' | 'code', value: string): Promise<RoomAggregate
   return data ? ({ ...(data.data as RoomAggregate), version: data.version as number }) : null;
 }
 
-async function saveRoom(room: RoomAggregate, expectedVersion: number | null, views: readonly StoredView[]) {
-  const { data, error } = await admin.rpc('save_room', {
+async function saveRoom(
+  room: RoomAggregate,
+  expectedVersion: number | null,
+  views: readonly StoredView[],
+  table: PublicTableData | null,
+): Promise<'ok' | 'conflict' | 'tableTaken'> {
+  const { data, error } = await admin.rpc('save_room_v2', {
     p_id: room.id,
     p_code: room.code,
     p_expected_version: expectedVersion,
     p_data: room,
     p_views: toRows(views),
+    p_table: table?.tableNumber ?? null,
+    p_table_info: table?.info ?? null,
+    p_watch: table?.watch ?? null,
   });
   if (error) throw new Error(`Enregistrement du salon impossible : ${error.message}`);
-  return data === true;
+  return data === 'ok' ? 'ok' : data === 'table_taken' ? 'tableTaken' : 'conflict';
 }
 
 const store: RoomStore = {
   loadById: (id) => load('id', id),
   loadByCode: (code) => load('code', code),
-  insert: (room, views) => saveRoom(room, null, views),
-  save: (room, expectedVersion, views) => saveRoom(room, expectedVersion, views),
+  insert: (room, views, table) => saveRoom(room, null, views, table),
+  save: async (room, expectedVersion, views, table) => (await saveRoom(room, expectedVersion, views, table)) === 'ok',
 };
 
 const turnEnv: TurnEnv = {

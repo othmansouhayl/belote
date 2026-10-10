@@ -5,7 +5,8 @@ import type { Finale } from './useTableEffects.ts';
 
 interface FinaleOverlayProps {
   readonly finale: Finale;
-  readonly mySeat: Seat;
+  /** null pour un spectateur. */
+  readonly mySeat: Seat | null;
   readonly names: SeatNames;
   readonly trump: Suit | null;
 }
