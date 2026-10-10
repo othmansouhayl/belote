@@ -7,12 +7,14 @@ import type { SeatNames } from './labels.ts';
 interface LastTrickProps {
   readonly trick: CompletedTrick;
   readonly mySeat: Seat;
+  readonly spectator?: boolean;
   readonly names: SeatNames;
   readonly trump: Suit | null;
 }
 
 /** Miniature du dernier pli joué, en haut à droite ; un appui l'agrandit. */
-export function LastTrick({ trick, mySeat, names, trump }: LastTrickProps) {
+export function LastTrick({ trick, mySeat, names, trump, spectator = false }: LastTrickProps) {
+  const isMe = (seat: Seat) => !spectator && seat === mySeat;
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -37,12 +39,12 @@ export function LastTrick({ trick, mySeat, names, trump }: LastTrickProps) {
                   className={`last-trick-dialog__slot last-trick-dialog__slot--${positionOf(seat, mySeat)}${seat === trick.winner ? ' last-trick-dialog__slot--winner' : ''}`}
                 >
                   <CardView card={card} size="trick" trump={trump} />
-                  <figcaption>{seat === mySeat ? 'Vous' : names[seat]}</figcaption>
+                  <figcaption>{isMe(seat) ? 'Vous' : names[seat]}</figcaption>
                 </figure>
               ))}
             </div>
             <p className="dialog__note">
-              {trick.winner === mySeat ? 'Vous avez remporté ce pli.' : `${names[trick.winner]} a remporté ce pli.`}
+              {isMe(trick.winner) ? 'Vous avez remporté ce pli.' : `${names[trick.winner]} a remporté ce pli.`}
             </p>
             <button type="button" className="btn btn--primary btn--wide" onClick={() => setOpen(false)} autoFocus>
               Fermer

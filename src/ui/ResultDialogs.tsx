@@ -38,9 +38,13 @@ interface HandResultDialogProps {
   readonly myTeam: Team;
   readonly names: SeatNames;
   readonly cont: ContinueState;
+  /** Spectateur : pas de « nous », pas de bouton pour continuer. */
+  readonly teamLabels?: readonly [string, string];
+  readonly spectator?: boolean;
 }
 
-export function HandResultDialog({ result, scores, target, myTeam, names, cont }: HandResultDialogProps) {
+export function HandResultDialog(props: HandResultDialogProps) {
+  const { result, scores, target, myTeam, names, cont, teamLabels = ['Nous', 'Eux'], spectator = false } = props;
   const { contract } = result;
   const them: Team = myTeam === 0 ? 1 : 0;
   const good = result.success === (result.takerTeam === myTeam);
@@ -48,7 +52,10 @@ export function HandResultDialog({ result, scores, target, myTeam, names, cont }
   return (
     <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="hand-result-title">
       <div className="dialog">
-        <h2 id="hand-result-title" className={`dialog__title ${good ? 'dialog__title--good' : 'dialog__title--bad'}`}>
+        <h2
+          id="hand-result-title"
+          className={`dialog__title${spectator ? '' : good ? ' dialog__title--good' : ' dialog__title--bad'}`}
+        >
           {result.success ? 'Contrat réussi' : 'Contrat chuté'}
         </h2>
         <p className="dialog__subtitle">
@@ -68,8 +75,8 @@ export function HandResultDialog({ result, scores, target, myTeam, names, cont }
           <thead>
             <tr>
               <th scope="col" />
-              <th scope="col">Nous</th>
-              <th scope="col">Eux</th>
+              <th scope="col">{teamLabels[0]}</th>
+              <th scope="col">{teamLabels[1]}</th>
             </tr>
           </thead>
           <tbody>
@@ -95,7 +102,7 @@ export function HandResultDialog({ result, scores, target, myTeam, names, cont }
             </tr>
           </tbody>
         </table>
-        <ContinueButton cont={cont} />
+        {spectator ? <p className="dialog__note">Les joueurs lisent le score…</p> : <ContinueButton cont={cont} />}
       </div>
     </div>
   );

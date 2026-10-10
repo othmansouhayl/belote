@@ -9,4 +9,4 @@ export { getLegalCards, resolveTrick, validatePlay, winningCard } from './play.t
 export { TOTAL_HAND_POINTS, applyHandScore, calculateHandPoints, resolveContract, type HandRemainder } from './scoring.ts';
 export { applyAction, canClaim, createGame, legalBids, legalCards, startNextHand, type CreateGameOptions } from './game.ts';
 export { canClaimNow, canClaimWith, claimOrder } from './claim.ts';
-export { getPlayerView, type PlayerView } from './view.ts';
+export { getPlayerView, getSpectatorView, type PlayerView } from './view.ts';

@@ -10,6 +10,8 @@ Jeu de belote coinchée tunisienne à 4, jouable dans le navigateur.
 - `src/server/` : la logique des salons (création, places, statut « prêt », actions de jeu),
   exécutée côté serveur dans une Edge Function Supabase.
 - `src/ui/` : l'interface React (accueil, salon, table de jeu).
+- `src/ui/cafe/` : la maquette 3D du Café Tarek (three.js, chargée seulement sur l'accueil),
+  avec un plan 2D de secours si le téléphone n'affiche pas la 3D.
 - `supabase/` : schéma de la base, règles de sécurité (RLS) et fonction serveur `game`.
 - `docs/SUPABASE.md` : les étapes à faire une seule fois sur le site de Supabase.
 - `src/voice/`, `src/ui/online/voice/` : le vocal (WebRTC entre les 4 joueurs).
@@ -25,7 +27,10 @@ Jeu de belote coinchée tunisienne à 4, jouable dans le navigateur.
    (table `player_views`, protégée par RLS).
 4. En cas de coupure, le joueur rouvre le site : « Reprendre la partie » le replace
    à sa place avec sa main.
-5. Vocal : les navigateurs se connectent directement entre eux (WebRTC). La mise en
+5. Café Tarek : les 6 tables de belote sont visibles par tous (pseudos, état, scores, jamais
+   le code ni une carte : tables `cafe_tables` et `room_watch_views`). Les spectateurs reçoivent
+   une vue sans aucune main.
+6. Vocal : les navigateurs se connectent directement entre eux (WebRTC). La mise en
    relation passe par le canal privé du salon (Supabase Realtime, réservé aux membres).
 
 ## Jouer

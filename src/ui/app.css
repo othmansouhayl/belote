@@ -2100,3 +2100,374 @@ button:focus-visible {
     0 0 0 3px var(--gold),
     0 4px 10px rgba(0, 0, 0, 0.3);
 }
+
+/* ===================== Accueil : le Café Tarek ===================== */
+.home-cafe {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: #0d2219;
+}
+
+.cafe-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: calc(8px + env(safe-area-inset-top)) 16px 6px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
+  z-index: 3;
+}
+
+.cafe-header__titles {
+  text-align: left;
+}
+
+.cafe-header__title {
+  margin: 0;
+  text-align: left;
+  font-family: 'Noto Naskh Arabic', 'Geeza Pro', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  font-size: 1.7rem;
+  line-height: 1.2;
+  letter-spacing: 0;
+  color: #fff8e6;
+  text-align: start;
+}
+
+.cafe-header__welcome {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--gold);
+}
+
+.cafe-header__welcome [lang='ar'] {
+  font-family: 'Noto Naskh Arabic', 'Geeza Pro', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  letter-spacing: 0;
+}
+
+.cafe-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.cafe {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.cafe__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.cafe__labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cafe-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3px 9px;
+  border: 1px solid rgba(240, 195, 90, 0.5);
+  border-radius: 10px;
+  background: rgba(10, 22, 16, 0.82);
+  color: var(--ink);
+  font-size: 0.72rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: auto;
+  will-change: transform;
+}
+
+.cafe-label__title {
+  font-weight: 800;
+}
+
+.cafe-label__status {
+  font-size: 0.66rem;
+  color: var(--ink-soft);
+}
+
+.cafe-label--free .cafe-label__status {
+  color: #8fe3a8;
+}
+
+.cafe-label--playing,
+.cafe-label--lobby {
+  border-color: rgba(255, 159, 128, 0.7);
+}
+
+.cafe-label--room {
+  padding: 5px 12px;
+  border-color: var(--gold);
+  font-size: 0.8rem;
+}
+
+.cafe-label--terrace {
+  border-color: rgba(124, 196, 255, 0.7);
+}
+
+.cafe-label--selected {
+  background: var(--gold);
+  border-color: #fff;
+  color: #2b2104;
+}
+
+.cafe-label--selected .cafe-label__status {
+  color: #4a3a10;
+}
+
+.cafe-name {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: #102018;
+  will-change: transform;
+}
+
+.cafe-name--team0 {
+  background: #a9d6ff;
+}
+
+.cafe-name--team1 {
+  background: #ffc2ad;
+}
+
+.cafe-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink-soft);
+}
+
+.cafe-move {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 10px 16px;
+  border: 1px solid rgba(240, 195, 90, 0.6);
+  border-radius: 999px;
+  background: rgba(10, 22, 16, 0.85);
+  color: var(--gold);
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.cafe-full {
+  position: absolute;
+  bottom: 66px;
+  pointer-events: none;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.cafe-sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 46dvh;
+  overflow-y: auto;
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(240, 195, 90, 0.3);
+  border-radius: 18px 18px 0 0;
+  background: #10281d;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.sheet__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding-right: 28px;
+  font-size: 1.1rem;
+}
+
+.sheet__tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 159, 128, 0.2);
+  color: #ffc2ad;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.sheet__tag--free {
+  background: rgba(143, 227, 168, 0.18);
+  color: #8fe3a8;
+}
+
+.sheet__text {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.sheet__players {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sheet__player {
+  overflow: hidden;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet__player--team0 {
+  background: rgba(124, 196, 255, 0.16);
+  color: #a9d6ff;
+}
+
+.sheet__player--team1 {
+  background: rgba(255, 159, 128, 0.16);
+  color: #ffc2ad;
+}
+
+.sheet__player em {
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.sheet__close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink);
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.sheet__resume {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--gold);
+  border-radius: 12px;
+  background: rgba(240, 195, 90, 0.12);
+  font-size: 0.88rem;
+}
+
+/* Plan 2D (sans 3D) */
+.cafe-plan {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: 12px 16px;
+}
+
+.cafe-plan__zone {
+  margin: 8px 0 6px;
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cafe-plan__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.cafe-plan__table {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 70px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(29, 122, 76, 0.35);
+  color: var(--ink);
+  text-align: left;
+}
+
+.cafe-plan__table--free .cafe-plan__status {
+  color: #8fe3a8;
+}
+
+.cafe-plan__table--terrace {
+  background: rgba(124, 196, 255, 0.14);
+}
+
+.cafe-plan__table--selected {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold);
+}
+
+.cafe-plan__name {
+  font-weight: 800;
+}
+
+.cafe-plan__status,
+.cafe-plan__players {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.dock__watch {
+  align-self: center;
+  margin: 0;
+  padding: 4px 12px;
+  border: 1px solid rgba(240, 195, 90, 0.5);
+  border-radius: 999px;
+  background: rgba(10, 22, 16, 0.85);
+  color: var(--gold);
+  font-size: 0.82rem;
+  font-weight: 700;
+}

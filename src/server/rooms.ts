@@ -1,10 +1,33 @@
-import { CONTRACT_SUCCESS_SCORINGS, SEATS, SUITS, applyAction, createGame, getPlayerView, startNextHand } from '../engine/index.ts';
+import {
+  CONTRACT_SUCCESS_SCORINGS,
+  SEATS,
+  SUITS,
+  applyAction,
+  createGame,
+  getPlayerView,
+  getSpectatorView,
+  makeRules,
+  startNextHand,
+} from '../engine/index.ts';
 import type { BidAction, GameAction, RulesConfig, Seat } from '../engine/index.ts';
-import type { RoomAggregate, RoomPlayer, RoomRequest, RoomSettings, RoomView, ServerDeps, StoredView } from './types.ts';
+import type {
+  PublicTableData,
+  RoomAggregate,
+  RoomPlayer,
+  RoomRequest,
+  RoomSettings,
+  RoomView,
+  ServerDeps,
+  StoredView,
+} from './types.ts';
 
 export const DEFAULT_ABSENCE_DELAY_SECONDS = 30;
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const ROOM_CODE_LENGTH = 6;
+/** Tables de belote du Café Tarek (la salle du fond, près de la télé). */
+export const CAFE_TABLE_COUNT = 6;
+/** Une table sans aucune action depuis ce délai est considérée comme libre. */
+export const CAFE_TABLE_STALE_MINUTES = 30;
 
 /** Valeurs proposées dans les réglages du salon (le serveur refuse toute autre valeur). */
 export const TARGET_SCORES = [500, 1000, 1500, 2000] as const;
@@ -93,7 +116,10 @@ export function parseRequest(raw: unknown): RoomRequest | null {
   switch (r.type) {
     case 'create': {
       const nickname = cleanNickname(r.nickname);
-      return nickname ? { type: 'create', nickname } : null;
+      if (!nickname) return null;
+      if (r.table === undefined || r.table === null) return { type: 'create', nickname };
+      const table = typeof r.table === 'number' && Number.isInteger(r.table) && r.table >= 1 && r.table <= CAFE_TABLE_COUNT ? r.table : null;
+      return table === null ? null : { type: 'create', nickname, table };
     }
     case 'join': {
       const nickname = cleanNickname(r.nickname);
@@ -124,8 +150,9 @@ export function parseRequest(raw: unknown): RoomRequest | null {
   }
 }
 
-export function createRoom(playerId: string, nickname: string, deps: ServerDeps): RoomAggregate {
+export function createRoom(playerId: string, nickname: string, deps: ServerDeps, table?: number): RoomAggregate {
   return {
+    ...(table === undefined ? {} : { tableNumber: table }),
     id: deps.newRoomId(),
     code: deps.newRoomCode(),
     version: 1,
@@ -219,6 +246,34 @@ export function applyRoomRequest(
   }
 }
 
+/**
+ * Informations publiques d'un salon installé à une table du café : pseudos, état, scores,
+ * et la vue des spectateurs (sans aucune main). Jamais le code du salon.
+ */
+export function buildPublicTable(room: RoomAggregate): PublicTableData | null {
+  if (room.tableNumber === undefined) return null;
+  const players = [...room.players]
+    .sort((a, b) => a.seat - b.seat)
+    .map(({ seat, nickname, ready }) => ({ seat, nickname, ready }));
+  const game = room.game;
+  return {
+    tableNumber: room.tableNumber,
+    info: {
+      status: game?.phase === 'gameOver' ? 'finished' : room.status,
+      players: players.map(({ seat, nickname }) => ({ seat, nickname })),
+      scores: game ? [game.scores[0], game.scores[1]] : null,
+      targetScore: makeRules(room.settings.rules).targetScore,
+    },
+    watch: {
+      roomId: room.id,
+      tableNumber: room.tableNumber,
+      status: room.status,
+      players,
+      game: game ? getSpectatorView(game) : null,
+    },
+  };
+}
+
 /** Vue de chaque joueur : uniquement ce qu'il a le droit de voir (§11.4). */
 export function buildViews(room: RoomAggregate): StoredView[] {
   const players = [...room.players]
@@ -231,6 +286,7 @@ export function buildViews(room: RoomAggregate): StoredView[] {
       roomId: room.id,
       code: room.code,
       status: room.status,
+      tableNumber: room.tableNumber ?? null,
       mySeat: p.seat,
       players,
       settings: room.settings,

@@ -14,17 +14,22 @@ interface EndScreenProps {
   readonly names: SeatNames;
   readonly cont: ContinueState;
   readonly onHome?: () => void;
+  readonly teamLabels?: readonly [string, string];
+  readonly spectator?: boolean;
 }
 
 const CONFETTI_COLORS = ['#f0c35a', '#7cc4ff', '#ff9f80', '#8fe3a8', '#ffffff'];
 
 /** Écran de fin de partie : vainqueur, score final, statistiques et feuille de match. */
-export function EndScreen({ winner, history, scores, target, myTeam, mySeat, names, cont, onHome }: EndScreenProps) {
+export function EndScreen(props: EndScreenProps) {
+  const { winner, history, scores, target, myTeam, mySeat, names, cont, onHome, teamLabels = ['Nous', 'Eux'], spectator = false } = props;
   const them: Team = myTeam === 0 ? 1 : 0;
-  const victory = winner === myTeam;
+  const victory = !spectator && winner === myTeam;
   const winners = ([0, 1, 2, 3] as Seat[]).filter((s) => s % 2 === winner);
   const partner = winners.find((s) => s !== mySeat);
-  const subtitle = victory
+  const subtitle = spectator
+    ? `${names[winners[0]!]} et ${names[winners[1]!]} remportent la partie`
+    : victory
     ? `${partner !== undefined ? names[partner] : 'Votre partenaire'} et vous remportez la partie`
     : `${names[winners[0]!]} et ${names[winners[1]!]} remportent la partie`;
   const ours = teamStats(history, myTeam);
@@ -60,22 +65,22 @@ export function EndScreen({ winner, history, scores, target, myTeam, mySeat, nam
       <div className="end__panel">
         <p className="end__eyebrow">Fin de la partie · objectif {target} points</p>
         <h2 id="game-over-title" className={`end__title ${victory ? 'end__title--win' : 'end__title--lose'}`}>
-          {victory ? 'Victoire !' : 'Défaite'}
+          {spectator ? 'Fin de la partie' : victory ? 'Victoire !' : 'Défaite'}
         </h2>
         <p className="end__subtitle">
           {subtitle} en {history.length} manche{history.length > 1 ? 's' : ''}.
         </p>
 
         <div className="end__score">
-          <div className={`end__team${victory ? ' end__team--winner' : ''}`}>
-            <span className="end__team-label">Nous</span>
+          <div className={`end__team${winner === myTeam ? ' end__team--winner' : ''}`}>
+            <span className="end__team-label">{teamLabels[0]}</span>
             <span className="end__team-value">{scores[myTeam]}</span>
           </div>
           <span className="end__dash" aria-hidden="true">
             –
           </span>
-          <div className={`end__team${!victory ? ' end__team--winner' : ''}`}>
-            <span className="end__team-label">Eux</span>
+          <div className={`end__team${winner !== myTeam ? ' end__team--winner' : ''}`}>
+            <span className="end__team-label">{teamLabels[1]}</span>
             <span className="end__team-value">{scores[them]}</span>
           </div>
         </div>
@@ -84,8 +89,8 @@ export function EndScreen({ winner, history, scores, target, myTeam, mySeat, nam
           <thead>
             <tr>
               <th scope="col" />
-              <th scope="col">Nous</th>
-              <th scope="col">Eux</th>
+              <th scope="col">{teamLabels[0]}</th>
+              <th scope="col">{teamLabels[1]}</th>
             </tr>
           </thead>
           <tbody>
@@ -106,8 +111,8 @@ export function EndScreen({ winner, history, scores, target, myTeam, mySeat, nam
               <tr>
                 <th scope="col">#</th>
                 <th scope="col">Contrat</th>
-                <th scope="col">Nous</th>
-                <th scope="col">Eux</th>
+                <th scope="col">{teamLabels[0]}</th>
+                <th scope="col">{teamLabels[1]}</th>
               </tr>
             </thead>
             <tbody>
@@ -139,10 +144,12 @@ export function EndScreen({ winner, history, scores, target, myTeam, mySeat, nam
           </table>
         </details>
 
-        <button type="button" className="btn btn--primary btn--wide" onClick={cont.onContinue} disabled={cont.acked} autoFocus>
-          {cont.acked ? 'En attente des autres joueurs…' : cont.label}
-        </button>
-        {cont.waitingNames.length > 0 && (
+        {!spectator && (
+          <button type="button" className="btn btn--primary btn--wide" onClick={cont.onContinue} disabled={cont.acked} autoFocus>
+            {cont.acked ? 'En attente des autres joueurs…' : cont.label}
+          </button>
+        )}
+        {!spectator && cont.waitingNames.length > 0 && (
           <p className="dialog__note dialog__note--after">En attente de : {cont.waitingNames.join(', ')}</p>
         )}
         {onHome && (

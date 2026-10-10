@@ -1,4 +1,4 @@
-import { applyRoomRequest, buildViews, createRoom, joinRoom, parseRequest } from './rooms.ts';
+import { applyRoomRequest, buildPublicTable, buildViews, createRoom, joinRoom, parseRequest } from './rooms.ts';
 import type { RoomResponse, RoomStore, ServerDeps } from './types.ts';
 
 const MAX_ATTEMPTS = 6;
@@ -19,8 +19,10 @@ export async function handleRequest(
 
   if (request.type === 'create') {
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const room = createRoom(playerId, request.nickname, deps);
-      if (await store.insert(room, buildViews(room))) return { ok: true, roomId: room.id, code: room.code };
+      const room = createRoom(playerId, request.nickname, deps, request.table);
+      const saved = await store.insert(room, buildViews(room), buildPublicTable(room));
+      if (saved === 'ok') return { ok: true, roomId: room.id, code: room.code };
+      if (saved === 'tableTaken') return { ok: false, error: 'Cette table vient d’être prise : choisis-en une autre.' };
     }
     return { ok: false, error: 'Impossible de créer le salon, réessayez.' };
   }
@@ -34,7 +36,9 @@ export async function handleRequest(
     if (!result.ok) return result;
 
     const next = { ...result.room, version: room.version + 1 };
-    if (await store.save(next, room.version, buildViews(next))) return { ok: true, roomId: next.id, code: next.code };
+    if (await store.save(next, room.version, buildViews(next), buildPublicTable(next))) {
+      return { ok: true, roomId: next.id, code: next.code };
+    }
   }
   return { ok: false, error: 'Le salon est très sollicité, réessayez.' };
 }

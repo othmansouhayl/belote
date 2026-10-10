@@ -120,5 +120,71 @@ do $$ declare n int; begin
   assert n = 1, 'seule la vue de A devrait rester';
 end $$;
 
+-- Café Tarek : réserver une table, la voir sans le code, la protéger, la libérer.
+\set salle '33333333-3333-4333-8333-333333333333'
+\set autre '44444444-4444-4444-8444-444444444444'
+set role service_role;
+select public.save_room_v2(:'salle', 'CAF234', null, '{"secret":"main-cachee"}',
+  jsonb_build_array(jsonb_build_object('player_id', :'a', 'seat', 0, 'view', '{"main":"A"}'::jsonb)),
+  3::smallint, '{"players":[{"seat":0,"nickname":"Tarek"}]}', '{"spectateur":"public"}') as table_ok \gset
+select public.save_room_v2(:'autre', 'CAF345', null, '{}', '[]',
+  3::smallint, '{"players":[{"seat":0,"nickname":"Intrus"}]}', '{}') as table_prise \gset
+reset role;
+select :'table_ok' = 'ok' and :'table_prise' = 'table_taken' as reservation_ok \gset
+\if :reservation_ok
+\else
+  \echo 'ÉCHEC : réservation de table (' :'table_ok' ', ' :'table_prise' ')'
+  \quit 1
+\endif
+do $$ declare n int; begin
+  select count(*) into n from public.rooms where id = '44444444-4444-4444-8444-444444444444';
+  assert n = 0, 'le salon refusé ne doit pas être créé';
+end $$;
+
+-- Un inconnu, même non connecté, voit la table et la vue spectateur, mais rien de secret.
+set role anon;
+do $$ declare t jsonb; w jsonb; begin
+  select to_jsonb(c) into t from public.cafe_tables c where table_number = 3;
+  assert t -> 'info' -> 'players' -> 0 ->> 'nickname' = 'Tarek', 'anon devrait voir les pseudos de la table';
+  assert t::text not like '%CAF234%' and t::text not like '%main-cachee%', 'la table ne doit révéler ni code ni état';
+  select view into w from public.room_watch_views;
+  assert w ->> 'spectateur' = 'public', 'anon devrait voir la vue spectateur';
+  begin update public.cafe_tables set info = '{}'; raise exception 'ÉCHEC : table du café modifiable';
+  exception when insufficient_privilege then null; end;
+  begin insert into public.room_watch_views values ('33333333-3333-4333-8333-333333333333', '{}');
+    raise exception 'ÉCHEC : vue spectateur modifiable';
+  exception when insufficient_privilege then null; end;
+  begin perform public.save_room_v2(null, null, null, null, null, null, null, null);
+    raise exception 'ÉCHEC : save_room_v2 appelable';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+-- Le dernier joueur quitte le salon d'attente : la table et la vue spectateur disparaissent.
+set role service_role;
+select public.save_room_v2(:'salle', 'CAF234', 1, '{}', '[]', 3::smallint, '{"players":[]}', '{}') as liberee \gset
+reset role;
+do $$ declare n int; begin
+  select count(*) into n from public.cafe_tables;
+  assert n = 0, 'la table devrait être libérée';
+  select count(*) into n from public.room_watch_views;
+  assert n = 0, 'la vue spectateur devrait être supprimée';
+end $$;
+
+-- Une table abandonnée depuis plus de 30 minutes peut être reprise.
+set role service_role;
+select public.save_room_v2(:'autre', 'CAF345', null, '{}', '[]',
+  4::smallint, '{"players":[{"seat":0,"nickname":"Ancien"}]}', '{}') as t4 \gset
+update public.cafe_tables set updated_at = now() - interval '31 minutes' where table_number = 4;
+select public.save_room_v2('55555555-5555-4555-8555-555555555555', 'CAF456', null, '{}', '[]',
+  4::smallint, '{"players":[{"seat":0,"nickname":"Nouveau"}]}', '{}') as reprise \gset
+reset role;
+select :'liberee' = 'ok' and :'reprise' = 'ok' as reprise_ok \gset
+\if :reprise_ok
+\else
+  \echo 'ÉCHEC : une table abandonnée devrait pouvoir être reprise'
+  \quit 1
+\endif
+
 \o
 \echo 'Toutes les vérifications de sécurité de la base sont passées.'

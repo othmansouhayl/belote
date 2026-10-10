@@ -4,13 +4,15 @@ import { preloadCards } from './CardView.tsx';
 import { Home } from './Home.tsx';
 import { LocalGame } from './LocalGame.tsx';
 import { OnlineRoom } from './online/OnlineRoom.tsx';
+import { WatchRoom } from './online/WatchRoom.tsx';
 import { loadNickname, loadSavedRoom, saveNickname, saveRoom, sendRequest } from './online/client.ts';
 import type { SavedRoom } from './online/client.ts';
 
 type Screen =
   | { readonly kind: 'home' }
   | { readonly kind: 'local'; readonly targetScore: number }
-  | { readonly kind: 'online'; readonly room: SavedRoom };
+  | { readonly kind: 'online'; readonly room: SavedRoom }
+  | { readonly kind: 'watch'; readonly roomId: string; readonly table: number };
 
 function inviteCodeFromUrl(): string {
   return new URLSearchParams(window.location.search).get('salon')?.toUpperCase() ?? '';
@@ -32,7 +34,7 @@ export function App() {
 
   useEffect(() => preloadCards(createDeck().map((c) => c.id)), []);
 
-  const enterRoom = async (request: { type: 'create' } | { type: 'join'; code: string }) => {
+  const enterRoom = async (request: { type: 'create'; table: number } | { type: 'join'; code: string }) => {
     setBusy(true);
     setError(null);
     const name = nickname.trim() || 'Joueur';
@@ -56,6 +58,10 @@ export function App() {
 
   if (screen.kind === 'local') {
     return <LocalGame targetScore={screen.targetScore} onExit={() => setScreen({ kind: 'home' })} />;
+  }
+
+  if (screen.kind === 'watch') {
+    return <WatchRoom key={screen.roomId} roomId={screen.roomId} tableNumber={screen.table} onExit={() => setScreen({ kind: 'home' })} />;
   }
 
   if (screen.kind === 'online') {
@@ -83,7 +89,8 @@ export function App() {
       busy={busy}
       error={error}
       onLocal={(targetScore) => setScreen({ kind: 'local', targetScore })}
-      onCreate={() => void enterRoom({ type: 'create' })}
+      onCreate={(table) => void enterRoom({ type: 'create', table })}
+      onWatch={(roomId, table) => setScreen({ kind: 'watch', roomId, table })}
       onJoin={(code) => void enterRoom({ type: 'join', code })}
       onResume={(room) => void enterRoom({ type: 'join', code: room.code })}
     />

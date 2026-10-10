@@ -14,6 +14,8 @@ interface PlayerSeatProps {
   readonly isAbsent: boolean;
   readonly cardsLeft: number;
   readonly bubble: string | null;
+  /** Spectateur : la place du bas montre aussi ses dos de cartes. */
+  readonly showOwnBacks?: boolean;
   readonly highlightBubble: boolean;
   readonly speaking?: boolean;
   readonly voiceMuted?: boolean;
@@ -24,6 +26,7 @@ const initial = (name: string) => [...name.trim()][0]?.toUpperCase() ?? '?';
 
 export function PlayerSeat(props: PlayerSeatProps) {
   const { seat, mySeat, name, isDealer, isActive, isTaker, isAbsent, cardsLeft, bubble, highlightBubble, speaking, voiceMuted } = props;
+  const showOwnBacks = props.showOwnBacks ?? false;
   const team = seat % 2 === mySeat % 2 ? 'us' : 'them';
   const position = positionOf(seat, mySeat);
   const classes = [
@@ -67,7 +70,7 @@ export function PlayerSeat(props: PlayerSeatProps) {
         </span>
       </div>
       {isAbsent && <div className="seat__absent">Hors ligne</div>}
-      {seat !== mySeat && cardsLeft > 0 && (
+      {(seat !== mySeat || showOwnBacks) && cardsLeft > 0 && (
         <div className="seat__backs" aria-label={`${cardsLeft} cartes`} style={{ ['--n' as string]: cardsLeft }}>
           {Array.from({ length: cardsLeft }, (_, i) => (
             <img
