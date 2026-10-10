@@ -1,6 +1,7 @@
 import type { Seat } from '../engine/index.ts';
 import { CARD_BACK_URL } from './CardView.tsx';
 import { MicOffIcon } from './icons.tsx';
+import { SuitText } from './SuitText.tsx';
 import { positionOf } from './labels.ts';
 
 interface PlayerSeatProps {
@@ -80,7 +81,7 @@ export function PlayerSeat(props: PlayerSeatProps) {
           ))}
         </div>
       )}
-      {bubble && <div className={`seat__bubble${highlightBubble ? ' seat__bubble--strong' : ''}`}>{bubble}</div>}
+      {bubble && <div className={`seat__bubble${highlightBubble ? ' seat__bubble--strong' : ''}`}><SuitText text={bubble} /></div>}
     </div>
   );
 }

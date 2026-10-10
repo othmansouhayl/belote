@@ -1,7 +1,7 @@
 {
-  "name": "Belote coinchée tunisienne",
-  "short_name": "Belote",
-  "description": "Belote coinchée tunisienne à quatre, entre amis, avec le vocal.",
+  "name": "Café Tarek · Belote coinchée",
+  "short_name": "Café Tarek",
+  "description": "Café Tarek : belote coinchée tunisienne à quatre, entre amis, avec le vocal.",
   "lang": "fr",
   "start_url": "./",
   "scope": "./",

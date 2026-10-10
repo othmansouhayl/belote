@@ -1,4 +1,4 @@
-# Belote coinchée tunisienne
+# قهوة طارق · Café Tarek — Belote coinchée tunisienne
 
 Jeu de belote coinchée tunisienne à 4, jouable dans le navigateur.
 

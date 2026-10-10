@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react';
 import { makeRules } from '../../engine/index.ts';
+import type { ContractSuccessScoring } from '../../engine/index.ts';
 import { ABSENCE_DELAYS, TARGET_SCORES } from '../../server/rooms.ts';
 import type { RoomSettings } from '../../server/types.ts';
+
+const SCORINGS: readonly (readonly [ContractSuccessScoring, string, string])[] = [
+  ['realizedPoints', 'Ses points', 'ses points'],
+  ['contractOnly', 'Le contrat', 'valeur du contrat'],
+  ['contractPlusPoints', 'Points + contrat', 'points + contrat'],
+];
 
 type ToggleKey = 'allowRebidAfterPass' | 'allowOverbidSameSuit' | 'requireUndertrump' | 'beloteAlwaysScored' | 'capotMultiplied';
 
 const TOGGLES: readonly { readonly key: ToggleKey; readonly label: string; readonly hint: string }[] = [
   { key: 'allowRebidAfterPass', label: 'Reparler après avoir passé', hint: 'Un joueur qui a passé peut encore annoncer.' },
-  { key: 'allowOverbidSameSuit', label: 'Monter dans la couleur du partenaire', hint: "Surenchérir dans l'atout annoncé par son partenaire." },
+  { key: 'allowOverbidSameSuit', label: 'Monter dans la couleur du partenaire', hint: "Surenchérir dans l'atout annoncé par son partenaire (une autre couleur reste toujours possible)." },
   { key: 'requireUndertrump', label: 'Sous-couper obligatoire', hint: 'Sans atout plus fort, on doit quand même jouer atout.' },
   { key: 'beloteAlwaysScored', label: 'Belote toujours comptée', hint: 'Les 20 points restent acquis même si le contrat chute.' },
   { key: 'capotMultiplied', label: 'Capot multiplié par la coinche', hint: 'Les 500 / 250 points du capot sont doublés ou quadruplés.' },
@@ -50,7 +57,7 @@ export function RoomSettingsPanel({ settings: fromServer, editable, hostName, bu
       <summary className="settings__summary">
         <span className="settings__title">Réglages de la partie</span>
         <span className="settings__short">
-          {rules.targetScore} points · {rules.contractSuccessScoring === 'contractOnly' ? 'valeur du contrat' : 'points + contrat'}
+          {rules.targetScore} points · {SCORINGS.find(([v]) => v === rules.contractSuccessScoring)?.[2]}
         </span>
       </summary>
       <div className="settings__body">
@@ -76,12 +83,7 @@ export function RoomSettingsPanel({ settings: fromServer, editable, hostName, bu
         <fieldset className="settings__group" disabled={disabled}>
           <legend className="settings__label">Contrat réussi : le preneur marque</legend>
           <div className="segmented">
-            {(
-              [
-                ['contractOnly', 'La valeur du contrat'],
-                ['contractPlusPoints', 'Ses points + le contrat'],
-              ] as const
-            ).map(([value, label]) => (
+            {SCORINGS.map(([value, label]) => (
               <button
                 key={value}
                 type="button"

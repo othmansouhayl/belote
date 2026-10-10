@@ -1,5 +1,5 @@
 import type { HandResult, Team } from '../engine/index.ts';
-import { SUIT_SYMBOLS, contractValueLabel } from './labels.ts';
+import { SUIT_SYMBOLS, contractValueLabel, isRed } from './labels.ts';
 import type { SeatNames } from './labels.ts';
 
 const dash = (n: number) => (n === 0 ? '—' : String(n));
@@ -52,7 +52,8 @@ export function HandResultDialog({ result, scores, target, myTeam, names, cont }
           {result.success ? 'Contrat réussi' : 'Contrat chuté'}
         </h2>
         <p className="dialog__subtitle">
-          {names[contract.bidder]} : {contractValueLabel(contract.value)} {SUIT_SYMBOLS[contract.suit]}
+          {names[contract.bidder]} : {contractValueLabel(contract.value)}{' '}
+          <span className={isRed(contract.suit) ? 'suit-red' : undefined}>{SUIT_SYMBOLS[contract.suit]}</span>
           {doubled}
         </p>
         {result.capot && <p className="dialog__badge">{result.capot === 'annonce' ? 'Capot annoncé' : 'Capot !'}</p>}

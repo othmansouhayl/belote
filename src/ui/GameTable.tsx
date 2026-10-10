@@ -11,6 +11,7 @@ import type { ContinueState } from './ResultDialogs.tsx';
 import { TopBar } from './TopBar.tsx';
 import { TrickArea } from './TrickArea.tsx';
 import { bidShortLabel } from './labels.ts';
+import { SuitText } from './SuitText.tsx';
 import type { SeatNames } from './labels.ts';
 import type { TableEffects } from './useTableEffects.ts';
 
@@ -121,7 +122,7 @@ export function GameTable(props: GameTableProps) {
         )}
         {notice && (
           <div className="toast" role="status">
-            {notice}
+            <SuitText text={notice} />
           </div>
         )}
       </main>

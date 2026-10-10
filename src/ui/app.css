@@ -423,6 +423,15 @@ button:focus-visible {
   background: var(--gold);
 }
 
+/* Cœur et carreau en rouge dans les annonces (bulles, bandeaux, résultats). */
+.suit-red {
+  color: var(--card-red);
+}
+
+.toast .suit-red {
+  color: #ff7b6b;
+}
+
 @keyframes pop {
   from {
     transform: scale(0.7);
@@ -1403,19 +1412,37 @@ button:focus-visible {
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
 }
 
-.home__subtitle {
-  display: block;
-  margin-top: 6px;
-  font-size: 1rem;
+/* Texte arabe : pas d'espacement entre les lettres (il casserait leur liaison). */
+.home__title[lang='ar'],
+.home__welcome--ar {
+  font-family: 'Noto Naskh Arabic', 'Geeza Pro', 'Segoe UI', 'Arabic Typesetting', 'Noto Sans Arabic', sans-serif;
+  letter-spacing: 0;
+}
+
+.home__title[lang='ar'] {
+  font-size: 2.9rem;
+  line-height: 1.25;
+}
+
+.home__welcome {
+  margin: 6px 0 0;
+  font-family: var(--serif);
+  font-size: 1.05rem;
   font-style: italic;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   color: var(--gold);
 }
 
+.home__welcome--ar {
+  margin-top: 2px;
+  font-style: normal;
+  font-size: 1.15rem;
+}
+
 .home__tagline {
-  margin: 6px 0 0;
+  margin: 8px 0 0;
+  font-size: 0.9rem;
   color: var(--ink-soft);
 }
 

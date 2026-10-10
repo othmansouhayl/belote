@@ -1,4 +1,4 @@
-import { SEATS, SUITS, applyAction, createGame, getPlayerView, startNextHand } from '../engine/index.ts';
+import { CONTRACT_SUCCESS_SCORINGS, SEATS, SUITS, applyAction, createGame, getPlayerView, startNextHand } from '../engine/index.ts';
 import type { BidAction, GameAction, RulesConfig, Seat } from '../engine/index.ts';
 import type { RoomAggregate, RoomPlayer, RoomRequest, RoomSettings, RoomView, ServerDeps, StoredView } from './types.ts';
 
@@ -25,9 +25,8 @@ export function parseSettings(raw: unknown): RoomSettings | null {
   const rules = r.rules as Record<string, unknown>;
   const target = TARGET_SCORES.find((t) => t === rules.targetScore);
   const delay = ABSENCE_DELAYS.find((d) => d === r.absenceDelaySeconds);
-  const scoring = rules.contractSuccessScoring;
-  if (target === undefined || delay === undefined) return null;
-  if (scoring !== 'contractOnly' && scoring !== 'contractPlusPoints') return null;
+  const scoring = CONTRACT_SUCCESS_SCORINGS.find((s) => s === rules.contractSuccessScoring);
+  if (target === undefined || delay === undefined || scoring === undefined) return null;
   const parsed: Record<string, unknown> = { targetScore: target, contractSuccessScoring: scoring };
   for (const key of BOOLEAN_RULES) {
     if (typeof rules[key] !== 'boolean') return null;

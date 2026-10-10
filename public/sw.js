@@ -1,6 +1,6 @@
 // Service worker : rend le site installable et jouable hors ligne (mode contre les bots).
 // Les appels à Supabase (jeu en ligne, vocal) ne passent jamais par le cache.
-const CACHE = 'belote-v1';
+const CACHE = 'belote-v2';
 const PRECACHE = [
   "./",
   "index.html",

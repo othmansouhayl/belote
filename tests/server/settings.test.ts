@@ -37,6 +37,8 @@ describe('Réglages du salon', () => {
     expect(parseSettings(settings())).not.toBeNull();
     expect(parseSettings(settings({ targetScore: 1234 }))).toBeNull();
     expect(parseSettings(settings({ contractSuccessScoring: 'autre' }))).toBeNull();
+    expect(parseSettings(settings({ contractSuccessScoring: 'realizedPoints' }))?.rules.contractSuccessScoring).toBe('realizedPoints');
+    expect(parseSettings(settings({ contractSuccessScoring: 'contractOnly' }))?.rules.contractSuccessScoring).toBe('contractOnly');
     expect(parseSettings(settings({ allowRebidAfterPass: 'oui' }))).toBeNull();
     expect(parseSettings(settings({}, 5))).toBeNull();
     // Une règle non prévue (ex. multiplicateur) est ignorée, jamais transmise au moteur.
