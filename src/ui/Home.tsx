@@ -41,11 +41,16 @@ export function Home(props: HomeProps) {
             <img key={id} className="hero-fan__card" src={cardImageUrl(id)} alt="" style={{ ['--i' as string]: i }} />
           ))}
         </div>
-        <h1 className="home__title">
-          Belote
-          <span className="home__subtitle">coinchée tunisienne</span>
+        <h1 className="home__title" lang="ar" dir="rtl">
+          قهوة طارق
         </h1>
-        <p className="home__tagline">Jouez à quatre, entre amis, où que vous soyez.</p>
+        <p className="home__welcome" lang="en">
+          Welcome to Café Tarek
+        </p>
+        <p className="home__welcome home__welcome--ar" lang="ar" dir="rtl">
+          مرحبا بكم في قهوة طارق
+        </p>
+        <p className="home__tagline">Belote coinchée tunisienne · à quatre, entre amis, où que vous soyez.</p>
       </header>
 
       {savedRoom && (

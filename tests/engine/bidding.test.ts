@@ -73,10 +73,24 @@ describe('Test 5 — une enchère doit dépasser la meilleure enchère actuelle'
     expect(run([pass, pass, pass, pass]).status).toBe('allPassed');
   });
 
-  it('un joueur qui a passé ne peut plus enchérir (paramètre allowRebidAfterPass)', () => {
+  it('un joueur qui a passé peut encore enchérir (validé ; paramètre allowRebidAfterPass)', () => {
     const { bidding } = run([pass, bid(90), pass, pass]);
-    expect(validateBid(bidding, 1, bid(100), rules).ok).toBe(false);
-    expect(validateBid(bidding, 1, bid(100), makeRules({ allowRebidAfterPass: true })).ok).toBe(true);
+    expect(validateBid(bidding, 1, bid(100), rules).ok).toBe(true);
+    expect(validateBid(bidding, 1, bid(100), makeRules({ allowRebidAfterPass: false })).ok).toBe(false);
+  });
+
+  it('après avoir passé, le joueur se voit encore proposer des enchères (pas seulement Passer / Coinche)', () => {
+    const { bidding } = run([pass, bid(90), pass, pass]);
+    const legal = getLegalBids(bidding, 1, rules);
+    expect(legal.some((a) => a.type === 'bid' && a.value === 100)).toBe(true);
+    expect(legal.some((a) => a.type === 'coinche')).toBe(true);
+  });
+
+  it('le partenaire peut monter sur son partenaire, dans la même couleur ou une autre', () => {
+    const { bidding, seat } = run([bid(90, 'coeur'), pass]);
+    expect(seat).toBe(3);
+    expect(validateBid(bidding, 3, bid(100, 'coeur'), rules).ok).toBe(true);
+    expect(validateBid(bidding, 3, bid(100, 'trefle'), rules).ok).toBe(true);
   });
 
   it('surenchère dans la couleur du partenaire selon allowOverbidSameSuit', () => {

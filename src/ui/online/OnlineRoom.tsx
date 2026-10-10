@@ -9,6 +9,7 @@ import { Lobby } from './Lobby.tsx';
 import { sendRequest } from './client.ts';
 import { useAbsentSeats, useRoom } from './useRoom.ts';
 import { VoiceBar } from './voice/VoiceBar.tsx';
+import { SuitText } from '../SuitText.tsx';
 import { useVoice } from './voice/useVoice.ts';
 
 interface OnlineRoomProps {
@@ -98,7 +99,7 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
         />
         {effects.notice && (
           <div className="toast toast--fixed" role="status">
-            {effects.notice}
+            <SuitText text={effects.notice} />
           </div>
         )}
       </>

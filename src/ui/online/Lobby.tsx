@@ -37,7 +37,7 @@ export function Lobby(props: LobbyProps) {
   const share = async () => {
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'Belote coinchée', text: `Rejoins ma table de belote ! Code : ${view.code}`, url: link });
+        await navigator.share({ title: 'Café Tarek', text: `Rejoins ma table de belote au Café Tarek ! Code : ${view.code}`, url: link });
         return;
       }
       await navigator.clipboard.writeText(link);

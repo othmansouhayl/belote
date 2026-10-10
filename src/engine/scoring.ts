@@ -62,11 +62,18 @@ export function resolveContract(
     if (success) {
       const unannouncedCapot = tricksWon[taker] === 8;
       if (unannouncedCapot) capot = 'non-annonce';
+      const realized = unannouncedCapot ? config.capotUnannouncedPoints : trickPoints[taker];
       let takerBase: number;
-      if (config.contractSuccessScoring === 'contractPlusPoints') {
-        takerBase = (unannouncedCapot ? config.capotUnannouncedPoints : trickPoints[taker]) + value;
-      } else {
-        takerBase = unannouncedCapot ? config.capotUnannouncedPoints : value;
+      switch (config.contractSuccessScoring) {
+        case 'realizedPoints':
+          takerBase = realized;
+          break;
+        case 'contractPlusPoints':
+          takerBase = realized + value;
+          break;
+        case 'contractOnly':
+          takerBase = unannouncedCapot ? config.capotUnannouncedPoints : value;
+          break;
       }
       const capotMult = unannouncedCapot && !config.capotMultiplied ? 1 : mult;
       handScore[taker] = takerBase * capotMult;

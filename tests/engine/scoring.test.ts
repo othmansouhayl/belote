@@ -51,11 +51,24 @@ function hand(team0Tricks: number[], lastTo: 0 | 1 = 0) {
 describe('Test 11 — contrats réussis et chutés', () => {
   const r = rules();
 
-  it('contrat réussi : le preneur marque la valeur du contrat, la défense ses points', () => {
+  it('contrat réussi : le preneur marque les points qu’il a faits, la défense les siens (validé)', () => {
     // Équipe 0 : plis 0, 2, 3, 4, 7 → 28 + 28 + 34 + 28 + 12 = 130 ; équipe 1 : 32.
     const res = resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0), null, r);
     expect(res.trickPoints).toEqual([130, 32]);
     expect(res.success).toBe(true);
+    expect(res.handScore).toEqual([130, 32]);
+    expect(DEFAULT_RULES.contractSuccessScoring).toBe('realizedPoints');
+  });
+
+  it('90 annoncé et 118 points faits : le preneur marque 118, pas 90', () => {
+    // Équipe 0 : plis 0, 2, 3, 6 → 28 + 28 + 34 + 28 = 118 ; équipe 1 (dont dix de der) : 44.
+    const res = resolveContract(hand([0, 2, 3, 6], 1), contract(90, 'pique', 0), null, r);
+    expect(res.trickPoints).toEqual([118, 44]);
+    expect(res.handScore).toEqual([118, 44]);
+  });
+
+  it('avec contractOnly, le preneur marque la valeur du contrat', () => {
+    const res = resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0), null, rules({ contractSuccessScoring: 'contractOnly' }));
     expect(res.handScore).toEqual([100, 32]);
   });
 
@@ -93,13 +106,13 @@ describe('Test 11 — contrats réussis et chutés', () => {
     const res = resolveContract(hand([0, 1, 2], 0), contract(110, 'pique', 1), 3, r);
     expect(res.contractPoints).toEqual([70, 112]);
     expect(res.success).toBe(true);
-    expect(res.handScore).toEqual([70, 130]);
+    expect(res.handScore).toEqual([70, 112]);
   });
 
   it('la belote de la défense reste acquise quand le contrat réussit', () => {
     const res = resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0), 1, r);
     expect(res.success).toBe(true);
-    expect(res.handScore).toEqual([100, 52]);
+    expect(res.handScore).toEqual([130, 52]);
   });
 
   it('la belote du preneur reste acquise même en cas de chute (beloteAlwaysScored)', () => {
@@ -135,7 +148,7 @@ describe('Test 12 — coinche et surcoinche (×2 et ×4)', () => {
 
   it('contrat coinché réussi : score du preneur ×2', () => {
     const res = resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0, 2), null, r);
-    expect(res.handScore).toEqual([200, 32]);
+    expect(res.handScore).toEqual([260, 32]);
   });
 
   it('contrat coinché chuté : score de la défense ×2', () => {
@@ -144,7 +157,7 @@ describe('Test 12 — coinche et surcoinche (×2 et ×4)', () => {
   });
 
   it('contrat surcoinché : ×4', () => {
-    expect(resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0, 4), null, r).handScore).toEqual([400, 32]);
+    expect(resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0, 4), null, r).handScore).toEqual([520, 32]);
     expect(resolveContract(hand([0, 2, 3, 4], 0), contract(140, 'pique', 0, 4), null, r).handScore).toEqual([0, 1200]);
   });
 
@@ -165,7 +178,7 @@ describe('Test 12 — coinche et surcoinche (×2 et ×4)', () => {
   it('les multiplicateurs suivent la configuration', () => {
     const custom = rules({ coincheMultiplier: 3 });
     const res = resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0, custom.coincheMultiplier), null, custom);
-    expect(res.handScore[0]).toBe(300);
+    expect(res.handScore[0]).toBe(390);
   });
 });
 
