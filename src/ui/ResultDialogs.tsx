@@ -57,6 +57,13 @@ export function HandResultDialog({ result, scores, target, myTeam, names, cont }
           {doubled}
         </p>
         {result.capot && <p className="dialog__badge">{result.capot === 'annonce' ? 'Capot annoncé' : 'Capot !'}</p>}
+        {result.ending.type === 'claim' && (
+          <p className="dialog__note">
+            Cartes étalées par {names[result.ending.seat] === 'Vous' ? 'vous' : names[result.ending.seat]} : les plis
+            restants sont allés à son équipe.
+          </p>
+        )}
+        {result.ending.type === 'capotFailed' && <p className="dialog__note">Capot chuté dès le premier pli perdu.</p>}
         <table className="score-table">
           <thead>
             <tr>

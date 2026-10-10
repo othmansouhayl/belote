@@ -1,22 +1,30 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { CompletedTrick, PlayerView, Seat } from '../engine/index.ts';
+import type { Card, CompletedTrick, PlayerView, Seat } from '../engine/index.ts';
 import { SUIT_SYMBOLS, contractValueLabel } from './labels.ts';
 import { playSound } from './sound.ts';
 import type { SeatNames } from './labels.ts';
 
 const TRICK_PAUSE = 1300;
 const NOTICE_DURATION = 2600;
+const FINALE_DURATION = 2600;
 
 export interface Bubble {
   readonly seat: Seat;
   readonly text: string;
 }
 
+/** Fin de manche anticipée, affichée au milieu de la table avant le résultat. */
+export type Finale =
+  | { readonly kind: 'claim'; readonly seat: Seat; readonly cards: readonly Card[] }
+  | { readonly kind: 'capotFailed'; readonly seat: Seat };
+
 export interface TableEffects {
   /** Pli qui vient d'être terminé, laissé visible un instant. */
   readonly pausedTrick: CompletedTrick | null;
   readonly notice: string | null;
   readonly beloteBubble: Bubble | null;
+  /** « تي إفرش عاد » ou « يروووووووح » : le résultat de la manche attend la fin de l'animation. */
+  readonly finale: Finale | null;
   readonly showNotice: (text: string) => void;
 }
 
@@ -26,6 +34,7 @@ export function useTableEffects(view: PlayerView | null, names: SeatNames): Tabl
   const [pausedTrick, setPausedTrick] = useState<CompletedTrick | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [beloteBubble, setBeloteBubble] = useState<Bubble | null>(null);
+  const [finale, setFinale] = useState<Finale | null>(null);
 
   useLayoutEffect(() => {
     const before = previous.current;
@@ -43,6 +52,17 @@ export function useTableEffects(view: PlayerView | null, names: SeatNames): Tabl
       const event = view.beloteEvents[view.beloteEvents.length - 1]!;
       setBeloteBubble({ seat: event.seat, text: event.announce === 'belote' ? 'Belote !' : 'Rebelote !' });
     }
+    const ending = view.lastHandResult?.ending;
+    if (sameHand && before.phase === 'playing' && view.phase !== 'playing' && ending) {
+      if (ending.type === 'claim' && view.revealed) {
+        setFinale({ kind: 'claim', seat: ending.seat, cards: view.revealed.cards });
+        playSound('belote');
+      } else if (ending.type === 'capotFailed') {
+        setFinale({ kind: 'capotFailed', seat: ending.seat });
+        playSound('coinche', 0.9);
+      }
+    }
+    if (!sameHand) setFinale(null);
     if (before.phase === 'bidding' && view.phase === 'playing' && view.contract) {
       const c = view.contract;
       const doubled = c.surcoinchedBy !== null ? ', surcoinché' : c.coinchedBy !== null ? ', coinché' : '';
@@ -58,6 +78,13 @@ export function useTableEffects(view: PlayerView | null, names: SeatNames): Tabl
   }, [pausedTrick]);
 
   useEffect(() => {
+    // L'animation de fin commence une fois le dernier pli ramassé.
+    if (!finale || pausedTrick) return;
+    const timer = setTimeout(() => setFinale(null), FINALE_DURATION);
+    return () => clearTimeout(timer);
+  }, [finale, pausedTrick]);
+
+  useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(null), NOTICE_DURATION);
     return () => clearTimeout(timer);
@@ -69,7 +96,7 @@ export function useTableEffects(view: PlayerView | null, names: SeatNames): Tabl
     return () => clearTimeout(timer);
   }, [beloteBubble]);
 
-  return { pausedTrick, notice, beloteBubble, showNotice: setNotice };
+  return { pausedTrick, notice, beloteBubble, finale, showNotice: setNotice };
 }
 
 /** Sons déclenchés par ce qui vient de changer à la table. */

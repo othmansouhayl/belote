@@ -77,11 +77,13 @@ describe('Test 11 — contrats réussis et chutés', () => {
     expect(res.handScore).toEqual([230, 32]);
   });
 
-  it('contrat chuté si le seuil n’est pas atteint : la défense marque 160 + contrat', () => {
+  it('contrat chuté si le seuil n’est pas atteint : la défense marque 160 (validé)', () => {
     // Équipe 0 : 130 points pour un contrat de 140.
     const res = resolveContract(hand([0, 2, 3, 4], 0), contract(140, 'pique', 0), null, r);
     expect(res.success).toBe(false);
-    expect(res.handScore).toEqual([0, 300]);
+    expect(res.handScore).toEqual([0, 160]);
+    const old = resolveContract(hand([0, 2, 3, 4], 0), contract(140, 'pique', 0), null, rules({ failedContractScoring: 'fixedPlusContract' }));
+    expect(old.handScore).toEqual([0, 300]);
   });
 
   it('le preneur doit atteindre la valeur annoncée', () => {
@@ -91,7 +93,7 @@ describe('Test 11 — contrats réussis et chutés', () => {
     expect(res.success).toBe(true);
     const fail = resolveContract(hand([0, 1, 2], 0), contract(100, 'pique', 1), null, r);
     expect(fail.success).toBe(false);
-    expect(fail.handScore).toEqual([260, 0]);
+    expect(fail.handScore).toEqual([160, 0]);
   });
 
   it('le preneur doit faire strictement plus de points que la défense', () => {
@@ -115,12 +117,20 @@ describe('Test 11 — contrats réussis et chutés', () => {
     expect(res.handScore).toEqual([130, 52]);
   });
 
-  it('la belote du preneur reste acquise même en cas de chute (beloteAlwaysScored)', () => {
+  it('contrat chuté : la belote du preneur va à la défense (validé)', () => {
     const res = resolveContract(hand([0, 2, 3, 4], 0), contract(160, 'pique', 0), 0, r);
     expect(res.success).toBe(false);
-    expect(res.handScore).toEqual([20, 320]);
-    const strict = resolveContract(hand([0, 2, 3, 4], 0), contract(160, 'pique', 0), 0, rules({ beloteAlwaysScored: false }));
-    expect(strict.handScore).toEqual([0, 320]);
+    expect(res.handScore).toEqual([0, 180]);
+    expect(res.belotePoints).toEqual([0, 20]);
+    const holder = resolveContract(hand([0, 2, 3, 4], 0), contract(160, 'pique', 0), 0, rules({ beloteOnFailure: 'holder' }));
+    expect(holder.handScore).toEqual([20, 160]);
+  });
+
+  it('contrat réussi sans coinche : la belote reste à celui qui la détient', () => {
+    const res = resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0), 3, r);
+    expect(res.handScore).toEqual([130, 52]);
+    const strict = resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0), 3, rules({ beloteAlwaysScored: false }));
+    expect(strict.handScore).toEqual([130, 32]);
   });
 
   it('capot non annoncé : le preneur fait les 8 plis et marque 250', () => {
@@ -146,26 +156,31 @@ describe('Test 11 — contrats réussis et chutés', () => {
 describe('Test 12 — coinche et surcoinche (×2 et ×4)', () => {
   const r = rules();
 
-  it('contrat coinché réussi : score du preneur ×2', () => {
+  it('contrat coinché réussi : 320 pour le preneur, 0 pour la défense (validé)', () => {
     const res = resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0, 2), null, r);
-    expect(res.handScore).toEqual([260, 32]);
+    expect(res.handScore).toEqual([320, 0]);
   });
 
-  it('contrat coinché chuté : score de la défense ×2', () => {
+  it('contrat coinché chuté : 320 pour la défense (validé)', () => {
     const res = resolveContract(hand([0, 2, 3, 4], 0), contract(140, 'pique', 0, 2), null, r);
-    expect(res.handScore).toEqual([0, 600]);
+    expect(res.handScore).toEqual([0, 320]);
   });
 
-  it('contrat surcoinché : ×4', () => {
-    expect(resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0, 4), null, r).handScore).toEqual([520, 32]);
-    expect(resolveContract(hand([0, 2, 3, 4], 0), contract(140, 'pique', 0, 4), null, r).handScore).toEqual([0, 1200]);
+  it('contrat surcoinché : 640 (validé)', () => {
+    expect(resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0, 4), null, r).handScore).toEqual([640, 0]);
+    expect(resolveContract(hand([0, 2, 3, 4], 0), contract(140, 'pique', 0, 4), null, r).handScore).toEqual([0, 640]);
   });
 
-  it('la belote n’est jamais multipliée', () => {
-    // 130 + 20 de belote = 150 < 160 : chute coinchée, la belote reste à 20.
+  it('la belote n’est jamais multipliée : 340 coinché, 660 surcoinché (validé)', () => {
+    // 130 + 20 de belote = 150 < 160 : chute coinchée, la belote du preneur va à la défense.
     const res = resolveContract(hand([0, 2, 3, 4], 0), contract(160, 'pique', 0, 2), 0, r);
     expect(res.success).toBe(false);
-    expect(res.handScore).toEqual([20, 640]);
+    expect(res.handScore).toEqual([0, 340]);
+    const sur = resolveContract(hand([0, 2, 3, 4], 0), contract(160, 'pique', 0, 4), 1, r);
+    expect(sur.handScore).toEqual([0, 660]);
+    // Coinché réussi : le preneur marque 320 + 20, même si la belote était chez la défense.
+    const made = resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0, 2), 1, r);
+    expect(made.handScore).toEqual([340, 0]);
   });
 
   it('capot annoncé coinché : 500 × 2 (capotMultiplied)', () => {
@@ -178,7 +193,9 @@ describe('Test 12 — coinche et surcoinche (×2 et ×4)', () => {
   it('les multiplicateurs suivent la configuration', () => {
     const custom = rules({ coincheMultiplier: 3 });
     const res = resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0, custom.coincheMultiplier), null, custom);
-    expect(res.handScore[0]).toBe(390);
+    expect(res.handScore[0]).toBe(480);
+    const usual = rules({ coincheMultiplier: 3, coinchedSuccessScoring: 'likeUncoinched' });
+    expect(resolveContract(hand([0, 2, 3, 4], 0), contract(100, 'pique', 0, 3), null, usual).handScore).toEqual([390, 32]);
   });
 });
 

@@ -17,10 +17,16 @@
 | 4 | Surenchérir sur son partenaire | §5.4 | `allowOverbidSameSuit` | `true` : après « 90 ♥ » de son partenaire, on peut annoncer « 100 ♥ » ou « 100 » dans une autre couleur | **Validé** |
 | 7 | Couper / surcouper quand le partenaire est déjà maître du pli | §7.4 | `requireTrumpWhenPartnerMaster` | `false` : si le partenaire tient le pli, on joue la carte qu'on veut (aucune obligation de couper ni de surcouper) | **Validé** |
 | 8 | Monter à l'atout quand l'atout est demandé | §7.2 | `requireHigherTrumpWhenTrumpLed` | `true` : si l'atout est demandé et qu'on a un atout plus fort que le meilleur déjà posé, on doit le jouer | **Validé** |
+| 9 | Coinche / surcoinche | §6.3, §9 | `coincheMultiplier`, `surcoincheMultiplier`, `coinchedSuccessScoring` | ×2 / ×4. Contrat coinché **réussi** : le preneur marque 160 × 2 = **320** (surcoinché : **640**), la défense 0. Contrat coinché **chuté** : la défense marque 320 (surcoinché : 640), le preneur 0 | **Validé** |
+| 10 | Belote | §8 | `beloteOnFailure`, `beloteOnCoinchedSuccess`, `beloteAlwaysScored`, `beloteCountsForContract` | Annonce automatique (« Belote » puis « Rebelote »). 20 points jamais multipliés. Contrat **chuté** (capot compris) : les 20 points vont à la **défense**, quel que soit le joueur qui a la belote, même si elle n'a pas encore été jouée (ex. 320 + 20 = 340 coinché, 640 + 20 = 660 surcoinché). Contrat coinché réussi : ils vont au preneur (« chute à l'envers »). Contrat réussi sans coinche : ils restent à celui qui la détient. Ils comptent pour atteindre le contrat | **Validé** |
 | 10 bis | Dix de der | §7.6 | `lastTrickBonus` | L'équipe qui gagne le dernier pli marque 10 points de plus (152 points de cartes + 10 = 162 par donne) | **Validé** |
 | 11 | Annonces de combinaisons (tierce, cinquante, cent, carré) | — | `allowAnnonces` | `false` : pas d'annonces, seule la belote/rebelote compte | **Validé** |
 | 12 | Calcul du contrat réussi | §9.1 | `contractSuccessScoring` | `'realizedPoints'` : réussi si le preneur atteint la valeur annoncée ET fait strictement plus de points que la défense. Le preneur marque **les points qu'il a réellement faits** (ex. 90 annoncé, 120 faits → 120), la défense marque les siens. Capot non annoncé : 250 (cf. #14). Pas d'arrondi à la dizaine | **Validé** |
+| 13 | Calcul du contrat chuté | §9.2 | `failedContractBasePoints`, `failedContractScoring` | Contrat de 90 à 160 chuté : la défense marque **160** (× coinche / surcoinche), le preneur 0 | **Validé** |
 | 14 | Valeur du capot | §9.3 | `capotAnnouncedSuccessPoints`, `capotAnnouncedFailurePoints`, `capotUnannouncedPoints` | Capot **annoncé** réussi : 500 pour le preneur. Capot **annoncé** chuté : 500 pour l'adverse. Capot **non annoncé** (contrat ordinaire où le preneur fait les 8 plis) : 250 pour le preneur | **Validé** |
+| 25 | Cartes étalées (« تي إفرش عاد ») | — | — (règle du moteur) | Quand c'est à lui d'entamer et que toutes ses cartes sont maîtresses d'après les cartes déjà jouées (sans regarder les mains des autres), un bouton « تي إفرش عاد » apparaît. En l'appuyant, il montre ses cartes, son équipe remporte tous les plis restants (points des cartes + dix de der) et la manche s'arrête. Les bots le font aussi | **Validé** |
+| 26 | Capot annoncé chuté (« يروووووووح ») | §9.3 | — (règle du moteur) | Dès que la défense gagne un pli, « يروووووووح » s'affiche, les cartes restantes sont ramassées (pour la défense) et la manche s'arrête | **Validé** |
+| 27 | Carte unique | — | — (interface) | Quand un joueur n'a qu'une seule carte jouable, elle est jouée automatiquement après une demi-seconde | **Validé** |
 | 15 | Score cible de la partie | §10 | `targetScore` | 1500 points (la partie se termine à la fin de la donne qui fait atteindre ou dépasser 1500) | **Validé** |
 
 ## Règles encore ouvertes
@@ -28,7 +34,7 @@
 > Plusieurs de ces règles peuvent désormais être choisies par l'hôte de chaque salon
 > (« Réglages de la partie ») : score à atteindre, calcul du contrat réussi (#12),
 > reparler après avoir passé (#2), monter dans la couleur du partenaire (#4),
-> sous-couper (#19), belote toujours comptée (#10), capot multiplié (#17) et délai
+> sous-couper (#19), belote de la défense sur un contrat réussi (#10), capot multiplié (#17) et délai
 > « hors ligne » (#22). Les valeurs ci-dessous restent celles proposées par défaut.
 
 | # | Règle | Référence | Paramètre `rulesConfig.ts` | Valeur par défaut | Question à trancher | Statut |
@@ -37,9 +43,6 @@
 | 3 | Tout le monde passe sans contrat | §5.3 | `noBidRedeal` | `true` (donne annulée, le donneur suivant redistribue) | Confirmes-tu la redistribution ? | Ouvert |
 | 5 | Coupe obligatoire quand on ne peut pas fournir | §7.3 | `requireTrumpWhenVoid` | `true` (sauf partenaire maître, cf. #7) | La coupe est-elle obligatoire dans toutes les autres situations ? | Ouvert |
 | 6 | Surcoupe obligatoire sur un atout adverse | §7.4 | `requireOvertrump` | `true` | Faut-il surcouper un adversaire quand c'est possible ? | Ouvert |
-| 9 | Multiplicateurs coinche / surcoinche | §6.3 | `coincheMultiplier`, `surcoincheMultiplier` | ×2 / ×4, appliqués au score de la manche du camp qui marque (hors belote). Contrat réussi coinché : les points faits par le preneur ×2 (ex. 120 faits → 240) ; la défense garde ses points sans multiplication | Confirmes-tu ×2 et ×4 ? Est-ce bien les points faits qui sont doublés, ou plutôt la valeur annoncée ? | Ouvert |
-| 10 | Belote : annonce, chute et coinche | §8 | `beloteAlwaysScored`, `beloteCountsForContract` | Annonce automatique (le moteur détecte Roi + Dame d'atout dans la même main et affiche « Belote » puis « Rebelote »). Les 20 points restent au camp qui la détient même en cas de chute, ne sont jamais multipliés, et comptent pour atteindre le contrat | La belote reste-t-elle acquise quand le contrat chute ? Compte-t-elle pour atteindre le contrat ? Le joueur peut-il choisir de ne pas l'annoncer ? | Ouvert |
-| 13 | Calcul du contrat chuté | §9.2 | `failedContractBasePoints` | La défense marque 160 + la valeur du contrat ; le preneur marque 0 (hors belote) | Confirmes-tu « 160 + valeur du contrat » ? | Ouvert |
 | 16 | Rang du capot dans les enchères | §5.1 | `capotRank` | Enchère la plus haute, au-dessus de 160, annonçable à tout moment (y compris en ouverture) | Le capot peut-il être annoncé à tout moment, ou seulement après une certaine enchère ? | Ouvert |
 | 17 | Capot et coinche / surcoinche | §9.3 | `capotMultiplied` | `true` (les 500 ou 250 sont multipliés par ×2 ou ×4) | Le capot est-il multiplié en cas de coinche ou de surcoinche ? | Ouvert |
 | 18 | Capot non annoncé fait par la défense | §9.3 | — (règle du moteur) | Pas de bonus particulier : c'est une chute normale (160 + contrat pour la défense) | Si la défense fait les 8 plis, a-t-elle droit à un bonus ? | Ouvert |

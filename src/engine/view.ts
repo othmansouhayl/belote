@@ -13,7 +13,7 @@ import type {
   Trick,
 } from './types.ts';
 import type { RulesConfig } from './rulesConfig.ts';
-import { legalBids, legalCards } from './game.ts';
+import { canClaim, legalBids, legalCards } from './game.ts';
 import { teamOf } from './seats.ts';
 
 /**
@@ -37,6 +37,8 @@ export interface PlayerView {
   readonly tricksPlayed: number;
   readonly tricksWon: readonly [number, number];
   readonly beloteEvents: readonly BeloteEvent[];
+  /** Cartes étalées par un joueur (« تي إفرش عاد ») : publiques par nature. */
+  readonly revealed: GameState['revealed'];
   readonly scores: readonly [number, number];
   readonly lastHandResult: HandResult | null;
   readonly handHistory: readonly HandResult[];
@@ -44,6 +46,8 @@ export interface PlayerView {
   /** Actions permises, calculées par le moteur : le navigateur ne décide jamais seul. */
   readonly legalBids: readonly BidAction[];
   readonly legalCardIds: readonly string[];
+  /** Vrai si le joueur peut étaler ses cartes (« تي إفرش عاد »). */
+  readonly canClaim: boolean;
 }
 
 export function getPlayerView(state: GameState, seat: Seat): PlayerView {
@@ -66,11 +70,13 @@ export function getPlayerView(state: GameState, seat: Seat): PlayerView {
     tricksPlayed: state.completedTricks.length,
     tricksWon,
     beloteEvents: state.beloteEvents,
+    revealed: state.revealed,
     scores: state.scores,
     lastHandResult: state.lastHandResult,
     handHistory: state.handHistory,
     winner: state.winner,
     legalBids: legalBids(state, seat),
     legalCardIds: legalCards(state, seat).map((c) => c.id),
+    canClaim: canClaim(state, seat),
   };
 }

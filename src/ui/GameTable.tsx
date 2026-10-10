@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { SEATS, winningCard } from '../engine/index.ts';
 import type { GameAction, PlayerView, Seat, Team } from '../engine/index.ts';
 import { BiddingPanel } from './BiddingPanel.tsx';
+import { FinaleOverlay } from './FinaleOverlay.tsx';
+import { LastTrick } from './LastTrick.tsx';
 import { Hand } from './Hand.tsx';
 import { PlayerSeat } from './PlayerSeat.tsx';
 import { EndScreen } from './EndScreen.tsx';
@@ -14,6 +16,8 @@ import { bidShortLabel } from './labels.ts';
 import { SuitText } from './SuitText.tsx';
 import type { SeatNames } from './labels.ts';
 import type { TableEffects } from './useTableEffects.ts';
+
+const AUTO_PLAY_DELAY = 550;
 
 interface GameTableProps {
   readonly view: PlayerView;
@@ -37,7 +41,7 @@ interface GameTableProps {
 export function GameTable(props: GameTableProps) {
   const { view, names, effects, onAction, cont, menuLabel, onMenu, absentSeats, busy = false, banner } = props;
   const { voiceBar, speakingSeats, voiceMutedSeats, onHome } = props;
-  const { pausedTrick, notice, beloteBubble } = effects;
+  const { pausedTrick, notice, beloteBubble, finale } = effects;
   const mySeat = view.seat;
   const myTeam = (mySeat % 2) as Team;
   const myTurn = view.currentPlayer === mySeat && !pausedTrick && !busy;
@@ -48,6 +52,19 @@ export function GameTable(props: GameTableProps) {
     const ids = new Set(view.legalCardIds);
     return view.hand.filter((c) => ids.has(c.id));
   }, [view, myTurn]);
+
+  // Une seule carte jouable : elle part toute seule après un court instant (gain de temps).
+  const onlyCard = playable?.length === 1 ? playable[0]! : null;
+  const actionRef = useRef(onAction);
+  actionRef.current = onAction;
+  const onlyCardId = onlyCard?.id ?? null;
+  useEffect(() => {
+    if (!onlyCardId) return;
+    const timer = setTimeout(() => actionRef.current({ type: 'play', cardId: onlyCardId }), AUTO_PLAY_DELAY);
+    return () => clearTimeout(timer);
+  }, [onlyCardId, view.tricksPlayed]);
+
+  const canClaim = myTurn && view.phase === 'playing' && view.canClaim;
 
   const bidBubbles = useMemo(() => {
     const bubbles = new Map<Seat, { text: string; strong: boolean }>();
@@ -71,7 +88,11 @@ export function GameTable(props: GameTableProps) {
   } else if (view.currentPlayer === mySeat && view.phase === 'bidding') {
     status = 'À vous de parler';
   } else if (view.currentPlayer === mySeat && view.phase === 'playing') {
-    status = 'À vous de jouer : touchez une carte, puis confirmez';
+    status = onlyCard
+      ? 'Une seule carte possible : elle est jouée pour vous'
+      : canClaim
+        ? 'Toutes vos cartes sont maîtresses : étalez-les ou jouez'
+        : 'À vous de jouer : touchez une carte, puis confirmez';
   } else if (waiting !== null) {
     status = absentSeats?.has(waiting) ? `Attente du retour de ${names[waiting]}…` : `${names[waiting]} réfléchit…`;
   }
@@ -117,6 +138,10 @@ export function GameTable(props: GameTableProps) {
             mySeat={mySeat}
             trump={trump}
           />}
+        {view.phase === 'playing' && view.lastTrick && !pausedTrick && (
+          <LastTrick trick={view.lastTrick} mySeat={mySeat} names={names} trump={trump} />
+        )}
+        {finale && !pausedTrick && <FinaleOverlay finale={finale} mySeat={mySeat} names={names} trump={trump} />}
         {masterSeat !== null && (
           <p className="table__hint">{masterSeat === mySeat ? 'Vous êtes maître' : `${names[masterSeat]} est maître`}</p>
         )}
@@ -138,6 +163,14 @@ export function GameTable(props: GameTableProps) {
             onBid={(bid) => onAction({ type: 'bid', bid })}
           />
         )}
+        {canClaim && (
+          <button type="button" className="btn btn--claim btn--wide" onClick={() => onAction({ type: 'claim' })}>
+            <span lang="ar" dir="rtl">
+              تي إفرش عاد
+            </span>
+            <span className="btn__sub">Étaler mes cartes</span>
+          </button>
+        )}
         <Hand
           dealKey={`${view.handNumber}-${view.redeals}`}
           cards={view.hand}
@@ -147,7 +180,7 @@ export function GameTable(props: GameTableProps) {
         />
       </footer>
 
-      {view.phase === 'handOver' && !pausedTrick && view.lastHandResult && (
+      {view.phase === 'handOver' && !pausedTrick && !finale && view.lastHandResult && (
         <HandResultDialog
           result={view.lastHandResult}
           scores={view.scores}
@@ -157,7 +190,7 @@ export function GameTable(props: GameTableProps) {
           cont={cont}
         />
       )}
-      {view.phase === 'gameOver' && !pausedTrick && view.winner !== null && (
+      {view.phase === 'gameOver' && !pausedTrick && !finale && view.winner !== null && (
         <EndScreen
           winner={view.winner}
           history={view.handHistory}
