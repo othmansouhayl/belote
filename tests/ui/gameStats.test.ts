@@ -10,6 +10,7 @@ const hand = (p: Partial<HandResult> & Pick<HandResult, 'takerTeam' | 'success' 
     belotePoints: [0, 0],
     contractPoints: [81, 81],
     capot: null,
+    ending: { type: 'normal' },
     ...p,
   }) as HandResult;
 

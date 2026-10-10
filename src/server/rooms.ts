@@ -82,6 +82,7 @@ function parseAction(raw: unknown): GameAction | null {
   if (action.type === 'play' && typeof action.cardId === 'string' && action.cardId.length <= 16) {
     return { type: 'play', cardId: action.cardId };
   }
+  if (action.type === 'claim') return { type: 'claim' };
   return null;
 }
 

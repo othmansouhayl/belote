@@ -1875,3 +1875,228 @@ button:focus-visible {
   text-align: center;
   color: var(--ink-soft);
 }
+
+/* « تي إفرش عاد » : bouton pour étaler ses cartes maîtresses */
+.btn--claim {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-height: 54px;
+  background: linear-gradient(135deg, #ffd56b, var(--gold-deep));
+  color: #2b2104;
+  font-family: 'Noto Naskh Arabic', 'Geeza Pro', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  font-size: 1.35rem;
+  letter-spacing: 0;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.5),
+    0 0 18px rgba(255, 201, 61, 0.55);
+  animation: claim-pulse 1.4s ease-in-out infinite;
+}
+
+.btn__sub {
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+@keyframes claim-pulse {
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(255, 255, 255, 0.8),
+      0 0 28px rgba(255, 201, 61, 0.85);
+  }
+}
+
+/* Fin de manche anticipée, au milieu de la table */
+.finale {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  text-align: center;
+  background: radial-gradient(circle at center, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.15) 70%);
+  animation: fade 0.25s ease-out;
+  pointer-events: none;
+}
+
+.finale__shout {
+  margin: 0;
+  font-family: 'Noto Naskh Arabic', 'Geeza Pro', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  font-size: clamp(2.4rem, 13vw, 4rem);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0;
+  color: var(--gold);
+  text-shadow:
+    0 3px 0 rgba(0, 0, 0, 0.35),
+    0 0 24px rgba(240, 195, 90, 0.6);
+  animation: shout 0.5s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+.finale__shout--laugh {
+  color: #ff9f80;
+  text-shadow:
+    0 3px 0 rgba(0, 0, 0, 0.35),
+    0 0 24px rgba(255, 120, 90, 0.6);
+  animation:
+    shout 0.5s cubic-bezier(0.2, 1.6, 0.4, 1),
+    laugh 0.35s ease-in-out 0.5s 5;
+}
+
+.finale__caption {
+  margin: 0;
+  max-width: 300px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.finale__cards {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.finale__card {
+  animation: finale-card 0.3s ease-out backwards;
+  animation-delay: calc(0.2s + var(--i) * 70ms);
+}
+
+@keyframes finale-card {
+  from {
+    transform: translateY(16px) scale(0.85);
+    opacity: 0;
+  }
+}
+
+@keyframes shout {
+  from {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+}
+
+@keyframes laugh {
+  25% {
+    transform: rotate(-6deg) scale(1.05);
+  }
+  75% {
+    transform: rotate(6deg) scale(1.05);
+  }
+}
+
+/* Dernier pli : miniature en haut à droite */
+.last-trick {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 24;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px 6px;
+  border: 1px solid rgba(240, 195, 90, 0.3);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--ink-soft);
+}
+
+.last-trick__label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.last-trick__cards {
+  position: relative;
+  width: 58px;
+  height: 52px;
+}
+
+.last-trick__card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+}
+
+.last-trick__card .card--trick {
+  width: 22px;
+  height: calc(22px * var(--card-ratio));
+  border-radius: 3px;
+}
+
+.last-trick__card .card__trump {
+  display: none;
+}
+
+.last-trick__card--bottom {
+  transform: translate(-50%, -30%);
+  z-index: 4;
+}
+
+.last-trick__card--top {
+  transform: translate(-50%, -70%);
+}
+
+.last-trick__card--left {
+  transform: translate(-95%, -50%);
+}
+
+.last-trick__card--right {
+  transform: translate(-5%, -50%);
+}
+
+.last-trick-dialog__table {
+  display: grid;
+  grid-template-areas:
+    '. top .'
+    'left . right'
+    '. bottom .';
+  justify-content: center;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 8px 0 4px;
+}
+
+.last-trick-dialog__slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.last-trick-dialog__slot--top {
+  grid-area: top;
+}
+
+.last-trick-dialog__slot--left {
+  grid-area: left;
+}
+
+.last-trick-dialog__slot--right {
+  grid-area: right;
+}
+
+.last-trick-dialog__slot--bottom {
+  grid-area: bottom;
+}
+
+.last-trick-dialog__slot--winner .card {
+  box-shadow:
+    0 0 0 3px var(--gold),
+    0 4px 10px rgba(0, 0, 0, 0.3);
+}

@@ -54,16 +54,30 @@ export interface RulesConfig {
   /** VALIDÉ [11] : pas de tierce, cinquante, cent ni carré. */
   readonly allowAnnonces: false;
   readonly belotePoints: number;
-  /** À CONFIRMER [10] : la belote reste acquise au camp qui la détient, même en cas de chute. */
+  /**
+   * Contrat réussi sans coinche : true = la belote reste au camp qui la détient, même si c'est
+   * la défense ; false = la belote de la défense est perdue.
+   */
   readonly beloteAlwaysScored: boolean;
+  /**
+   * VALIDÉ [10] : contrat chuté (y compris capot annoncé chuté) : les 20 points de belote vont
+   * à la défense, quel que soit le joueur qui la détient et même si elle n'a pas été jouée.
+   * 'holder' = ancienne règle (la belote reste à celui qui la détient, cf. beloteAlwaysScored).
+   */
+  readonly beloteOnFailure: 'defense' | 'holder';
+  /**
+   * Contrat coinché ou surcoinché réussi (« chute à l'envers ») : la belote va au preneur.
+   * 'holder' = elle reste au camp qui la détient.
+   */
+  readonly beloteOnCoinchedSuccess: 'taker' | 'holder';
   /** À CONFIRMER [10] : les 20 points de belote comptent pour atteindre le contrat. */
   readonly beloteCountsForContract: boolean;
   readonly lastTrickBonus: number;
 
   // Score
-  /** À CONFIRMER [9] */
+  /** VALIDÉ [9] : ×2 pour une coinche. */
   readonly coincheMultiplier: number;
-  /** À CONFIRMER [9] */
+  /** VALIDÉ [9] : ×4 pour une surcoinche. */
   readonly surcoincheMultiplier: number;
   /**
    * VALIDÉ [12] : score du preneur quand le contrat est réussi.
@@ -74,8 +88,15 @@ export interface RulesConfig {
    * La défense marque toujours ses points réalisés.
    */
   readonly contractSuccessScoring: ContractSuccessScoring;
-  /** À CONFIRMER [13] : en cas de chute, la défense marque ce nombre + la valeur du contrat. */
+  /** VALIDÉ [13] : contrat chuté = 160 pour la défense (× coinche / surcoinche), le preneur marque 0. */
   readonly failedContractBasePoints: number;
+  /** 'fixed' = 160 × multiplicateur (validé) ; 'fixedPlusContract' = (160 + valeur du contrat) × multiplicateur. */
+  readonly failedContractScoring: 'fixed' | 'fixedPlusContract';
+  /**
+   * VALIDÉ [9] : contrat coinché ou surcoinché réussi : le preneur marque 160 × multiplicateur
+   * (320 coinché, 640 surcoinché) et la défense 0. 'likeUncoinched' = calcul habituel × multiplicateur.
+   */
+  readonly coinchedSuccessScoring: 'fixed' | 'likeUncoinched';
   /** VALIDÉ [14] */
   readonly capotAnnouncedSuccessPoints: number;
   /** VALIDÉ [14] */
@@ -121,6 +142,8 @@ export const DEFAULT_RULES: RulesConfig = {
   allowAnnonces: false,
   belotePoints: 20,
   beloteAlwaysScored: true,
+  beloteOnFailure: 'defense',
+  beloteOnCoinchedSuccess: 'taker',
   beloteCountsForContract: true,
   lastTrickBonus: 10,
 
@@ -128,6 +151,8 @@ export const DEFAULT_RULES: RulesConfig = {
   surcoincheMultiplier: 4,
   contractSuccessScoring: 'realizedPoints',
   failedContractBasePoints: 160,
+  failedContractScoring: 'fixed',
+  coinchedSuccessScoring: 'fixed',
   capotAnnouncedSuccessPoints: 500,
   capotAnnouncedFailurePoints: 500,
   capotUnannouncedPoints: 250,

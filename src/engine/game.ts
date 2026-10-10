@@ -2,10 +2,12 @@ import type {
   ActionResult,
   BidAction,
   Card,
+  CompletedTrick,
   DealPattern,
   FinalContract,
   GameAction,
   GameState,
+  HandEnding,
   Seat,
   Trick,
 } from './types.ts';
@@ -15,8 +17,10 @@ import { dealCards, validateDealPattern } from './deal.ts';
 import { applyBid, createBiddingState, getLegalBids, validateBid } from './bidding.ts';
 import { getLegalCards, resolveTrick, validatePlay } from './play.ts';
 import { applyHandScore, resolveContract } from './scoring.ts';
+import type { HandRemainder } from './scoring.ts';
+import { canClaimWith } from './claim.ts';
 import { createRng, randomInt } from './random.ts';
-import { nextSeat } from './seats.ts';
+import { nextSeat, teamOf } from './seats.ts';
 
 export interface CreateGameOptions {
   readonly rules?: Partial<RulesConfig>;
@@ -49,6 +53,7 @@ export function createGame(options: CreateGameOptions = {}): GameState {
     contract: null,
     beloteHolder: null,
     beloteEvents: [],
+    revealed: null,
     trick: null,
     completedTricks: [],
     scores: [0, 0],
@@ -74,6 +79,7 @@ function dealHand(state: GameState, dealer: Seat, handNumber: number, redeals: n
     contract: null,
     beloteHolder: null,
     beloteEvents: [],
+    revealed: null,
     trick: null,
     completedTricks: [],
   };
@@ -99,6 +105,19 @@ export function legalCards(state: GameState, seat: Seat): Card[] {
   return getLegalCards(state.hands[seat] ?? [], state.trick, seat, state.contract.suit, state.config);
 }
 
+/**
+ * Vrai si `seat` peut étaler ses cartes (« تي إفرش عاد ») : c'est à lui d'entamer un pli,
+ * il lui reste au moins 2 cartes, et elles sont toutes maîtresses d'après ce qu'il sait.
+ */
+export function canClaim(state: GameState, seat: Seat): boolean {
+  if (state.phase !== 'playing' || state.currentPlayer !== seat || !state.contract) return false;
+  if (!state.trick || state.trick.cards.length > 0) return false;
+  const hand = state.hands[seat] ?? [];
+  if (hand.length < 2) return false;
+  const played = state.completedTricks.flatMap((t) => t.cards.map((c) => c.card));
+  return canClaimWith(hand, played, state.contract.suit);
+}
+
 /** Point d'entrée unique : applique l'action d'un joueur ou explique pourquoi elle est refusée. */
 export function applyAction(state: GameState, seat: Seat, action: GameAction): ActionResult {
   if (state.phase === 'gameOver') return { ok: false, error: 'La partie est terminée.' };
@@ -110,6 +129,14 @@ export function applyAction(state: GameState, seat: Seat, action: GameAction): A
     return applyBidAction(state, seat, action.bid);
   }
   if (state.phase !== 'playing') return { ok: false, error: 'Les enchères ne sont pas terminées.' };
+  if (action.type === 'claim') {
+    if (!canClaim(state, seat)) {
+      return { ok: false, error: 'Vous ne pouvez étaler vos cartes que si elles sont toutes maîtresses, à votre tour d’entamer.' };
+    }
+    const revealed = { seat, cards: state.hands[seat] ?? [] };
+    const remainder = { team: teamOf(seat), cards: state.hands.flat() };
+    return { ok: true, state: endHand({ ...state, revealed }, state.completedTricks, remainder, { type: 'claim', seat }) };
+  }
   return applyPlayAction(state, seat, action.cardId);
 }
 
@@ -188,6 +215,14 @@ function applyPlayAction(state: GameState, seat: Seat, cardId: string): ActionRe
 
   const winner = resolveTrick(played, contract.suit);
   const completedTricks = [...state.completedTricks, { ...played, winner }];
+  if (contract.value === 'capot' && teamOf(winner) !== teamOf(contract.bidder) && completedTricks.length < 8) {
+    // Capot annoncé chuté (« يروووووووح ») : inutile de jouer la suite, les cartes restantes
+    // reviennent à la défense.
+    return {
+      ok: true,
+      state: endHand(base, completedTricks, { team: teamOf(winner), cards: hands.flat() }, { type: 'capotFailed', seat: winner }),
+    };
+  }
   if (completedTricks.length < 8) {
     return {
       ok: true,
@@ -195,20 +230,30 @@ function applyPlayAction(state: GameState, seat: Seat, cardId: string): ActionRe
     };
   }
 
-  const result = resolveContract(completedTricks, contract, state.beloteHolder, state.config);
-  const { scores, winner: gameWinner } = applyHandScore(state.scores, result, state.config);
+  return { ok: true, state: endHand(base, completedTricks, null, { type: 'normal' }) };
+}
+
+/** Termine la manche : score, cartes restantes ramassées, partie éventuellement gagnée. */
+function endHand(
+  state: GameState,
+  completedTricks: readonly CompletedTrick[],
+  remainder: HandRemainder | null,
+  ending: HandEnding,
+): GameState {
+  const contract = state.contract;
+  if (!contract) throw new Error('État de jeu incohérent.');
+  const result = resolveContract(completedTricks, contract, state.beloteHolder, state.config, remainder, ending);
+  const { scores, winner } = applyHandScore(state.scores, result, state.config);
   return {
-    ok: true,
-    state: {
-      ...base,
-      completedTricks,
-      trick: null,
-      currentPlayer: null,
-      scores,
-      lastHandResult: result,
-      handHistory: [...state.handHistory, result],
-      winner: gameWinner,
-      phase: gameWinner === null ? 'handOver' : 'gameOver',
-    },
+    ...state,
+    hands: [[], [], [], []],
+    completedTricks,
+    trick: null,
+    currentPlayer: null,
+    scores,
+    lastHandResult: result,
+    handHistory: [...state.handHistory, result],
+    winner,
+    phase: winner === null ? 'handOver' : 'gameOver',
   };
 }
