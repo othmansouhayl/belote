@@ -2,7 +2,7 @@ import {
   RANKS,
   SUITS,
   cardPoints,
-  canClaimWith,
+  canClaimNow,
   cardStrength,
   getLegalBids,
   getLegalCards,
@@ -182,9 +182,8 @@ function chooseCard(view: BotView): Card {
 export function chooseBotAction(view: BotView): GameAction {
   if (view.contract === null) return { type: 'bid', bid: chooseBid(view) };
   // Toutes ses cartes sont maîtresses : le bot les étale pour ne pas faire attendre la table.
-  if (view.trick?.cards.length === 0 && view.hand.length >= 2) {
-    const played = view.completedTricks.flatMap((t) => t.cards.map((c) => c.card));
-    if (canClaimWith(view.hand, played, view.contract.suit)) return { type: 'claim' };
+  if (view.trick && canClaimNow(view.hand, view.completedTricks, view.trick, view.seat, view.contract.suit, view.config)) {
+    return { type: 'claim' };
   }
   return { type: 'play', cardId: chooseCard(view).id };
 }
