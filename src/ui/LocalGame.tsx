@@ -3,6 +3,7 @@ import { applyAction, createGame, getPlayerView, legalBids, startNextHand } from
 import type { GameAction, GameState, Seat } from '../engine/index.ts';
 import { botView, chooseBotAction } from '../bots/simpleBot.ts';
 import { GameTable } from './GameTable.tsx';
+import { GameMenu } from './GameMenu.tsx';
 import { HUMAN, PLAYER_NAMES } from './labels.ts';
 import { useTableEffects } from './useTableEffects.ts';
 
@@ -25,6 +26,7 @@ interface LocalGameProps {
 
 export function LocalGame({ targetScore, onExit }: LocalGameProps) {
   const [game, setGame] = useState<GameState>(() => createGame({ seed: initialSeed(), rules: { targetScore } }));
+  const [menuOpen, setMenuOpen] = useState(false);
   const gameRef = useRef(game);
   gameRef.current = game;
 
@@ -37,8 +39,7 @@ export function LocalGame({ targetScore, onExit }: LocalGameProps) {
       const before = gameRef.current;
       // Un double appui rapide arrive après que le tour est passé : on l'ignore.
       // La contrée et le كبوط peuvent se dire hors tour : on ne laisse passer que ce que le moteur permet.
-      const outOfTurnBid =
-        action.type === 'bid' && legalBids(before, HUMAN).some((b) => JSON.stringify(b) === JSON.stringify(action.bid));
+      const outOfTurnBid = action.type === 'bid' && legalBids(before, HUMAN).some((b) => JSON.stringify(b) === JSON.stringify(action.bid));
       if (seat === HUMAN && before.currentPlayer !== HUMAN && !outOfTurnBid) return;
       const result = applyAction(before, seat, action);
       if (!result.ok) {
@@ -74,22 +75,36 @@ export function LocalGame({ targetScore, onExit }: LocalGameProps) {
   }, [targetScore]);
 
   return (
-    <GameTable
-      view={view}
-      names={PLAYER_NAMES}
-      effects={effects}
-      onAction={(action) => perform(HUMAN, action)}
-      cont={{
-        label: game.phase === 'gameOver' ? 'Nouvelle partie' : 'Manche suivante',
-        acked: false,
-        waitingNames: [],
-        onContinue,
-      }}
-      onHome={onExit}
-      menuLabel="Retour à l'accueil"
-      onMenu={() => {
-        if (window.confirm('Quitter cette partie et revenir à l’accueil ?')) onExit();
-      }}
-    />
+    <>
+      <GameTable
+        view={view}
+        names={PLAYER_NAMES}
+        effects={effects}
+        onAction={(action) => perform(HUMAN, action)}
+        cont={{
+          label: game.phase === 'gameOver' ? 'Nouvelle partie' : 'Manche suivante',
+          acked: false,
+          waitingNames: [],
+          onContinue,
+        }}
+        onHome={onExit}
+        menuLabel="Menu"
+        onMenu={() => setMenuOpen(true)}
+      />
+      {menuOpen && (
+        <GameMenu
+          onClose={() => setMenuOpen(false)}
+          actions={[
+            {
+              label: 'Quitter la partie',
+              danger: true,
+              onClick: () => {
+                if (window.confirm('Quitter cette partie et revenir à l’accueil ?')) onExit();
+              },
+            },
+          ]}
+        />
+      )}
+    </>
   );
 }

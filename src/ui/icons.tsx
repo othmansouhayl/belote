@@ -40,3 +40,11 @@ export function SpeakerOffIcon() {
     </svg>
   );
 }
+
+export function PowerIcon() {
+  return (
+    <svg {...base}>
+      <path d="M12 3v9M6.3 6.3a8 8 0 1 0 11.4 0" />
+    </svg>
+  );
+}

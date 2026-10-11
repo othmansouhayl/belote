@@ -15,6 +15,8 @@ export type { Channel, MusicMood } from './musicChannels.ts';
 export interface MusicState {
   readonly on: boolean;
   readonly channel: number;
+  /** Volume choisi (0 à 1) : un pour l'accueil, un pendant les parties. */
+  readonly volumes: Readonly<Record<MusicMood, number>>;
   /** Le son sort vraiment (faux tant que personne n'a touché l'écran). */
   readonly playing: boolean;
 }
@@ -27,20 +29,30 @@ let audio: HTMLAudioElement | null = null;
 let gain: GainNode | null = null;
 let context: AudioContext | null = null;
 
-function readSaved(): { on: boolean; channel: number } {
+const clampVolume = (v: unknown, fallback: number) => (typeof v === 'number' && v >= 0 && v <= 1 ? v : fallback);
+
+function readSaved(): Omit<MusicState, 'playing'> {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as { on?: unknown; channel?: unknown };
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as {
+      on?: unknown;
+      channel?: unknown;
+      volumes?: Partial<Record<MusicMood, unknown>>;
+    };
     const channel = typeof saved.channel === 'number' && saved.channel >= 0 && saved.channel < CHANNELS.length ? saved.channel : 0;
-    return { on: saved.on !== false, channel };
+    const volumes = {
+      home: clampVolume(saved.volumes?.home, MUSIC_VOLUME.home),
+      game: clampVolume(saved.volumes?.game, MUSIC_VOLUME.game),
+    };
+    return { on: saved.on !== false, channel, volumes };
   } catch {
-    return { on: true, channel: 0 };
+    return { on: true, channel: 0, volumes: MUSIC_VOLUME };
   }
 }
 
 function setState(next: Partial<MusicState>) {
   state = { ...state, ...next };
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ on: state.on, channel: state.channel }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ on: state.on, channel: state.channel, volumes: state.volumes }));
   } catch {
     // Stockage indisponible : le réglage vaut pour cette visite seulement.
   }
@@ -49,8 +61,8 @@ function setState(next: Partial<MusicState>) {
 
 /** Volume réglé par WebAudio (seul moyen sur iPhone), sinon directement sur le lecteur. */
 function applyVolume() {
-  const volume = MUSIC_VOLUME[mood];
-  if (gain && context) gain.gain.setTargetAtTime(volume, context.currentTime, 0.4);
+  const volume = state.volumes[mood];
+  if (gain && context) gain.gain.setTargetAtTime(volume, context.currentTime, 0.15);
   else if (audio) audio.volume = volume;
 }
 
@@ -65,7 +77,7 @@ function player(): HTMLAudioElement {
   try {
     context = new AudioContext();
     gain = context.createGain();
-    gain.gain.value = MUSIC_VOLUME[mood];
+    gain.gain.value = state.volumes[mood];
     context.createMediaElementSource(audio).connect(gain).connect(context.destination);
   } catch {
     context = null;
@@ -102,6 +114,17 @@ export function tune(channel: number) {
   setState({ channel: ((channel % CHANNELS.length) + CHANNELS.length) % CHANNELS.length, on: true });
   if (audio) audio.src = CHANNELS[state.channel]!.src;
   start();
+}
+
+/** Règle le volume de la musique (0 à 1) pour l'accueil ou pour les parties. */
+export function setMusicVolume(which: MusicMood, volume: number) {
+  setState({ volumes: { ...state.volumes, [which]: Math.min(1, Math.max(0, volume)) } });
+  applyVolume();
+}
+
+/** Où l'on est : l'accueil ou une partie (le volume suit). */
+export function currentMusicMood(): MusicMood {
+  return mood;
 }
 
 export function setMusicMood(next: MusicMood) {

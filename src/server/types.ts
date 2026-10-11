@@ -29,6 +29,8 @@ export interface RoomAggregate {
   readonly acks: readonly string[];
   /** Table du Café Tarek (1 à 6) choisie à la création ; absente pour les anciens salons. */
   readonly tableNumber?: number;
+  /** Joueurs ayant quitté la table pendant ou après la partie : quand tous sont partis, la table se libère. */
+  readonly left?: readonly string[];
 }
 
 /**
@@ -66,7 +68,13 @@ export interface RoomView {
   /** Table du café (1 à 6), ou null pour un salon sans table. */
   readonly tableNumber?: number | null;
   readonly mySeat: Seat;
-  readonly players: readonly { readonly seat: Seat; readonly nickname: string; readonly ready: boolean }[];
+  readonly players: readonly {
+    readonly seat: Seat;
+    readonly nickname: string;
+    readonly ready: boolean;
+    /** A quitté la table (bouton « Quitter la table »). */
+    readonly left?: boolean;
+  }[];
   readonly settings: RoomSettings;
   readonly hostSeat: Seat | null;
   readonly ackSeats: readonly Seat[];
@@ -80,6 +88,8 @@ export type RoomRequest =
   | { readonly type: 'ready'; readonly roomId: string; readonly ready: boolean }
   | { readonly type: 'settings'; readonly roomId: string; readonly settings: RoomSettings }
   | { readonly type: 'leave'; readonly roomId: string }
+  /** Quitter la table pendant ou après une partie : la table se libère quand les 4 sont partis. */
+  | { readonly type: 'quit'; readonly roomId: string }
   | { readonly type: 'game'; readonly roomId: string; readonly action: GameAction }
   | { readonly type: 'continue'; readonly roomId: string };
 

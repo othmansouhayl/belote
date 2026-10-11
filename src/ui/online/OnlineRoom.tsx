@@ -3,6 +3,7 @@ import { SEATS } from '../../engine/index.ts';
 import type { GameAction, Seat } from '../../engine/index.ts';
 import type { RoomRequest } from '../../server/types.ts';
 import { GameTable } from '../GameTable.tsx';
+import { GameMenu } from '../GameMenu.tsx';
 import type { SeatNames } from '../labels.ts';
 import { useTableEffects } from '../useTableEffects.ts';
 import { Lobby } from './Lobby.tsx';
@@ -25,10 +26,18 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
   const { view, connection, presentSeats, removed, error, sendVoice, onVoice } = useRoom(roomId);
   const [busy, setBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const names = useMemo<SeatNames>(() => {
-    const map = { 0: 'Place 1', 1: 'Place 2', 2: 'Place 3', 3: 'Place 4' } as Record<Seat, string>;
-    for (const p of view?.players ?? []) map[p.seat] = p.seat === view?.mySeat ? 'Vous' : p.nickname;
+    const map = {
+      0: 'Place 1',
+      1: 'Place 2',
+      2: 'Place 3',
+      3: 'Place 4',
+    } as Record<Seat, string>;
+    for (const p of view?.players ?? []) {
+      map[p.seat] = p.seat === view?.mySeat ? 'Vous' : p.left ? `${p.nickname} (parti)` : p.nickname;
+    }
     return map;
   }, [view]);
 
@@ -123,30 +132,51 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
   const waitingNames = acked ? SEATS.filter((s) => !view.ackSeats.includes(s)).map((s) => names[s]) : [];
 
   return (
-    <GameTable
-      view={game}
-      names={names}
-      effects={effects}
-      busy={busy}
-      absentSeats={absentSeats}
-      banner={banner}
-      voiceBar={<VoiceBar voice={voice} className="voice--table" />}
-      speakingSeats={voice.snapshot.speaking}
-      voiceMutedSeats={voice.snapshot.mutedSeats}
-      voiceLinks={voiceLinks}
-      onAction={(action: GameAction) => void send({ type: 'game', action })}
-      cont={{
-        label: game.phase === 'gameOver' ? 'Rejouer avec la même table' : 'Manche suivante',
-        acked,
-        waitingNames,
-        onContinue: () => void send({ type: 'continue' }),
-      }}
-      onHome={() => onExit(false)}
-      menuLabel="Retour à l'accueil"
-      onMenu={() => {
-        if (window.confirm('Revenir à l’accueil ? Votre place est gardée : vous pourrez reprendre la partie.')) onExit(false);
-      }}
-    />
+    <>
+      <GameTable
+        view={game}
+        names={names}
+        effects={effects}
+        busy={busy}
+        absentSeats={absentSeats}
+        banner={banner}
+        voiceBar={<VoiceBar voice={voice} className="voice--table" />}
+        speakingSeats={voice.snapshot.speaking}
+        voiceMutedSeats={voice.snapshot.mutedSeats}
+        voiceLinks={voiceLinks}
+        onAction={(action: GameAction) => void send({ type: 'game', action })}
+        cont={{
+          label: game.phase === 'gameOver' ? 'Rejouer avec la même table' : 'Manche suivante',
+          acked,
+          waitingNames,
+          onContinue: () => void send({ type: 'continue' }),
+        }}
+        onHome={() => onExit(false)}
+        menuLabel="Menu"
+        onMenu={() => setMenuOpen(true)}
+      />
+      {menuOpen && (
+        <GameMenu
+          onClose={() => setMenuOpen(false)}
+          actions={[
+            {
+              label: 'Revenir à l’accueil',
+              hint: 'Ta place est gardée : tu pourras reprendre la partie.',
+              onClick: () => onExit(false),
+            },
+            {
+              label: 'Quitter la table',
+              danger: true,
+              hint: 'Quand les 4 joueurs ont quitté la table, elle se libère pour d’autres.',
+              onClick: async () => {
+                if (!window.confirm('Quitter la table ? Tu ne pourras revenir qu’avec le code du salon.')) return;
+                if (await send({ type: 'quit' })) onExit(true);
+              },
+            },
+          ]}
+        />
+      )}
+    </>
   );
 }
 
