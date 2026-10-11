@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { BELOTE_TABLES, CAFE, SEAT_SIDES, TERRACE_TABLE, VIEWPOINTS, seatOffset } from './cafeLayout.ts';
+import { ambianceAt, currentHour } from './ambiance.ts';
+import type { Ambiance } from './ambiance.ts';
+import { MOHAMED_NACEUR, NADER, TAREK, Walker, chicha, createPerson, hose, tray } from './characters.ts';
 import type { SeatSide, TableSpot, Viewpoint } from './cafeLayout.ts';
 
 /** État d'une table de belote tel que l'affiche la maquette (informations publiques). */
@@ -78,26 +81,19 @@ const terrazzo = (base: string, repeat: [number, number]) =>
     repeat,
   );
 
-const woodPanels = (repeat: [number, number]) =>
+/** Murs « blanc sale » : enduit blanc cassé, très légèrement irrégulier. */
+const plaster = (repeat: [number, number]) =>
   canvasTexture(
-    256,
+    128,
     128,
     (ctx) => {
-      const grad = ctx.createLinearGradient(0, 0, 0, 128);
-      grad.addColorStop(0, '#8a5a32');
-      grad.addColorStop(1, '#6a4224');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 256, 128);
-      ctx.strokeStyle = 'rgba(40, 22, 10, 0.55)';
-      ctx.lineWidth = 3;
-      for (let x = 0; x <= 256; x += 64) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, 128);
-        ctx.stroke();
+      ctx.fillStyle = '#e6dfcd';
+      ctx.fillRect(0, 0, 128, 128);
+      const rand = seeded(11);
+      for (let i = 0; i < 500; i++) {
+        ctx.fillStyle = rand() < 0.5 ? 'rgba(120, 105, 80, 0.06)' : 'rgba(255, 255, 255, 0.08)';
+        ctx.fillRect(rand() * 128, rand() * 128, 1 + rand() * 3, 1 + rand() * 3);
       }
-      ctx.fillStyle = 'rgba(255, 210, 150, 0.08)';
-      for (let x = 8; x < 256; x += 64) ctx.fillRect(x, 0, 6, 128);
     },
     repeat,
   );
@@ -171,15 +167,6 @@ const paving = (repeat: [number, number]) =>
     repeat,
   );
 
-const feltTexture = () =>
-  canvasTexture(128, 128, (ctx) => {
-    ctx.fillStyle = '#1d7a4c';
-    ctx.fillRect(0, 0, 128, 128);
-    ctx.strokeStyle = 'rgba(240,195,90,0.7)';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(10, 10, 108, 108);
-  });
-
 /* ----------------------------------------------------------------------------
  * Mobilier
  * -------------------------------------------------------------------------- */
@@ -191,6 +178,11 @@ const MATERIALS = {
   wood: mat(0x6b4226),
   darkWood: mat(0x3e2614),
   chair: mat(0x4a2c17),
+  /** Chaises du café : blanches et bordeaux, en alternance. */
+  chairWhite: mat(0xf0ebe0, { roughness: 0.5 }),
+  chairBordeaux: mat(0x6e1a2b, { roughness: 0.55 }),
+  tableBrown: mat(0x7a4a2a, { roughness: 0.6 }),
+  baseboard: mat(0x5a3a22),
   metal: mat(0x9aa1a6, { metalness: 0.7, roughness: 0.35 }),
   black: mat(0x1d1f22, { roughness: 0.5 }),
   white: mat(0xf2efe8, { roughness: 0.4 }),
@@ -215,11 +207,14 @@ function cylinder(rTop: number, rBottom: number, h: number, material: THREE.Mate
   return mesh;
 }
 
-/** Chaise tournée vers -z (dossier côté +z) ; la rotation l'oriente vers sa table. */
+let chairCount = 0;
+
+/** Chaise tournée vers -z (dossier côté +z) ; la rotation l'oriente vers sa table. Blanche ou bordeaux. */
 function chair(x: number, y: number, z: number, rotation: number) {
   const group = new THREE.Group();
-  group.add(box(0.42, 0.05, 0.42, MATERIALS.chair, 0, 0.46, 0));
-  group.add(box(0.42, 0.5, 0.05, MATERIALS.chair, 0, 0.72, 0.19));
+  const color = chairCount++ % 2 === 0 ? MATERIALS.chairWhite : MATERIALS.chairBordeaux;
+  group.add(box(0.42, 0.05, 0.42, color, 0, 0.46, 0));
+  group.add(box(0.42, 0.5, 0.05, color, 0, 0.72, 0.19));
   for (const [dx, dz] of [
     [-0.18, -0.18],
     [0.18, -0.18],
@@ -233,7 +228,7 @@ function chair(x: number, y: number, z: number, rotation: number) {
   return group;
 }
 
-function squareTable(size: number, x: number, y: number, z: number, top: THREE.Material = MATERIALS.wood) {
+function squareTable(size: number, x: number, y: number, z: number, top: THREE.Material = MATERIALS.tableBrown) {
   const group = new THREE.Group();
   group.add(box(size, 0.05, size, top, 0, 0.75, 0));
   group.add(cylinder(0.05, 0.05, 0.72, MATERIALS.darkWood, 0, 0.37, 0, 8));
@@ -269,7 +264,13 @@ function avatar(color: number) {
  * Construction de la salle
  * -------------------------------------------------------------------------- */
 
-function buildRoom(scene: THREE.Scene) {
+/** Matériaux dont la couleur change avec l'heure (rue, enseigne). */
+interface RoomHandles {
+  readonly street: THREE.MeshStandardMaterial;
+  readonly sign: THREE.MeshStandardMaterial;
+}
+
+function buildRoom(scene: THREE.Scene): RoomHandles {
   const { width, length, wallHeight, stepZ, stepHeight, terraceDepth } = CAFE;
   const half = width / 2;
   const frontLength = -stepZ;
@@ -303,19 +304,21 @@ function buildRoom(scene: THREE.Scene) {
   terrace.rotation.x = -Math.PI / 2;
   terrace.position.set(0, -0.01, terraceDepth / 2);
   scene.add(terrace);
-  const street = new THREE.Mesh(new THREE.PlaneGeometry(40, 30), mat(0x3a3d40, { roughness: 1 }));
+  const streetMaterial = mat(0x3a3d40, { roughness: 1 });
+  const street = new THREE.Mesh(new THREE.PlaneGeometry(40, 30), streetMaterial);
   street.rotation.x = -Math.PI / 2;
   street.position.set(0, -0.03, 0);
   scene.add(street);
 
-  // Murs : extérieur sombre, lambris de bois à l'intérieur.
-  const panelMaterial = (len: number) => new THREE.MeshStandardMaterial({ map: woodPanels([len / 2, 1]), roughness: 0.7 });
+  // Murs : extérieur sombre, intérieur « blanc sale » avec une plinthe en bois.
+  const panelMaterial = (len: number) => new THREE.MeshStandardMaterial({ map: plaster([len / 2, 1]), roughness: 0.9 });
   const leftWall = new THREE.Group();
   leftWall.add(box(0.2, wallHeight, length, MATERIALS.wallOuter, -half - 0.1, wallHeight / 2, -length / 2));
-  const leftPanel = new THREE.Mesh(new THREE.PlaneGeometry(length, wallHeight - 0.4), panelMaterial(length));
+  const leftPanel = new THREE.Mesh(new THREE.PlaneGeometry(length, wallHeight), panelMaterial(length));
   leftPanel.rotation.y = Math.PI / 2;
   leftPanel.position.set(-half + 0.005, wallHeight / 2, -length / 2);
   leftWall.add(leftPanel);
+  leftWall.add(box(0.03, 0.12, length, MATERIALS.baseboard, -half + 0.015, 0.06, -length / 2));
   scene.add(leftWall);
 
   // Mur de droite, ouvert pour la 2e entrée (au milieu, au niveau de la marche).
@@ -327,10 +330,11 @@ function buildRoom(scene: THREE.Scene) {
   ] as const) {
     const len = from - to;
     scene.add(box(0.2, wallHeight, len, MATERIALS.wallOuter, half + 0.1, wallHeight / 2, (from + to) / 2));
-    const panel = new THREE.Mesh(new THREE.PlaneGeometry(len, wallHeight - 0.4), panelMaterial(len));
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(len, wallHeight), panelMaterial(len));
     panel.rotation.y = -Math.PI / 2;
     panel.position.set(half - 0.005, wallHeight / 2, (from + to) / 2);
     scene.add(panel);
+    scene.add(box(0.03, 0.12, len, MATERIALS.baseboard, half - 0.015, 0.06, (from + to) / 2));
   }
   scene.add(box(0.22, 0.3, doorFrom - doorTo, MATERIALS.wallOuter, half + 0.1, wallHeight - 0.15, (doorFrom + doorTo) / 2));
 
@@ -380,13 +384,12 @@ function buildRoom(scene: THREE.Scene) {
     scene.add(door);
   }
   const signTexture = signboard();
-  const sign = new THREE.Mesh(
-    new THREE.PlaneGeometry(2.6, 0.65),
-    new THREE.MeshStandardMaterial({ map: signTexture, emissive: 0xffffff, emissiveMap: signTexture, emissiveIntensity: 0.35 }),
-  );
+  const signMaterial = new THREE.MeshStandardMaterial({ map: signTexture, emissive: 0xffffff, emissiveMap: signTexture, emissiveIntensity: 0.35 });
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65), signMaterial);
   sign.position.set(0, wallHeight + 0.35, 0.22);
   scene.add(sign);
   scene.add(box(2.7, 0.75, 0.08, MATERIALS.black, 0, wallHeight + 0.35, 0.17));
+  return { street: streetMaterial, sign: signMaterial };
 }
 
 /** Comptoir à droite en entrant : machine à café, tasses, vitrine à pâtisseries. */
@@ -468,9 +471,14 @@ interface TableObjects {
 }
 
 export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement, callbacks: Callbacks): CafeSceneHandle {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'low-power' });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'default' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0x0d2219);
+  // Lumière plus douce et plus juste : rendu « cinéma » et ombres adoucies.
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(renderer.domElement);
   renderer.domElement.className = 'cafe__canvas';
 
@@ -480,22 +488,64 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
   const start = VIEWPOINTS.entrance;
   camera.position.set(...start.camera);
 
-  scene.add(new THREE.HemisphereLight(0xfff1dc, 0x3a2a1c, 1.1));
-  const sun = new THREE.DirectionalLight(0xffe2b8, 1.2);
-  sun.position.set(4, 10, 6);
-  scene.add(sun);
-  // Lumières chaudes : comptoir et salle du fond.
-  for (const [x, z, intensity] of [
-    [0.8, -6, 6],
-    [0, -15.5, 7],
-    [0, -18.5, 7],
+  // Lumières : ambiance (ciel/sol), lumière principale qui donne les ombres, lampes chaudes.
+  const hemi = new THREE.HemisphereLight(0xfff1dc, 0x3a2a1c, 1.1);
+  scene.add(hemi);
+  const key = new THREE.DirectionalLight(0xffe2b8, 1.6);
+  key.position.set(3.5, 13, 3);
+  key.target.position.set(0, 0, -8.5);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  Object.assign(key.shadow.camera, { left: -7, right: 7, top: 15, bottom: -15, near: 1, far: 40 });
+  key.shadow.bias = -0.0006;
+  key.shadow.normalBias = 0.03;
+  scene.add(key, key.target);
+  const lamps: THREE.PointLight[] = [];
+  for (const [x, z] of [
+    [0.8, -6],
+    [0, -15.4],
+    [0, -18.4],
   ] as const) {
-    const light = new THREE.PointLight(0xffc98a, intensity, 7, 1.6);
-    light.position.set(x, 2.4, z);
+    const light = new THREE.PointLight(0xffc98a, 5, 7.5, 1.6);
+    light.position.set(x, 2.3, z);
     scene.add(light);
+    lamps.push(light);
   }
 
-  buildRoom(scene);
+  // Suspensions : une ampoule chaude au-dessus de chaque table et du comptoir.
+  const bulbMaterial = new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffc46b, emissiveIntensity: 1.5 });
+  const shadeMaterial = mat(0x2b2b2e, { roughness: 0.5, metalness: 0.4, side: THREE.DoubleSide });
+  const pendant = (x: number, y: number, z: number) => {
+    const group = new THREE.Group();
+    group.add(cylinder(0.005, 0.005, 0.5, MATERIALS.black, 0, 0.25, 0, 4));
+    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.12, 16, 1, true), shadeMaterial);
+    shade.position.y = -0.02;
+    group.add(shade);
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 8), bulbMaterial);
+    bulb.position.y = -0.08;
+    group.add(bulb);
+    group.position.set(x, y, z);
+    scene.add(group);
+  };
+  for (const t of BELOTE_TABLES) pendant(t.x, CAFE.stepHeight + 1.95, t.z);
+  for (const z of [-3, -6.5, -10]) pendant(-1.75, 1.95, z);
+  for (const z of [-3, -6, -9]) pendant(1.75, 2.0, z);
+
+  // Lampadaire sur le trottoir, allumé le soir.
+  const streetLamp = new THREE.Group();
+  streetLamp.add(cylinder(0.04, 0.05, 3.2, MATERIALS.black, 0, 1.6, 0, 8));
+  streetLamp.add(box(0.5, 0.05, 0.08, MATERIALS.black, -0.25, 3.15, 0));
+  const lampHeadMaterial = new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffd08a, emissiveIntensity: 0 });
+  const lampHead = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), lampHeadMaterial);
+  lampHead.position.set(-0.45, 3.05, 0);
+  streetLamp.add(lampHead);
+  streetLamp.position.set(2.9, 0, 3.9);
+  scene.add(streetLamp);
+  const streetLight = new THREE.PointLight(0xffd08a, 0, 8, 1.4);
+  streetLight.position.set(2.45, 3.0, 3.9);
+  scene.add(streetLight);
+
+  const room = buildRoom(scene);
   buildCounter(scene);
   buildToilets(scene);
   buildFrontSeating(scene);
@@ -508,7 +558,6 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
   }
 
   const pickables: THREE.Object3D[] = [];
-  const felt = new THREE.MeshStandardMaterial({ map: feltTexture(), roughness: 0.9 });
   const highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xf0c35a, transparent: true, opacity: 0.85 });
 
   const makeLabel = (className: string, onClick: () => void) => {
@@ -526,7 +575,7 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
   // Les 6 tables de belote.
   const tables: TableObjects[] = BELOTE_TABLES.map((spot) => {
     const y = CAFE.stepHeight;
-    const group = squareTable(0.95, spot.x, y, spot.z, felt);
+    const group = squareTable(0.95, spot.x, y, spot.z);
     scene.add(group);
     for (const side of SEAT_SIDES) {
       const { dx, dz, rotation } = seatOffset(side, 0.68);
@@ -598,6 +647,102 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
   });
   const roomAnchor = new THREE.Vector3(0, 2.6, -16.8);
 
+  /* ------------------------------ Personnages ------------------------------ */
+
+  const groundAt = (z: number) => (z < CAFE.stepZ ? CAFE.stepHeight : 0);
+
+  // Tarek, le patron : toujours assis à la première table de l'entrée, sa chicha à côté de lui.
+  const tarek = createPerson(TAREK);
+  tarek.sit();
+  tarek.root.position.set(-1.75, 0, -2.42);
+  tarek.root.rotation.y = Math.PI;
+  scene.add(tarek.root);
+  const shisha = chicha();
+  shisha.position.set(-1.12, 0, -2.3);
+  scene.add(shisha);
+  scene.add(hose(new THREE.Vector3(-1.07, 0.42, -2.3), new THREE.Vector3(-1.6, 0.78, -2.72)));
+  // Bouffées de fumée de chicha qui montent et disparaissent.
+  const smokeMaterial = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, transparent: true, opacity: 0, depthWrite: false });
+  const puffs = Array.from({ length: 6 }, () => {
+    const puff = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), smokeMaterial.clone());
+    puff.visible = false;
+    scene.add(puff);
+    return { mesh: puff, born: -1e9 };
+  });
+  let nextPuff = 0;
+
+  // Les deux serveurs font leur tournée.
+  const nader = createPerson(NADER);
+  const carried = tray();
+  carried.position.set(0.22, 1.02, 0.36);
+  nader.root.add(carried);
+  scene.add(nader.root);
+  const naderWalk = new Walker(
+    nader,
+    [
+      { x: 0.55, z: -8.4, pause: 3 },
+      { x: 0.4, z: -6.6 },
+      { x: -1.0, z: -6.6, pause: 2.5 },
+      { x: -0.9, z: -3.9, pause: 2 },
+      { x: 0.1, z: -1.3 },
+      { x: 0.1, z: 1.3, pause: 3 },
+      { x: 0.3, z: -1.6 },
+      { x: 0.55, z: -5 },
+    ],
+    0.95,
+    groundAt,
+  );
+  const naceur = createPerson(MOHAMED_NACEUR);
+  scene.add(naceur.root);
+  const naceurWalk = new Walker(
+    naceur,
+    [
+      { x: 0.5, z: -10.9, pause: 2 },
+      { x: 0, z: -12.1 },
+      { x: 0, z: -14.6 },
+      { x: 0, z: -16.2, pause: 2.5 },
+      { x: 0, z: -17.9, pause: 2.5 },
+      { x: -0.3, z: -19.2, pause: 4 },
+      { x: 0, z: -16.2 },
+      { x: 0, z: -13 },
+      { x: 0.5, z: -9.6, pause: 3 },
+    ],
+    0.9,
+    groundAt,
+  );
+
+  // Toucher un personnage : une bulle avec son nom (et une remarque du patron).
+  const TAREK_LINES = [
+    '« Vous jouez ou vous consommez ?! »',
+    '« Moins de bruit au fond ! »',
+    '« Le crédit, c’est fini ! »',
+    '« Qui a encore pris ma chaise ?! »',
+  ];
+  let tarekLine = 0;
+  const characters = [
+    { id: 'tarek', person: tarek, height: 1.35, text: () => `طارق · le patron 😠<br>${TAREK_LINES[tarekLine++ % TAREK_LINES.length]}` },
+    { id: 'nader', person: nader, height: 2.0, text: () => 'نادر · serveur<br>« Un thé ? Un café ? »' },
+    { id: 'naceur', person: naceur, height: 2.12, text: () => 'محمد ناصر · serveur<br>« Bienvenue au Café Tarek ! »' },
+  ].map((c) => {
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(0.7, c.height, 0.7), MATERIALS.hit);
+    hit.position.y = c.height / 2;
+    hit.userData = { kind: 'character', id: c.id };
+    c.person.root.add(hit);
+    pickables.push(hit);
+    const bubble = document.createElement('div');
+    bubble.className = 'cafe-bubble';
+    bubble.style.display = 'none';
+    labelLayer.appendChild(bubble);
+    return { ...c, bubble, until: 0 };
+  });
+  const showBubble = (id: string, now: number) => {
+    const c = characters.find((x) => x.id === id);
+    if (!c) return;
+    c.bubble.innerHTML = c.text();
+    c.until = now + 3500;
+  };
+  let nextGrumble = performance.now() + 9000;
+
   /* ---------------------------- Caméra et gestes ---------------------------- */
 
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -655,10 +800,41 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
     raycaster.setFromCamera(pointer, camera);
     const hit = raycaster.intersectObjects(pickables, false)[0];
-    if (hit) callbacks.onSelect(hit.object.userData as CafeTarget);
+    if (!hit) return;
+    const data = hit.object.userData as CafeTarget | { kind: 'character'; id: string };
+    if (data.kind === 'character') showBubble(data.id, performance.now());
+    else callbacks.onSelect(data);
   };
   renderer.domElement.addEventListener('pointerdown', onDown);
   renderer.domElement.addEventListener('pointerup', onUp);
+
+  /* ------------------------ Ombres et heure de Tunis ------------------------ */
+
+  scene.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    const material = object.material as THREE.Material;
+    object.castShadow = !material.transparent;
+    object.receiveShadow = true;
+  });
+
+  const applyAmbiance = (a: Ambiance) => {
+    renderer.setClearColor(a.sky);
+    (scene.fog as THREE.Fog).color.setHex(a.sky);
+    hemi.color.setHex(a.hemiSky);
+    hemi.groundColor.setHex(a.hemiGround);
+    hemi.intensity = a.hemiIntensity;
+    key.color.setHex(a.keyColor);
+    key.intensity = a.keyIntensity;
+    for (const lamp of lamps) lamp.intensity = a.lampIntensity;
+    bulbMaterial.emissiveIntensity = a.bulbGlow;
+    room.street.color.setHex(a.street);
+    room.sign.emissiveIntensity = a.streetLights ? 1.1 : 0.35;
+    lampHeadMaterial.emissiveIntensity = a.streetLights ? 2.5 : 0;
+    streetLight.intensity = a.streetLights ? 6 : 0;
+    requestRender();
+  };
+  applyAmbiance(ambianceAt(currentHour(new Date(), window.location.search)));
+  const ambianceTimer = setInterval(() => applyAmbiance(ambianceAt(currentHour(new Date(), window.location.search))), 60_000);
 
   /* -------------------------- Taille et rendu -------------------------- */
 
@@ -679,12 +855,14 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
   resize();
 
   const projected = new THREE.Vector3();
-  const place = (el: HTMLElement, point: THREE.Vector3, hide = false) => {
+  const place = (el: HTMLElement, point: THREE.Vector3, hide = false, margin = 0) => {
     projected.copy(point).project(camera);
     const visible = !hide && projected.z < 1 && Math.abs(projected.x) < 1.15 && Math.abs(projected.y) < 1.15;
     el.style.display = visible ? '' : 'none';
     if (!visible) return;
-    const x = ((projected.x + 1) / 2) * width;
+    // Les bulles des personnages restent entièrement dans l'écran.
+    const rawX = ((projected.x + 1) / 2) * width;
+    const x = margin > 0 ? Math.min(Math.max(rawX, margin), width - margin) : rawX;
     const y = ((1 - projected.y) / 2) * height;
     el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
   };
@@ -707,11 +885,51 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
       });
     }
     place(terraceLabel, terraceAnchor);
+    const now = performance.now();
+    for (const c of characters) {
+      anchor.copy(c.person.root.position);
+      anchor.y += c.height + 0.25;
+      place(c.bubble, anchor, now > c.until, 116);
+    }
   };
 
   let frame = 0;
+  let last = performance.now();
+  const animate = (now: number) => {
+    const dt = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    naderWalk.update(now, dt);
+    nader.carry();
+    naceurWalk.update(now, dt);
+    // Le patron s'énerve de temps en temps : bras levé.
+    const cycle = (now / 1000) % 7;
+    tarek.raiseArm(cycle < 1.2 ? Math.sin((cycle / 1.2) * Math.PI) : 0);
+    if (now > nextPuff) {
+      const puff = puffs.find((p) => now - p.born > 2600) ?? puffs[0]!;
+      puff.born = now;
+      nextPuff = now + 1400 + Math.random() * 1600;
+    }
+    for (const p of puffs) {
+      const age = (now - p.born) / 2600;
+      p.mesh.visible = age >= 0 && age < 1;
+      if (!p.mesh.visible) continue;
+      p.mesh.position.set(-1.72 + Math.sin(age * 5) * 0.05, 1.22 + age * 0.7, -2.62 - age * 0.15);
+      p.mesh.scale.setScalar(1 + age * 2.2);
+      (p.mesh.material as THREE.MeshStandardMaterial).opacity = 0.45 * (1 - age);
+    }
+    if (now > nextGrumble) {
+      showBubble('tarek', now);
+      nextGrumble = now + 20000 + Math.random() * 15000;
+    }
+  };
+
   const loop = (now: number) => {
     frame = requestAnimationFrame(loop);
+    // Les personnages bougent : environ 30 images par seconde suffisent (économie de batterie).
+    if (now - last >= 33) {
+      animate(now);
+      needsRender = true;
+    }
     if (tween) {
       const p = Math.min(1, (now - tween.start) / tween.duration);
       const ease = p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2;
@@ -788,6 +1006,7 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     focusTable,
     dispose() {
       cancelAnimationFrame(frame);
+      clearInterval(ambianceTimer);
       observer.disconnect();
       controls.dispose();
       renderer.domElement.removeEventListener('pointerdown', onDown);

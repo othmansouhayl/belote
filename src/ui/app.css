@@ -2602,3 +2602,22 @@ button:focus-visible {
 .slot--speaking {
   box-shadow: 0 0 0 2px #3ddc84;
 }
+
+/* Bulles des personnages du café (patron, serveurs) */
+.cafe-bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: 220px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: #fffdf7;
+  color: #1f2a24;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  will-change: transform;
+}

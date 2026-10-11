@@ -42,7 +42,8 @@ export const TERRACE_TABLE = { x: -1.4, z: 2.0 } as const;
 
 /** Les deux points de vue : l'entrée (comptoir) et le fond du café (télé, tables de belote). */
 export const VIEWPOINTS = {
-  entrance: { camera: [0.6, 8.5, 7.2], target: [0, 0, -3.5] },
+  // Assez haut pour voir par-dessus l'enseigne : le patron est assis juste derrière.
+  entrance: { camera: [0.5, 11.5, 6.4], target: [0, 0, -4.2] },
   back: { camera: [0, 9.4, -10.4], target: [0, 0.2, -16.3] },
 } as const;
 
