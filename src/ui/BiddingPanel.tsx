@@ -63,12 +63,12 @@ export function BiddingPanel({ legal, onBid }: BiddingPanelProps) {
         </button>
         {canCoinche && (
           <button type="button" className="btn btn--danger" onClick={() => onBid({ type: 'coinche' })}>
-            Coinche
+            Contrée
           </button>
         )}
         {canSurcoinche && (
           <button type="button" className="btn btn--danger" onClick={() => onBid({ type: 'surcoinche' })}>
-            Surcoinche
+            Surcontrée
           </button>
         )}
         {bids.length > 0 && (

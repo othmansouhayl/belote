@@ -16,8 +16,13 @@ export interface VoiceSnapshot {
   readonly speaking: ReadonlySet<VoiceSeat>;
   readonly inVoice: ReadonlySet<VoiceSeat>;
   readonly connected: ReadonlySet<VoiceSeat>;
+  /** Joueurs du vocal qu'on n'arrive pas à joindre (échec, ou toujours pas relié après quelques secondes). */
+  readonly failed: ReadonlySet<VoiceSeat>;
   readonly mutedSeats: ReadonlySet<VoiceSeat>;
 }
+
+/** Délai après lequel une connexion qui n'aboutit pas est signalée en rouge. */
+const CONNECT_TIMEOUT_MS = 12_000;
 
 export const VOICE_OFF: VoiceSnapshot = {
   status: 'off',
@@ -29,6 +34,7 @@ export const VOICE_OFF: VoiceSnapshot = {
   speaking: new Set(),
   inVoice: new Set(),
   connected: new Set(),
+  failed: new Set(),
   mutedSeats: new Set(),
 };
 
@@ -41,6 +47,8 @@ interface Peer {
   readonly detector: SpeakingDetector;
   muted: boolean;
   connected: boolean;
+  /** Moment où la connexion a commencé (ou a été perdue), pour détecter un échec. */
+  since: number;
   analyser: AnalyserNode | null;
   source: MediaStreamAudioSourceNode | null;
 }
@@ -258,6 +266,7 @@ export class VoiceMesh {
       detector: new SpeakingDetector(),
       muted: false,
       connected: false,
+      since: performance.now(),
       analyser: null,
       source: null,
     };
@@ -282,7 +291,9 @@ export class VoiceMesh {
       this.attachRemoteAnalyser(peer, stream);
     };
     pc.onconnectionstatechange = () => {
+      const wasConnected = peer.connected;
       peer.connected = pc.connectionState === 'connected';
+      if (wasConnected && !peer.connected) peer.since = performance.now();
       if (pc.connectionState === 'failed' && shouldInitiate(this.mySeat, seat)) void this.makeOffer(peer, true);
       this.emit();
     };
@@ -429,10 +440,23 @@ export class VoiceMesh {
       if (peer.detector.update(peer.muted ? 0 : level(peer.analyser), now)) next.add(peer.seat);
     }
     const changed = next.size !== this.speaking.size || [...next].some((s) => !this.speaking.has(s));
-    if (changed) {
+    const failed = this.failedSeats(now);
+    const failedChanged = failed.size !== this.lastFailed.size || [...failed].some((s) => !this.lastFailed.has(s));
+    if (changed || failedChanged) {
       this.speaking = next;
       this.emit();
     }
+  }
+
+  private lastFailed = new Set<VoiceSeat>();
+
+  private failedSeats(now: number): Set<VoiceSeat> {
+    const failed = new Set<VoiceSeat>();
+    for (const peer of this.peers.values()) {
+      if (peer.connected) continue;
+      if (peer.pc.connectionState === 'failed' || now - peer.since > CONNECT_TIMEOUT_MS) failed.add(peer.seat);
+    }
+    return failed;
   }
 
   private emit(): void {
@@ -447,6 +471,7 @@ export class VoiceMesh {
       speaking: new Set(this.speaking),
       inVoice: new Set(peers.map((p) => p.seat)),
       connected: new Set(peers.filter((p) => p.connected).map((p) => p.seat)),
+      failed: (this.lastFailed = this.failedSeats(performance.now())),
       mutedSeats: new Set([
         ...peers.filter((p) => p.muted).map((p) => p.seat),
         ...(this.status === 'on' && this.isMutedForOthers() ? [this.mySeat] : []),

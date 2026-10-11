@@ -31,11 +31,11 @@ export function bidLabel(action: BidAction): string {
     case 'pass':
       return 'Passe';
     case 'coinche':
-      return 'Coinche';
+      return 'Contrée';
     case 'surcoinche':
-      return 'Surcoinche';
+      return 'Surcontrée';
     case 'bid':
-      return `${action.value === 'capot' ? 'Capot' : action.value} ${SUIT_LABELS[action.suit]}`;
+      return `${action.value === 'capot' ? 'كبوط' : action.value} ${SUIT_LABELS[action.suit]}`;
   }
 }
 
@@ -46,7 +46,7 @@ export function validateBid(bidding: BiddingState, seat: Seat, action: BidAction
   if (bidding.coinchedBy !== null) {
     if (action.type === 'pass') return { ok: true };
     if (action.type === 'surcoinche') return validateSurcoinche(bidding, seat, config);
-    return { ok: false, error: 'Après une coinche, seule la surcoinche ou la passe est possible.' };
+    return { ok: false, error: 'Après une contrée, seule la surcontrée ou la passe est possible.' };
   }
 
   switch (action.type) {
@@ -55,7 +55,7 @@ export function validateBid(bidding: BiddingState, seat: Seat, action: BidAction
     case 'coinche':
       return validateCoinche(bidding, seat, config);
     case 'surcoinche':
-      return { ok: false, error: "Il n'y a pas de coinche à surcoincher." };
+      return { ok: false, error: "Il n'y a pas de contrée à surcontrer." };
     case 'bid': {
       if (bidding.hasPassed[seat] && !config.allowRebidAfterPass) {
         return { ok: false, error: 'Vous avez déjà passé : vous ne pouvez plus enchérir dans cette donne.' };
@@ -64,7 +64,7 @@ export function validateBid(bidding: BiddingState, seat: Seat, action: BidAction
         return { ok: false, error: "Couleur d'atout inconnue." };
       }
       if (action.value === 'capot') {
-        if (!config.allowCapot) return { ok: false, error: "Le capot n'est pas autorisé à cette table." };
+        if (!config.allowCapot) return { ok: false, error: "Le كبوط n'est pas autorisé à cette table." };
       } else if (
         !Number.isInteger(action.value) ||
         action.value < config.minimumBid ||
@@ -93,20 +93,20 @@ export function validateBid(bidding: BiddingState, seat: Seat, action: BidAction
 }
 
 export function validateCoinche(bidding: BiddingState, seat: Seat, config: RulesConfig): Validation {
-  if (!config.allowCoinche) return { ok: false, error: "La coinche n'est pas autorisée à cette table." };
-  if (!bidding.contract) return { ok: false, error: "Il n'y a aucun contrat à coincher." };
-  if (bidding.coinchedBy !== null) return { ok: false, error: 'Le contrat est déjà coinché.' };
+  if (!config.allowCoinche) return { ok: false, error: "La contrée n'est pas autorisée à cette table." };
+  if (!bidding.contract) return { ok: false, error: "Il n'y a aucun contrat à contrer." };
+  if (bidding.coinchedBy !== null) return { ok: false, error: 'Le contrat est déjà contré.' };
   if (teamOf(bidding.contract.bidder) === teamOf(seat)) {
-    return { ok: false, error: 'Seule la défense peut coincher le contrat.' };
+    return { ok: false, error: 'Seule la défense peut contrer le contrat.' };
   }
   return { ok: true };
 }
 
 function validateSurcoinche(bidding: BiddingState, seat: Seat, config: RulesConfig): Validation {
-  if (!config.allowSurcoinche) return { ok: false, error: "La surcoinche n'est pas autorisée à cette table." };
-  if (bidding.surcoinchedBy !== null) return { ok: false, error: 'Le contrat est déjà surcoinché.' };
+  if (!config.allowSurcoinche) return { ok: false, error: "La surcontrée n'est pas autorisée à cette table." };
+  if (bidding.surcoinchedBy !== null) return { ok: false, error: 'Le contrat est déjà surcontré.' };
   if (!bidding.contract || teamOf(bidding.contract.bidder) !== teamOf(seat)) {
-    return { ok: false, error: "Seule l'équipe preneuse peut surcoincher." };
+    return { ok: false, error: "Seule l'équipe preneuse peut surcontrer." };
   }
   return { ok: true };
 }
@@ -120,6 +120,28 @@ export function getLegalBids(bidding: BiddingState, seat: Seat, config: RulesCon
   }
   candidates.push({ type: 'coinche' }, { type: 'surcoinche' });
   return candidates.filter((action) => validateBid(bidding, seat, action, config).ok);
+}
+
+/**
+ * Actions permises à un joueur dont ce n'est pas le tour : la contrée (défense), la surcontrée
+ * ou la passe quand on attend sa réponse à une contrée, et le capot. Le premier qui appuie l'emporte.
+ */
+export function getOutOfTurnBids(bidding: BiddingState, seat: Seat, config: RulesConfig): BidAction[] {
+  if (bidding.coinchedBy !== null) {
+    if (!config.allowOutOfTurnCoinche || !bidding.pendingSurcoinche.includes(seat)) return [];
+    const options: BidAction[] = [{ type: 'pass' }];
+    if (validateBid(bidding, seat, { type: 'surcoinche' }, config).ok) options.push({ type: 'surcoinche' });
+    return options;
+  }
+  const options: BidAction[] = [];
+  if (config.allowOutOfTurnCoinche && validateCoinche(bidding, seat, config).ok) options.push({ type: 'coinche' });
+  if (config.allowOutOfTurnCapot) {
+    for (const suit of SUITS) {
+      const capot: BidAction = { type: 'bid', value: 'capot', suit };
+      if (validateBid(bidding, seat, capot, config).ok) options.push(capot);
+    }
+  }
+  return options;
 }
 
 export type BiddingStep =

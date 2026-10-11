@@ -37,7 +37,7 @@ export function FinaleOverlay({ finale, mySeat, names, trump }: FinaleOverlayPro
       <p className="finale__shout finale__shout--laugh" lang="ar" dir="rtl">
         يروووووووح
       </p>
-      <p className="finale__caption">Capot chuté ! {who} un pli, les cartes sont ramassées.</p>
+      <p className="finale__caption">كبوط chuté ! {who} un pli, les cartes sont ramassées.</p>
     </div>
   );
 }

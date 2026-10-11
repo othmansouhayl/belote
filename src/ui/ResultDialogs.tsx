@@ -48,7 +48,7 @@ export function HandResultDialog(props: HandResultDialogProps) {
   const { contract } = result;
   const them: Team = myTeam === 0 ? 1 : 0;
   const good = result.success === (result.takerTeam === myTeam);
-  const doubled = contract.surcoinchedBy !== null ? ' · surcoinché' : contract.coinchedBy !== null ? ' · coinché' : '';
+  const doubled = contract.surcoinchedBy !== null ? ' · surcontré' : contract.coinchedBy !== null ? ' · contré' : '';
   return (
     <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="hand-result-title">
       <div className="dialog">
@@ -63,14 +63,14 @@ export function HandResultDialog(props: HandResultDialogProps) {
           <span className={isRed(contract.suit) ? 'suit-red' : undefined}>{SUIT_SYMBOLS[contract.suit]}</span>
           {doubled}
         </p>
-        {result.capot && <p className="dialog__badge">{result.capot === 'annonce' ? 'Capot annoncé' : 'Capot !'}</p>}
+        {result.capot && <p className="dialog__badge">{result.capot === 'annonce' ? 'كبوط annoncé' : 'كبوط !'}</p>}
         {result.ending.type === 'claim' && (
           <p className="dialog__note">
             Cartes étalées par {names[result.ending.seat] === 'Vous' ? 'vous' : names[result.ending.seat]} : les plis
             restants sont allés à son équipe.
           </p>
         )}
-        {result.ending.type === 'capotFailed' && <p className="dialog__note">Capot chuté dès le premier pli perdu.</p>}
+        {result.ending.type === 'capotFailed' && <p className="dialog__note">كبوط chuté dès le premier pli perdu.</p>}
         <table className="score-table">
           <thead>
             <tr>

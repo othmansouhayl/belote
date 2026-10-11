@@ -120,7 +120,8 @@ describe('Test 6 — seul le joueur attendu peut agir', () => {
     const s = createGame({ seed: 'tour', dealer: 0 });
     for (const seat of [0, 2, 3] as Seat[]) {
       expect(applyAction(s, seat, pass)).toEqual({ ok: false, error: "Ce n'est pas à vous de jouer." });
-      expect(legalBids(s, seat)).toEqual([]);
+      // Hors tour, seul le capot (« كبوط ») est proposé tant que personne n'a annoncé.
+      expect(legalBids(s, seat).every((b) => b.type === 'bid' && b.value === 'capot')).toBe(true);
     }
     expect(applyAction(s, 1, pass).ok).toBe(true);
   });

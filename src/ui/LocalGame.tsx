@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { applyAction, createGame, getPlayerView, startNextHand } from '../engine/index.ts';
+import { applyAction, createGame, getPlayerView, legalBids, startNextHand } from '../engine/index.ts';
 import type { GameAction, GameState, Seat } from '../engine/index.ts';
 import { botView, chooseBotAction } from '../bots/simpleBot.ts';
 import { GameTable } from './GameTable.tsx';
@@ -36,7 +36,10 @@ export function LocalGame({ targetScore, onExit }: LocalGameProps) {
     (seat: Seat, action: GameAction) => {
       const before = gameRef.current;
       // Un double appui rapide arrive après que le tour est passé : on l'ignore.
-      if (seat === HUMAN && before.currentPlayer !== HUMAN) return;
+      // La contrée et le كبوط peuvent se dire hors tour : on ne laisse passer que ce que le moteur permet.
+      const outOfTurnBid =
+        action.type === 'bid' && legalBids(before, HUMAN).some((b) => JSON.stringify(b) === JSON.stringify(action.bid));
+      if (seat === HUMAN && before.currentPlayer !== HUMAN && !outOfTurnBid) return;
       const result = applyAction(before, seat, action);
       if (!result.ok) {
         showNotice(result.error);

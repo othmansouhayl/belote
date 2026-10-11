@@ -45,7 +45,7 @@ describe('Test 13 — un joueur ne reçoit jamais les cartes des autres', () => 
     expect(view.hand).toEqual(state.hands[1]);
     expect(view.handCounts).toEqual([8, 8, 8, 8]);
     expect(view.legalBids.length).toBeGreaterThan(0);
-    expect(getPlayerView(state, 2).legalBids).toEqual([]);
+    expect(getPlayerView(state, 2).legalBids.every((b) => b.type === 'bid' && b.value === 'capot')).toBe(true);
     expect(view).not.toHaveProperty('seed');
     expect(view).not.toHaveProperty('hands');
     expect(view).not.toHaveProperty('beloteHolder');

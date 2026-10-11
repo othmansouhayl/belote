@@ -4,6 +4,8 @@ import { MicOffIcon } from '../icons.tsx';
 import type { Seat } from '../../engine/index.ts';
 import type { RoomSettings, RoomView } from '../../server/types.ts';
 import { RoomSettingsPanel } from './RoomSettingsPanel.tsx';
+import { SpeakingBars, VoiceDot } from '../VoiceDot.tsx';
+import type { VoiceLinkState } from '../VoiceDot.tsx';
 import { inviteLink } from './client.ts';
 
 interface LobbyProps {
@@ -17,6 +19,7 @@ interface LobbyProps {
   readonly voiceBar: ReactNode;
   readonly speakingSeats: ReadonlySet<Seat>;
   readonly voiceMutedSeats: ReadonlySet<Seat>;
+  readonly voiceLinks: ReadonlyMap<Seat, VoiceLinkState>;
   readonly onSettings: (settings: RoomSettings) => void;
 }
 
@@ -26,7 +29,7 @@ const TEAMS: readonly { readonly name: string; readonly seats: readonly [Seat, S
 ];
 
 export function Lobby(props: LobbyProps) {
-  const { view, presentSeats, busy, onSeat, onReady, onLeave, onCopied, voiceBar, speakingSeats, voiceMutedSeats, onSettings } = props;
+  const { view, presentSeats, busy, onSeat, onReady, onLeave, onCopied, voiceBar, speakingSeats, voiceMutedSeats, voiceLinks, onSettings } = props;
   const hostName = view.players.find((p) => p.seat === view.hostSeat)?.nickname ?? null;
   const [shareFailed, setShareFailed] = useState(false);
   const link = inviteLink(view.code);
@@ -99,6 +102,8 @@ export function Lobby(props: LobbyProps) {
                         <MicOffIcon size={14} />
                       </span>
                     )}
+                    {speakingSeats.has(seat) && !voiceMutedSeats.has(seat) && <SpeakingBars />}
+                    {voiceLinks.get(seat) && <VoiceDot state={voiceLinks.get(seat)!} />}
                   </span>
                   <span className={`slot__state${player.ready ? ' slot__state--ready' : ''}`}>
                     {player.ready ? '✓ Prêt' : presentSeats.has(seat) || isMe ? 'Pas prêt' : 'Hors ligne'}

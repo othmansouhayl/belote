@@ -21,6 +21,13 @@ export interface RulesConfig {
   readonly allowRebidAfterPass: boolean;
   /** VALIDÉ [4] : un joueur peut surenchérir sur son partenaire, dans la même couleur ou une autre. */
   readonly allowOverbidSameSuit: boolean;
+  /**
+   * VALIDÉ [20] : la contrée (et la surcontrée) se dit sans attendre son tour : le premier qui
+   * appuie l'emporte. Par ex. après « 110 ♥ » du joueur 1, le joueur 4 peut contrer tout de suite.
+   */
+  readonly allowOutOfTurnCoinche: boolean;
+  /** VALIDÉ [16] : le capot (« كبوط ») s'annonce à tout moment des enchères, sans attendre son tour. */
+  readonly allowOutOfTurnCapot: boolean;
   /** À CONFIRMER [3] : si tout le monde passe, la donne est annulée et le donneur suivant redistribue. */
   readonly noBidRedeal: true;
 
@@ -123,6 +130,8 @@ export const DEFAULT_RULES: RulesConfig = {
   allowSurcoinche: true,
   allowRebidAfterPass: true,
   allowOverbidSameSuit: true,
+  allowOutOfTurnCoinche: true,
+  allowOutOfTurnCapot: true,
   noBidRedeal: true,
 
   dealPatterns: [
