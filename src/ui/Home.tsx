@@ -55,7 +55,7 @@ function toSceneTables(tables: readonly CafeTable[]): SceneTable[] {
 
 export function Home(props: HomeProps) {
   const { nickname, onNickname, initialCode, savedRoom, busy, error, onLocal, onCreate, onJoin, onResume, onWatch } = props;
-  const { tables } = useCafeTables();
+  const { tables, endings } = useCafeTables();
   const sceneTables = useMemo(() => toSceneTables(tables), [tables]);
   const [selected, setSelected] = useState<CafeTarget | null>(null);
   const [view, setView] = useState<Viewpoint>('entrance');
@@ -267,7 +267,7 @@ export function Home(props: HomeProps) {
         {webgl ? (
           <SceneBoundary fallback={plan}>
             <Suspense fallback={<div className="cafe-loading">On ouvre le café…</div>}>
-              <CafeView tables={sceneTables} selected={selected} view={view} onSelect={select} onView={setView} />
+              <CafeView tables={sceneTables} endings={endings} selected={selected} view={view} onSelect={select} onView={setView} />
             </Suspense>
           </SceneBoundary>
         ) : (

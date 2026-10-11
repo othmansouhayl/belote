@@ -1543,6 +1543,48 @@ button:focus-visible {
   color: #4a5750;
 }
 
+.end__tarek {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  align-self: center;
+  padding: 8px 14px 8px 10px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  animation: tarek-in 0.5s ease-out 0.6s both;
+}
+
+.end__tarek-face {
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+.end__tarek-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.end__tarek-name {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #6b766f;
+}
+
+.end__tarek-line {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #b3261e;
+}
+
+@keyframes tarek-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+}
+
 .end__score {
   display: flex;
   align-items: center;
@@ -2604,6 +2646,11 @@ button:focus-visible {
 }
 
 /* Bulles des personnages du café (patron, serveurs) */
+.cafe-bubble__ar {
+  font-size: 1rem;
+  color: #b3261e;
+}
+
 .cafe-bubble {
   position: absolute;
   left: 0;

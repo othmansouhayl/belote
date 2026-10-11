@@ -1,16 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { CAFE_TABLE_COUNT, CAFE_TABLE_STALE_MINUTES } from '../../server/rooms.ts';
+import { CAFE_TABLE_COUNT } from '../../server/rooms.ts';
 import type { CafeTableInfo, WatchView } from '../../server/types.ts';
 import { getClient, onlineConfigured } from './client.ts';
+import { splitCafeTables } from './cafeTables.ts';
+import type { CafeEnding, CafeTable } from './cafeTables.ts';
 
-/** Une table occupée du café, telle que tout le monde la voit (pseudos, état, scores). */
-export interface CafeTable {
-  readonly number: number;
-  readonly roomId: string;
-  readonly info: CafeTableInfo;
-  readonly updatedAt: number;
-}
+export type { CafeEnding, CafeTable };
 
 interface CafeRow {
   readonly table_number: number;
@@ -19,10 +15,15 @@ interface CafeRow {
   readonly updated_at: string;
 }
 
-const isFresh = (t: CafeTable, now: number) => now - t.updatedAt < CAFE_TABLE_STALE_MINUTES * 60_000;
-
-/** Tables occupées du café, mises à jour en temps réel. Une table abandonnée redevient libre. */
-export function useCafeTables(): { readonly tables: readonly CafeTable[]; readonly ready: boolean } {
+/**
+ * Tables occupées du café, mises à jour en temps réel. Une table abandonnée ou dont la partie
+ * est finie redevient libre ; les parties qui viennent de finir sont listées à part (le patron passe).
+ */
+export function useCafeTables(): {
+  readonly tables: readonly CafeTable[];
+  readonly endings: readonly CafeEnding[];
+  readonly ready: boolean;
+} {
   const [rows, setRows] = useState<readonly CafeTable[]>([]);
   const [ready, setReady] = useState(!onlineConfigured);
   const [now, setNow] = useState(() => Date.now());
@@ -66,7 +67,8 @@ export function useCafeTables(): { readonly tables: readonly CafeTable[]; readon
     };
   }, []);
 
-  return { tables: rows.filter((t) => isFresh(t, now)), ready };
+  const { occupied, endings } = useMemo(() => splitCafeTables(rows, now), [rows, now]);
+  return { tables: occupied, endings, ready };
 }
 
 /** Vue spectateur d'un salon (informations publiques), mise à jour en temps réel. */

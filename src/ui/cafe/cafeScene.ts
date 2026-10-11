@@ -5,6 +5,7 @@ import { ambianceAt, currentHour } from './ambiance.ts';
 import type { Ambiance } from './ambiance.ts';
 import { MOHAMED_NACEUR, NADER, SMOKE_OFFSET, TAREK, Walker, createPerson, customerSpec, seatedChicha, tray } from './characters.ts';
 import type { Waypoint } from './characters.ts';
+import { TAREK_END_LINE } from '../labels.ts';
 import type { SeatSide, TableSpot, Viewpoint } from './cafeLayout.ts';
 
 /** État d'une table de belote tel que l'affiche la maquette (informations publiques). */
@@ -22,6 +23,8 @@ export interface CafeSceneHandle {
   goTo(view: Viewpoint): void;
   /** Rapproche la caméra d'une table de belote (quand elle est sélectionnée). */
   focusTable(number: number): void;
+  /** Une partie vient de finir à cette table : le patron y va et dit « اللي شاح يلبس ». */
+  announceEnd(number: number): void;
   dispose(): void;
 }
 
@@ -857,8 +860,19 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     { x: SIDE_TERRACE.tableX, z: terraceSeatZ },
   ];
   const TO_INSIDE = [...TO_TERRACE].reverse();
+  // Vers la salle de belote : par l'allée entre les tables de gauche et le comptoir.
+  const TO_BACK_ROOM: Waypoint[] = [
+    { x: 0.45, z: -3.6 },
+    { x: 0.55, z: -10.8 },
+    { x: 0.1, z: -12.9 },
+  ];
   type Seat = keyof typeof TAREK_SEATS;
-  let tarekState: { seat: Seat; until: number } | { walker: Walker; to: Seat };
+  let tarekState:
+    | { seat: Seat; until: number }
+    | { walker: Walker; to: Seat }
+    | { walker: Walker; to: Seat; visit: TableSpot; spoke: boolean };
+  /** Tables où une partie vient de finir et où le patron doit encore passer. */
+  const pendingVisits: TableSpot[] = [];
   const seatTarek = (seat: Seat, until: number) => {
     const { x, z } = TAREK_SEATS[seat];
     const y = groundAt(x, z);
@@ -882,6 +896,14 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     tarekKit.chicha.position.set(0.37, 0.2, 0);
     tarekKit.chicha.visible = true;
     tarekState = { walker: new Walker(tarek, to === 'terrace' ? TO_TERRACE : TO_INSIDE, 0.7, groundAt, false), to };
+  };
+  /** Il laisse sa chicha à sa place, va à la table où la partie est finie, puis revient s'asseoir. */
+  const visitTable = (seat: Seat, spot: TableSpot) => {
+    tarekSmoke.active = false;
+    const start = seat === 'inside' ? [TO_TERRACE[0]!, TO_TERRACE[1]!] : TO_INSIDE.slice(0, 8);
+    const go: Waypoint[] = [...start, ...TO_BACK_ROOM, { x: 0, z: spot.z, pause: 6 }];
+    const path = [...go, ...[...go].reverse().slice(1)];
+    tarekState = { walker: new Walker(tarek, path, 1.1, groundAt, false), to: seat, visit: spot, spoke: false };
   };
   seatTarek('inside', performance.now() + 15000);
 
@@ -969,11 +991,11 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     labelLayer.appendChild(bubble);
     return { ...c, bubble, until: 0 };
   });
-  const showBubble = (id: string, now: number) => {
+  const showBubble = (id: string, now: number, html?: string, duration = 3500) => {
     const c = characters.find((x) => x.id === id);
     if (!c) return;
-    c.bubble.innerHTML = c.text();
-    c.until = now + 3500;
+    c.bubble.innerHTML = html ?? c.text();
+    c.until = now + duration;
   };
   let nextGrumble = performance.now() + 9000;
 
@@ -1122,9 +1144,11 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     }
     place(terraceLabel, terraceAnchor);
     const now = performance.now();
+    // Debout, le patron est plus grand qu'assis : sa bulle remonte.
+    const tarekStanding = 'walker' in tarekState;
     for (const c of characters) {
       anchor.copy(c.person.root.position);
-      anchor.y += c.height + 0.25;
+      anchor.y += (c.id === 'tarek' && tarekStanding ? 1.85 : c.height) + 0.25;
       place(c.bubble, anchor, now > c.until, 116);
     }
   };
@@ -1138,10 +1162,27 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     nader.carry();
     naceurWalk.update(now, dt);
     // Le patron : assis, il s'énerve de temps en temps (bras levé) ; sinon il marche avec sa chicha.
-    if ('walker' in tarekState) {
+    if ('visit' in tarekState) {
+      const state = tarekState;
+      state.walker.update(now, dt);
+      const p = tarek.root.position;
+      if (Math.hypot(p.x, p.z - state.visit.z) < 0.05) {
+        // À la table : il se tourne vers les joueurs, lève le bras et les chasse.
+        tarek.root.rotation.y = state.visit.x > 0 ? Math.PI / 2 : -Math.PI / 2;
+        tarek.raiseArm(0.6 + 0.4 * Math.sin(now / 180));
+        if (!state.spoke) {
+          state.spoke = true;
+          showBubble('tarek', now, `طارق · le patron 😠<br><span class="cafe-bubble__ar" lang="ar" dir="rtl">« ${TAREK_END_LINE} »</span>`, 6000);
+          nextGrumble = now + 20000;
+        }
+      }
+      if (state.walker.finished) seatTarek(state.to, now + 20000 + Math.random() * 15000);
+    } else if ('walker' in tarekState) {
       tarekState.walker.update(now, dt);
       tarek.hold();
       if (tarekState.walker.finished) seatTarek(tarekState.to, now + 25000 + Math.random() * 20000);
+    } else if (pendingVisits.length > 0) {
+      visitTable(tarekState.seat, pendingVisits.shift()!);
     } else if (now > tarekState.until) {
       walkTarek(tarekState.seat === 'inside' ? 'terrace' : 'inside');
     } else {
@@ -1252,6 +1293,10 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     update,
     goTo,
     focusTable,
+    announceEnd(number: number) {
+      const spot = BELOTE_TABLES.find((t) => t.number === number);
+      if (spot && !pendingVisits.includes(spot)) pendingVisits.push(spot);
+    },
     dispose() {
       cancelAnimationFrame(frame);
       clearInterval(ambianceTimer);
