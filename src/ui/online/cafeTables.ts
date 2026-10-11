@@ -20,7 +20,7 @@ export interface CafeEnding {
 export const ENDING_WINDOW_MS = 3 * 60_000;
 
 /**
- * Tables occupées : ni abandonnées (30 minutes sans nouvelles), ni finies.
+ * Tables occupées : ni abandonnées (10 minutes sans aucune activité), ni finies.
  * Une partie terminée libère sa table tout de suite : « اللي شاح يلبس ».
  */
 export function splitCafeTables(rows: readonly CafeTable[], now: number) {

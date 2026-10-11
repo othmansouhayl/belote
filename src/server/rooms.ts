@@ -27,7 +27,7 @@ export const ROOM_CODE_LENGTH = 6;
 /** Tables de belote du Café Tarek (la salle du fond, près de la télé). */
 export const CAFE_TABLE_COUNT = 6;
 /** Une table sans aucune action depuis ce délai est considérée comme libre. */
-export const CAFE_TABLE_STALE_MINUTES = 30;
+export const CAFE_TABLE_STALE_MINUTES = 10;
 
 /** Valeurs proposées dans les réglages du salon (le serveur refuse toute autre valeur). */
 export const TARGET_SCORES = [500, 1000, 1500, 2000] as const;

@@ -32,7 +32,7 @@ export class MemoryStore implements RoomStore {
     return room ? this.clone(room) : null;
   }
 
-  /** Table libre : personne, partie finie, ou abandonnée depuis plus de 30 minutes. */
+  /** Table libre : personne, partie finie, ou abandonnée depuis plus de 10 minutes. */
   private isFree(row: CafeRow | undefined) {
     return !row || row.info.status === 'finished' || this.now - row.updatedAt >= CAFE_TABLE_STALE_MINUTES * 60_000;
   }
