@@ -44,6 +44,17 @@ contre les bots fonctionne aussi sans connexion.
 Astuce : ajoutez `?graine=mot` à l'adresse pour rejouer exactement la même donne
 (pratique pour signaler un problème).
 
+## Musique du café
+
+La télécommande 📺 de l'accueil choisit ce que passe la télé du café. La musique est allumée par défaut, démarre au premier toucher et baisse fortement pendant les parties pour qu'on s'entende au vocal.
+
+Pour ajouter un morceau (Oum Kalthoum, un match commenté…) :
+
+1. mettre le fichier MP3 dans `public/music/` (de préférence réencodé à 96 kbit/s pour les téléphones) ;
+2. l'ajouter à la liste `CHANNELS` de `src/ui/musicChannels.ts` (artiste, titre, nom du fichier).
+
+Attention : le site est public. N'y mettez que des enregistrements que vous avez le droit de diffuser.
+
 ## Commandes
 
 ```bash

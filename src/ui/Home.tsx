@@ -2,6 +2,8 @@ import { Component, Suspense, lazy, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { CAFE_TABLE_COUNT, ROOM_CODE_LENGTH, TARGET_SCORES } from '../server/rooms.ts';
 import { SoundToggle } from './SoundToggle.tsx';
+import { Remote } from './Remote.tsx';
+import { CHANNELS, useMusic } from './music.ts';
 import { promptInstall, useInstallState } from './install.ts';
 import { onlineConfigured } from './online/client.ts';
 import type { SavedRoom } from './online/client.ts';
@@ -56,6 +58,8 @@ function toSceneTables(tables: readonly CafeTable[]): SceneTable[] {
 export function Home(props: HomeProps) {
   const { nickname, onNickname, initialCode, savedRoom, busy, error, onLocal, onCreate, onJoin, onResume, onWatch } = props;
   const { tables, endings } = useCafeTables();
+  const music = useMusic();
+  const nowPlaying = music.on ? CHANNELS[music.channel]! : null;
   const sceneTables = useMemo(() => toSceneTables(tables), [tables]);
   const [selected, setSelected] = useState<CafeTarget | null>(null);
   const [view, setView] = useState<Viewpoint>('entrance');
@@ -267,7 +271,15 @@ export function Home(props: HomeProps) {
         {webgl ? (
           <SceneBoundary fallback={plan}>
             <Suspense fallback={<div className="cafe-loading">On ouvre le café…</div>}>
-              <CafeView tables={sceneTables} endings={endings} selected={selected} view={view} onSelect={select} onView={setView} />
+              <CafeView
+                tables={sceneTables}
+                endings={endings}
+                nowPlaying={nowPlaying}
+                selected={selected}
+                view={view}
+                onSelect={select}
+                onView={setView}
+              />
             </Suspense>
           </SceneBoundary>
         ) : (
@@ -285,6 +297,7 @@ export function Home(props: HomeProps) {
             {view === 'entrance' ? 'Aller au fond · tables de belote ↑' : '↓ Revenir à l’entrée'}
           </button>
         )}
+        <Remote />
         {full && !selected && (
           <p className="cafe-full" role="status">
             Café complet · touche une table pour regarder en spectateur
