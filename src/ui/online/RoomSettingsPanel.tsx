@@ -17,7 +17,7 @@ const TOGGLES: readonly { readonly key: ToggleKey; readonly label: string; reado
   { key: 'allowOverbidSameSuit', label: 'Monter dans la couleur du partenaire', hint: "Surenchérir dans l'atout annoncé par son partenaire (une autre couleur reste toujours possible)." },
   { key: 'requireUndertrump', label: 'Sous-couper obligatoire', hint: 'Sans atout plus fort, on doit quand même jouer atout.' },
   { key: 'beloteAlwaysScored', label: 'Belote de la défense comptée', hint: 'Contrat réussi : la défense garde ses 20 points de belote.' },
-  { key: 'capotMultiplied', label: 'Capot multiplié par la coinche', hint: 'Les 500 / 250 points du capot sont doublés ou quadruplés.' },
+  { key: 'capotMultiplied', label: 'كبوط multiplié par la contrée', hint: 'Les 500 / 250 points du كبوط sont doublés ou quadruplés.' },
 ];
 
 interface RoomSettingsPanelProps {

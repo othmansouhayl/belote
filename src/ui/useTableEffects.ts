@@ -65,7 +65,7 @@ export function useTableEffects(view: PlayerView | null, names: SeatNames, spect
     if (!sameHand) setFinale(null);
     if (before.phase === 'bidding' && view.phase === 'playing' && view.contract) {
       const c = view.contract;
-      const doubled = c.surcoinchedBy !== null ? ', surcoinché' : c.coinchedBy !== null ? ', coinché' : '';
+      const doubled = c.surcoinchedBy !== null ? ', surcontré' : c.coinchedBy !== null ? ', contré' : '';
       const who = c.bidder === view.seat && !spectator ? 'Vous prenez' : `${names[c.bidder]} prend`;
       setNotice(`${who} à ${contractValueLabel(c.value)} ${SUIT_SYMBOLS[c.suit]}${doubled}`);
     }

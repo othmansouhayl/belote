@@ -2,6 +2,8 @@ import type { Seat } from '../engine/index.ts';
 import { CARD_BACK_URL } from './CardView.tsx';
 import { MicOffIcon } from './icons.tsx';
 import { SuitText } from './SuitText.tsx';
+import { SpeakingBars, VoiceDot } from './VoiceDot.tsx';
+import type { VoiceLinkState } from './VoiceDot.tsx';
 import { positionOf } from './labels.ts';
 
 interface PlayerSeatProps {
@@ -19,6 +21,8 @@ interface PlayerSeatProps {
   readonly highlightBubble: boolean;
   readonly speaking?: boolean;
   readonly voiceMuted?: boolean;
+  /** Voyant du vocal (null si on n'est pas dans le vocal, ou ce joueur non plus). */
+  readonly voiceLink?: VoiceLinkState | null;
 }
 
 /** Initiale affichée dans l'avatar (« Vous » → V). */
@@ -63,6 +67,8 @@ export function PlayerSeat(props: PlayerSeatProps) {
               <MicOffIcon size={14} />
             </span>
           )}
+          {speaking && !voiceMuted && <SpeakingBars />}
+          {props.voiceLink && <VoiceDot state={props.voiceLink} />}
         </div>
         <span className="visually-hidden">
           {isDealer ? ', donneur' : ''}

@@ -1,5 +1,7 @@
 # Questions en attente de validation
 
+> Vocabulaire de la table : « contrée » (coinche), « surcontrée » (surcoinche), « كبوط » (capot).
+>
 > Ce fichier liste toutes les règles marquées `À CONFIRMER` dans `regles.md`,
 > plus les points explicitement demandés à clarifier. Pour chacune, une
 > valeur par défaut raisonnable est posée dans `src/engine/rulesConfig.ts`
@@ -24,6 +26,8 @@
 | 12 | Calcul du contrat réussi | §9.1 | `contractSuccessScoring` | `'realizedPoints'` : réussi si le preneur atteint la valeur annoncée ET fait strictement plus de points que la défense. Le preneur marque **les points qu'il a réellement faits** (ex. 90 annoncé, 120 faits → 120), la défense marque les siens. Capot non annoncé : 250 (cf. #14). Pas d'arrondi à la dizaine | **Validé** |
 | 13 | Calcul du contrat chuté | §9.2 | `failedContractBasePoints`, `failedContractScoring` | Contrat de 90 à 160 chuté : la défense marque **160** (× coinche / surcoinche), le preneur 0 | **Validé** |
 | 14 | Valeur du capot | §9.3 | `capotAnnouncedSuccessPoints`, `capotAnnouncedFailurePoints`, `capotUnannouncedPoints` | Capot **annoncé** réussi : 500 pour le preneur. Capot **annoncé** chuté : 500 pour l'adverse. Capot **non annoncé** (contrat ordinaire où le preneur fait les 8 plis) : 250 pour le preneur | **Validé** |
+| 16 | كبوط (capot) dans les enchères | §5.1 | `allowOutOfTurnCapot` | Enchère la plus haute, annonçable à tout moment des enchères, **sans attendre son tour** (le premier qui appuie). La parole reprend ensuite après celui qui l'a annoncé | **Validé** |
+| 20 | Moment de la contrée | §6.1 | `allowOutOfTurnCoinche` | La contrée se dit **sans attendre son tour** : après « 110 ♥ » du joueur 1, le joueur 4 peut contrer tout de suite. Le premier qui appuie l'emporte. Après une contrée, les deux joueurs de l'équipe preneuse peuvent surcontrer ou passer, dans n'importe quel ordre | **Validé** |
 | 25 | Cartes étalées (« تي إفرش عاد ») | — | — (règle du moteur) | Quand c'est à son tour de jouer et qu'il est sûr de gagner tous les plis restants d'après ses cartes et celles déjà jouées (sans regarder les mains des autres), un bouton « تي إفرش عاد » apparaît. Ça marche aussi en cours de pli : par exemple Valet + 9 d'atout quand un adversaire a entamé une autre couleur. En l'appuyant, il montre ses cartes, son équipe remporte tous les plis restants (points des cartes + dix de der) et la manche s'arrête. Les bots le font aussi | **Validé** |
 | 26 | Capot annoncé chuté (« يروووووووح ») | §9.3 | — (règle du moteur) | Dès que la défense gagne un pli, « يروووووووح » s'affiche, les cartes restantes sont ramassées (pour la défense) et la manche s'arrête | **Validé** |
 | 27 | Carte unique | — | — (interface) | Quand un joueur n'a qu'une seule carte jouable, elle est jouée automatiquement après une demi-seconde | **Validé** |
@@ -46,11 +50,9 @@
 | 3 | Tout le monde passe sans contrat | §5.3 | `noBidRedeal` | `true` (donne annulée, le donneur suivant redistribue) | Confirmes-tu la redistribution ? | Ouvert |
 | 5 | Coupe obligatoire quand on ne peut pas fournir | §7.3 | `requireTrumpWhenVoid` | `true` (sauf partenaire maître, cf. #7) | La coupe est-elle obligatoire dans toutes les autres situations ? | Ouvert |
 | 6 | Surcoupe obligatoire sur un atout adverse | §7.4 | `requireOvertrump` | `true` | Faut-il surcouper un adversaire quand c'est possible ? | Ouvert |
-| 16 | Rang du capot dans les enchères | §5.1 | `capotRank` | Enchère la plus haute, au-dessus de 160, annonçable à tout moment (y compris en ouverture) | Le capot peut-il être annoncé à tout moment, ou seulement après une certaine enchère ? | Ouvert |
 | 17 | Capot et coinche / surcoinche | §9.3 | `capotMultiplied` | `true` (les 500 ou 250 sont multipliés par ×2 ou ×4) | Le capot est-il multiplié en cas de coinche ou de surcoinche ? | Ouvert |
 | 18 | Capot non annoncé fait par la défense | §9.3 | — (règle du moteur) | Pas de bonus particulier : c'est une chute normale (160 + contrat pour la défense) | Si la défense fait les 8 plis, a-t-elle droit à un bonus ? | Ouvert |
 | 19 | Sous-couper quand on ne peut pas surcouper | §7.4 | `requireUndertrump` | `true` : si un adversaire a coupé plus fort que tous vos atouts, vous devez quand même jouer un atout (plus faible) | Quand on ne peut pas surcouper, doit-on quand même jouer un atout, ou peut-on se défausser ? | Ouvert |
-| 20 | Moment de la coinche | §6.1 | — (règle du moteur) | On ne peut coincher qu'à son tour de parole. Les deux défenseurs ont toujours un tour avant la fin des enchères. Un joueur qui a passé peut encore coincher | Chez vous, peut-on coincher à tout moment, même hors de son tour ? | Ouvert |
 | 21 | Qui peut surcoincher | §6.2 | — (règle du moteur) | Après une coinche, les deux joueurs de l'équipe preneuse parlent chacun une fois (dans l'ordre de jeu) : surcoinche ou passe | Confirmes-tu que le partenaire du preneur peut aussi surcoincher ? | Ouvert |
 | 22 | Joueur déconnecté | §11.5 | `absenceDelaySeconds` (paramètre de salon) | Au bout de 30 s sans connexion, le joueur est affiché « Hors ligne ». La partie l'attend sans limite : personne ne joue à sa place, et il reprend sa place en revenant | Faut-il qu'un bot remplace un joueur absent après un certain temps, ou qu'on puisse le remplacer par un autre ami ? | Ouvert |
 | 23 | Passer à la manche suivante | — | — (règle du salon) | La manche suivante (ou la revanche) commence quand les 4 joueurs ont appuyé sur « Manche suivante », pour que chacun ait le temps de lire le score | Préférez-vous un enchaînement automatique après quelques secondes ? | Ouvert |

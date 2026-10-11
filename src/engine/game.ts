@@ -14,7 +14,7 @@ import type {
 import { type RulesConfig, makeRules } from './rulesConfig.ts';
 import { shuffleDeck } from './deck.ts';
 import { dealCards, validateDealPattern } from './deal.ts';
-import { applyBid, createBiddingState, getLegalBids, validateBid } from './bidding.ts';
+import { applyBid, createBiddingState, getLegalBids, getOutOfTurnBids, validateBid } from './bidding.ts';
 import { getLegalCards, resolveTrick, validatePlay } from './play.ts';
 import { applyHandScore, resolveContract } from './scoring.ts';
 import type { HandRemainder } from './scoring.ts';
@@ -95,10 +95,15 @@ export function startNextHand(state: GameState, dealPattern?: DealPattern): Acti
   return { ok: true, state: dealHand({ ...state, dealPattern: pattern }, dealer, state.handNumber + 1, state.redeals) };
 }
 
+/** Enchères permises : toutes à son tour ; hors tour, seulement la contrée, la surcontrée et le capot. */
 export function legalBids(state: GameState, seat: Seat): BidAction[] {
-  if (state.phase !== 'bidding' || state.currentPlayer !== seat) return [];
+  if (state.phase !== 'bidding') return [];
+  if (state.currentPlayer !== seat) return getOutOfTurnBids(state.bidding, seat, state.config);
   return getLegalBids(state.bidding, seat, state.config);
 }
+
+const sameBid = (a: BidAction, b: BidAction) =>
+  a.type === b.type && (a.type !== 'bid' || (b.type === 'bid' && a.value === b.value && a.suit === b.suit));
 
 export function legalCards(state: GameState, seat: Seat): Card[] {
   if (state.phase !== 'playing' || state.currentPlayer !== seat || !state.trick || !state.contract) return [];
@@ -118,7 +123,13 @@ export function canClaim(state: GameState, seat: Seat): boolean {
 export function applyAction(state: GameState, seat: Seat, action: GameAction): ActionResult {
   if (state.phase === 'gameOver') return { ok: false, error: 'La partie est terminée.' };
   if (state.phase === 'handOver') return { ok: false, error: 'La manche est terminée : lancez la suivante.' };
-  if (state.currentPlayer !== seat) return { ok: false, error: "Ce n'est pas à vous de jouer." };
+  // Pendant les enchères, la contrée et le capot se disent sans attendre son tour (premier qui appuie).
+  const outOfTurn =
+    state.phase === 'bidding' &&
+    state.currentPlayer !== seat &&
+    action.type === 'bid' &&
+    getOutOfTurnBids(state.bidding, seat, state.config).some((b) => sameBid(b, action.bid));
+  if (state.currentPlayer !== seat && !outOfTurn) return { ok: false, error: "Ce n'est pas à vous de jouer." };
 
   if (action.type === 'bid') {
     if (state.phase !== 'bidding') return { ok: false, error: 'Les enchères sont terminées.' };

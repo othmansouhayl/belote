@@ -11,6 +11,8 @@ import { useAbsentSeats, useRoom } from './useRoom.ts';
 import { VoiceBar } from './voice/VoiceBar.tsx';
 import { SuitText } from '../SuitText.tsx';
 import { useVoice } from './voice/useVoice.ts';
+import { voiceLinkOf } from './voice/voiceLink.ts';
+import type { VoiceLinkState } from '../VoiceDot.tsx';
 
 interface OnlineRoomProps {
   readonly roomId: string;
@@ -49,6 +51,15 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
     sendVoice,
     onVoice,
   });
+
+  const voiceLinks = useMemo(() => {
+    const links = new Map<Seat, VoiceLinkState>();
+    for (const seat of SEATS) {
+      const link = voiceLinkOf(voice.snapshot, seat, view?.mySeat ?? null);
+      if (link) links.set(seat, link);
+    }
+    return links;
+  }, [voice.snapshot, view?.mySeat]);
 
   const send = useCallback(
     async (request: DistributiveOmit<RoomRequest, 'roomId'>) => {
@@ -96,6 +107,7 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
           voiceBar={<VoiceBar voice={voice} className="voice--lobby" />}
           speakingSeats={voice.snapshot.speaking}
           voiceMutedSeats={voice.snapshot.mutedSeats}
+          voiceLinks={voiceLinks}
         />
         {effects.notice && (
           <div className="toast toast--fixed" role="status">
@@ -121,6 +133,7 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
       voiceBar={<VoiceBar voice={voice} className="voice--table" />}
       speakingSeats={voice.snapshot.speaking}
       voiceMutedSeats={voice.snapshot.mutedSeats}
+      voiceLinks={voiceLinks}
       onAction={(action: GameAction) => void send({ type: 'game', action })}
       cont={{
         label: game.phase === 'gameOver' ? 'Rejouer avec la même table' : 'Manche suivante',

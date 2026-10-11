@@ -5,6 +5,8 @@ import type { GameAction, PlayerView, Seat, Team } from '../engine/index.ts';
 import { BiddingPanel } from './BiddingPanel.tsx';
 import { FinaleOverlay } from './FinaleOverlay.tsx';
 import { LastTrick } from './LastTrick.tsx';
+import { QuickBids } from './QuickBids.tsx';
+import type { VoiceLinkState } from './VoiceDot.tsx';
 import { Hand } from './Hand.tsx';
 import { PlayerSeat } from './PlayerSeat.tsx';
 import { EndScreen } from './EndScreen.tsx';
@@ -34,6 +36,7 @@ interface GameTableProps {
   readonly voiceBar?: ReactNode;
   readonly speakingSeats?: ReadonlySet<Seat>;
   readonly voiceMutedSeats?: ReadonlySet<Seat>;
+  readonly voiceLinks?: ReadonlyMap<Seat, VoiceLinkState>;
   /** Retour direct à l'accueil depuis l'écran de fin de partie. */
   readonly onHome?: () => void;
   /** Spectateur : il voit la table (cartes posées, enchères, scores) mais ne joue pas. */
@@ -42,7 +45,7 @@ interface GameTableProps {
 
 export function GameTable(props: GameTableProps) {
   const { view, names, effects, onAction, cont, menuLabel, onMenu, absentSeats, busy = false, banner } = props;
-  const { voiceBar, speakingSeats, voiceMutedSeats, onHome, spectator = false } = props;
+  const { voiceBar, speakingSeats, voiceMutedSeats, voiceLinks, onHome, spectator = false } = props;
   const { pausedTrick, notice, beloteBubble, finale } = effects;
   const mySeat = view.seat;
   const myTeam = (mySeat % 2) as Team;
@@ -137,6 +140,7 @@ export function GameTable(props: GameTableProps) {
               highlightBubble={beloteBubble?.seat === seat || (bidBubble?.strong ?? false)}
               speaking={speakingSeats?.has(seat) ?? false}
               voiceMuted={voiceMutedSeats?.has(seat) ?? false}
+              voiceLink={voiceLinks?.get(seat) ?? null}
               showOwnBacks={spectator}
             />
           );
@@ -168,6 +172,13 @@ export function GameTable(props: GameTableProps) {
         </p>
         {myTurn && view.phase === 'bidding' && (
           <BiddingPanel
+            key={`${view.handNumber}-${view.redeals}-${view.bidding.history.length}`}
+            legal={view.legalBids}
+            onBid={(bid) => onAction({ type: 'bid', bid })}
+          />
+        )}
+        {!myTurn && !spectator && !busy && view.phase === 'bidding' && view.legalBids.length > 0 && (
+          <QuickBids
             key={`${view.handNumber}-${view.redeals}-${view.bidding.history.length}`}
             legal={view.legalBids}
             onBid={(bid) => onAction({ type: 'bid', bid })}

@@ -32,7 +32,7 @@ export function TopBar({ scores, myTeam, target, contract, names, subtitle, menu
             </span>
             <span className="contract__by">
               {names[contract.bidder]}
-              {contract.surcoinchedBy !== null ? ' · surcoinché ×4' : contract.coinchedBy !== null ? ' · coinché ×2' : ''}
+              {contract.surcoinchedBy !== null ? ' · surcontré ×4' : contract.coinchedBy !== null ? ' · contré ×2' : ''}
             </span>
           </div>
         ) : (

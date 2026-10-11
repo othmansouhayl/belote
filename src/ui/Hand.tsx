@@ -13,6 +13,9 @@ function sortHand(hand: readonly Card[], trump: Suit | null): Card[] {
   return [...hand].sort((a, b) => order.indexOf(a.suit) - order.indexOf(b.suit) || strength(b) - strength(a));
 }
 
+/** Durée de l'animation de distribution (8 cartes × 65 ms + 380 ms), avec une marge. */
+const DEAL_ANIMATION_MS = 1100;
+
 interface HandProps {
   /** Change à chaque nouvelle donne : les cartes sont alors distribuées en animation. */
   readonly dealKey: string;
@@ -32,8 +35,21 @@ export function Hand({ dealKey, cards, trump, playable, onPlay }: HandProps) {
     if (!playable) setSelected(null);
   }, [playable]);
 
+  // L'animation de distribution ne joue qu'à la donne : quand l'atout est choisi, la main se retrie
+  // et le navigateur rejouerait l'animation sur les cartes déplacées (cartes « en escalier »).
+  const [dealing, setDealing] = useState<string | null>(dealKey);
+  useEffect(() => {
+    setDealing(dealKey);
+    const timer = setTimeout(() => setDealing(null), DEAL_ANIMATION_MS);
+    return () => clearTimeout(timer);
+  }, [dealKey]);
+
   return (
-    <div key={dealKey} className="hand hand--deal" style={{ ['--count' as string]: sorted.length }}>
+    <div
+      key={dealKey}
+      className={`hand${dealing === dealKey ? ' hand--deal' : ''}`}
+      style={{ ['--count' as string]: sorted.length }}
+    >
       {sorted.map((card, index) => {
         const canPlay = playableIds.has(card.id);
         const isSelected = selected === card.id;

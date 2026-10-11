@@ -38,9 +38,9 @@ export function EndScreen(props: EndScreenProps) {
 
   const statRows: readonly [string, string, string][] = [
     ['Contrats réussis', `${ours.contractsMade} / ${ours.contractsTaken}`, `${theirs.contractsMade} / ${theirs.contractsTaken}`],
-    ['Capots', String(ours.capots), String(theirs.capots)],
+    ['كبوط', String(ours.capots), String(theirs.capots)],
     ['Belotes', String(ours.belotes), String(theirs.belotes)],
-    ['Coinches', String(ours.coinches), String(theirs.coinches)],
+    ['Contrées', String(ours.coinches), String(theirs.coinches)],
   ];
 
   return (

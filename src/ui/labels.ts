@@ -22,7 +22,7 @@ export const isRed = (suit: Suit) => suit === 'coeur' || suit === 'carreau';
 export const teamName = (team: 0 | 1) => (team === 0 ? 'Nous' : 'Eux');
 
 export function contractValueLabel(value: Contract['value']): string {
-  return value === 'capot' ? 'Capot' : String(value);
+  return value === 'capot' ? 'كبوط' : String(value);
 }
 
 export function bidShortLabel(action: BidAction): string {
@@ -30,9 +30,9 @@ export function bidShortLabel(action: BidAction): string {
     case 'pass':
       return 'Passe';
     case 'coinche':
-      return 'Coinche !';
+      return 'Contrée !';
     case 'surcoinche':
-      return 'Surcoinche !';
+      return 'Surcontrée !';
     case 'bid':
       return `${contractValueLabel(action.value)} ${SUIT_SYMBOLS[action.suit]}`;
   }
