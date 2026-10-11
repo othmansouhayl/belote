@@ -85,6 +85,22 @@ export function HandResultDialog(props: HandResultDialogProps) {
               <td>{result.trickPoints[myTeam]}</td>
               <td>{result.trickPoints[them]}</td>
             </tr>
+            {result.roundedPoints && (
+              <tr>
+                <th scope="row">
+                  Arrondi ·{' '}
+                  {result.casse ? (
+                    'casse'
+                  ) : (
+                    <span lang="ar" dir="rtl">
+                      صحيحة
+                    </span>
+                  )}
+                </th>
+                <td>{result.roundedPoints[myTeam]}</td>
+                <td>{result.roundedPoints[them]}</td>
+              </tr>
+            )}
             <tr>
               <th scope="row">Belote</th>
               <td>{dash(result.belotePoints[myTeam])}</td>

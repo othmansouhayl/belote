@@ -80,7 +80,14 @@ export interface HandResult {
   readonly tricksWon: readonly [number, number];
   /** Points de belote marqués par chaque équipe (jamais multipliés). */
   readonly belotePoints: readonly [number, number];
-  /** Points retenus pour juger le contrat (plis, plus belote si la règle le prévoit). */
+  /**
+   * Points des plis arrondis à la dizaine (« صحيحة » / « casse ») quand la règle est active :
+   * 0-4 vers le bas, 5-9 vers le haut. Absent si pas d'arrondi (ou partie d'avant cette règle).
+   */
+  readonly roundedPoints?: readonly [number, number];
+  /** « Casse » : les deux équipes arrondissent vers le haut (unités 5, 6 ou 7), total 170 au lieu de 160. */
+  readonly casse?: boolean;
+  /** Points retenus pour juger le contrat (plis, plus belote si la règle le prévoit ; arrondis si la règle est active). */
   readonly contractPoints: readonly [number, number];
   readonly success: boolean;
   readonly capot: 'annonce' | 'non-annonce' | null;
