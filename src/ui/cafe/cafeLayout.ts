@@ -38,13 +38,49 @@ export const BELOTE_TABLES: readonly TableSpot[] = [
 ];
 
 /** Table de la terrasse, dehors devant l'entrée : la partie contre les bots. */
-export const TERRACE_TABLE = { x: -1.4, z: 2.0 } as const;
+export const TERRACE_TABLE = { x: -1.2, z: 2.0 } as const;
+
+/**
+ * Terrasse sur palier, dehors le long du mur de droite (2 m de large, toute la longueur du café) :
+ * +50 cm sur les 10 premiers mètres, +70 cm sur les 10 suivants (une marche de 20 cm au milieu).
+ */
+export const SIDE_TERRACE = {
+  x0: CAFE.width / 2 + 0.2,
+  x1: CAFE.width / 2 + 2.2,
+  splitZ: -10,
+  frontHeight: 0.5,
+  backHeight: 0.7,
+  /** Escalier devant, sur le trottoir, pour monter sur la terrasse. */
+  stairs: { x1: CAFE.width / 2 + 1.4, depth: 0.9 },
+  /** Marches qui descendent vers la 2e entrée du café (ouverture dans le mur de droite). */
+  sideDoor: { from: -11.3, to: -12.3, x1: CAFE.width / 2 + 1.1 },
+  /** Tables de la terrasse (2 chaises chacune) ; la première est celle du patron. */
+  tableX: CAFE.width / 2 + 1.45,
+  tables: [-2.2, -5.3, -8.4, -14.0, -16.6, -19.1],
+} as const;
+
+/** Hauteur du sol à un endroit (café, salle du fond, terrasse sur palier, escaliers). */
+export function groundAt(x: number, z: number): number {
+  const t = SIDE_TERRACE;
+  if (x >= t.x0 && x <= t.x1) {
+    // Escalier de devant : on monte en pente douce (plus fluide à l'écran que marche par marche).
+    if (z > 0 && z <= t.stairs.depth) return x <= t.stairs.x1 ? t.frontHeight * (1 - z / t.stairs.depth) : 0;
+    if (z <= 0 && z >= -CAFE.length) {
+      if (z <= t.sideDoor.from && z >= t.sideDoor.to && x < t.sideDoor.x1) {
+        return t.backHeight * ((x - t.x0) / (t.sideDoor.x1 - t.x0));
+      }
+      return z > t.splitZ ? t.frontHeight : t.backHeight;
+    }
+    return 0;
+  }
+  return Math.abs(x) <= CAFE.width / 2 && z < CAFE.stepZ && z >= -CAFE.length ? CAFE.stepHeight : 0;
+}
 
 /** Les deux points de vue : l'entrée (comptoir) et le fond du café (télé, tables de belote). */
 export const VIEWPOINTS = {
-  // Assez haut pour voir par-dessus l'enseigne : le patron est assis juste derrière.
-  entrance: { camera: [0.5, 11.5, 6.4], target: [0, 0, -4.2] },
-  back: { camera: [0, 9.4, -10.4], target: [0, 0.2, -16.3] },
+  // Assez haut pour voir par-dessus l'enseigne, un peu à droite pour voir la terrasse sur palier.
+  entrance: { camera: [1.1, 12.6, 7.6], target: [0.85, 0, -4.6] },
+  back: { camera: [0.8, 9.4, -10.2], target: [0.8, 0.2, -16.3] },
 } as const;
 
 export type Viewpoint = keyof typeof VIEWPOINTS;

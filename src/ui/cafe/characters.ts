@@ -2,49 +2,46 @@ import * as THREE from 'three';
 
 /**
  * Personnages du Café Tarek, en style simple (formes géométriques), animés à la main :
- * les deux serveurs circulent, le patron reste assis à la première table avec sa chicha.
+ * les deux serveurs circulent, le patron va et vient avec sa chicha, les clients sont assis en terrasse.
  */
 
 export interface PersonSpec {
   readonly height: number;
   readonly skin: number;
   readonly shirt: number;
-  readonly vest?: number;
+  /** Manches courtes (t-shirt) : avant-bras nus. */
+  readonly shortSleeves?: boolean;
   readonly trousers: number;
   readonly shoes: number;
   readonly hair: 'short' | 'bald';
   readonly hairColor: number;
   readonly hat?: number;
-  readonly apron?: boolean;
   readonly angry?: boolean;
   readonly belly?: number;
 }
 
-/** Nader (نادر), serveur : 35 ans, 1,70 m, rasé de près, cheveux courts. */
+/** Nader (نادر), serveur : 35 ans, 1,70 m, rasé de près, cheveux courts. En tenue de tous les jours : t-shirt et jean. */
 export const NADER: PersonSpec = {
   height: 1.7,
   skin: 0xc4956a,
-  shirt: 0xf4f1ea,
-  vest: 0x1f1f24,
-  trousers: 0x1c1c22,
-  shoes: 0x111111,
+  shirt: 0x3f6f86,
+  shortSleeves: true,
+  trousers: 0x34476a,
+  shoes: 0xece9e2,
   hair: 'short',
   hairColor: 0x1b1410,
-  apron: true,
 };
 
-/** Mohamed Naceur (محمد ناصر), serveur : 35 ans, 1,80 m, toujours sa casquette blanche. */
+/** Mohamed Naceur (محمد ناصر), serveur : 35 ans, 1,80 m, toujours sa casquette blanche. Sweat gris et pantalon beige. */
 export const MOHAMED_NACEUR: PersonSpec = {
   height: 1.8,
   skin: 0xb88a5f,
-  shirt: 0xf4f1ea,
-  vest: 0x6e1a2b,
-  trousers: 0x23232b,
-  shoes: 0x111111,
+  shirt: 0x8a9099,
+  trousers: 0xb3a07e,
+  shoes: 0xece9e2,
   hair: 'short',
   hairColor: 0x1b1410,
   hat: 0xf7f7f2,
-  apron: true,
 };
 
 /** Tarek (طارق), le patron : 50 ans, chauve, toujours de mauvaise humeur. */
@@ -60,6 +57,24 @@ export const TAREK: PersonSpec = {
   belly: 1.18,
 };
 
+/** Clients de la terrasse : des tenues variées, de tous les jours. */
+export function customerSpec(index: number): PersonSpec {
+  const shirts = [0x2e5e8c, 0x8c3b2e, 0x4f7a4a, 0xd9c7a0, 0x3a3a40, 0x9b6bb0, 0xe0e0da, 0x6b4f3a, 0x2f7d7a, 0xc9803a];
+  const trousers = [0x34476a, 0x2a2a30, 0x6b5a45, 0x3d4d66];
+  const skins = [0xc4956a, 0xe0b48e, 0xa8774f, 0xd2a27a];
+  return {
+    height: 1.7 + (index % 3) * 0.05,
+    skin: skins[index % skins.length]!,
+    shirt: shirts[index % shirts.length]!,
+    shortSleeves: index % 2 === 0,
+    trousers: trousers[index % trousers.length]!,
+    shoes: index % 3 === 0 ? 0xece9e2 : 0x2a1c12,
+    hair: index % 4 === 3 ? 'bald' : 'short',
+    hairColor: index % 5 === 2 ? 0x8a837a : 0x1b1410,
+    hat: index % 7 === 5 ? 0x2a2a30 : undefined,
+  };
+}
+
 export interface Person {
   readonly root: THREE.Group;
   /** Pose de marche (phase en radians) ou assis. */
@@ -69,6 +84,8 @@ export interface Person {
   raiseArm(amount: number): void;
   /** Bras droit plié devant soi, pour porter un plateau. */
   carry(): void;
+  /** Bras droit le long du corps, un peu écarté : pour porter la chicha. */
+  hold(): void;
 }
 
 const mat = (color: number) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.02 });
@@ -107,22 +124,11 @@ export function createPerson(spec: PersonSpec): Person {
     return { hip, knee };
   });
 
-  // Buste (un peu de ventre pour le patron), gilet et tablier des serveurs.
+  // Buste (un peu de ventre pour le patron).
   const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.34, 4, 10), shirt);
   torso.position.y = 1.2;
   torso.scale.set(1.05 * (spec.belly ?? 1), 1, 0.62 * (spec.belly ?? 1));
   body.add(torso);
-  if (spec.vest !== undefined) {
-    const vest = new THREE.Mesh(new THREE.CapsuleGeometry(0.205, 0.26, 4, 10), mat(spec.vest));
-    vest.position.y = 1.22;
-    vest.scale.set(1.08, 1, 0.66);
-    body.add(vest);
-  }
-  if (spec.apron) {
-    const apron = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.42, 0.02), mat(0xfaf8f2));
-    apron.position.set(0, 0.86, 0.15);
-    body.add(apron);
-  }
 
   // Bras : épaule → bras (manche) → main.
   const arms = [-1, 1].map((side) => {
@@ -131,7 +137,7 @@ export function createPerson(spec: PersonSpec): Person {
     shoulder.add(limb(0.06, 0.34, shirt));
     const elbow = new THREE.Group();
     elbow.position.y = -0.32;
-    elbow.add(limb(0.052, 0.3, shirt));
+    elbow.add(limb(0.052, 0.3, spec.shortSleeves ? skin : shirt));
     const hand = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), skin);
     hand.position.y = -0.32;
     elbow.add(hand);
@@ -204,6 +210,10 @@ export function createPerson(spec: PersonSpec): Person {
     legs[1]!.knee.rotation.x = Math.max(0, Math.sin(phase)) * 0.6 * amount;
     arms[0]!.shoulder.rotation.x = -swing * 0.8;
     arms[1]!.shoulder.rotation.x = swing * 0.8;
+    for (const arm of arms) {
+      arm.shoulder.rotation.z = 0;
+      arm.elbow.rotation.x = -0.2;
+    }
     body.position.y = Math.abs(Math.cos(phase)) * 0.025 * amount;
   };
 
@@ -214,6 +224,7 @@ export function createPerson(spec: PersonSpec): Person {
     }
     for (const arm of arms) {
       arm.shoulder.rotation.x = -0.5;
+      arm.shoulder.rotation.z = 0;
       arm.elbow.rotation.x = -0.9;
     }
     // Hanches à hauteur d'assise (siège à 0,48 m).
@@ -230,7 +241,13 @@ export function createPerson(spec: PersonSpec): Person {
     arms[1]!.elbow.rotation.x = -1.25;
   };
 
-  return { root, walk, sit, raiseArm, carry };
+  const hold = () => {
+    arms[1]!.shoulder.rotation.x = 0;
+    arms[1]!.shoulder.rotation.z = 0.15;
+    arms[1]!.elbow.rotation.x = 0;
+  };
+
+  return { root, walk, sit, raiseArm, carry, hold };
 }
 
 /** Plateau avec un verre de thé, tenu par un serveur. */
@@ -250,7 +267,7 @@ export function tray(): THREE.Group {
   return group;
 }
 
-/** Chicha posée au sol, à côté du patron. */
+/** Chicha posée au sol, à côté de celui qui la fume. */
 export function chicha(): THREE.Group {
   const group = new THREE.Group();
   const vase = new THREE.Mesh(
@@ -276,7 +293,7 @@ export function chicha(): THREE.Group {
   return group;
 }
 
-/** Tuyau de la chicha, courbé entre le vase et la main du patron (coordonnées locales au café). */
+/** Tuyau de la chicha, courbé entre le vase et la main du fumeur. */
 export function hose(from: THREE.Vector3, to: THREE.Vector3): THREE.Mesh {
   const mid = from.clone().lerp(to, 0.5);
   mid.y = Math.min(from.y, to.y) - 0.25;
@@ -284,7 +301,24 @@ export function hose(from: THREE.Vector3, to: THREE.Vector3): THREE.Mesh {
   return new THREE.Mesh(new THREE.TubeGeometry(curve, 16, 0.012, 6), new THREE.MeshStandardMaterial({ color: 0x5b2c1d, roughness: 0.8 }));
 }
 
-/** Trajet d'un serveur : il marche de point en point et marque des pauses. */
+/**
+ * Chicha et son tuyau, placés par rapport à une personne assise (repère de la personne, qui regarde vers +z) :
+ * on pose ce groupe à l'endroit et dans l'orientation de la chaise.
+ */
+export const CHICHA_OFFSET = new THREE.Vector3(-0.63, 0, -0.12);
+/** Point où la fumée sort (devant le visage d'une personne assise). */
+export const SMOKE_OFFSET = new THREE.Vector3(-0.03, 1.22, 0.2);
+
+export function seatedChicha(): { readonly kit: THREE.Group; readonly chicha: THREE.Group } {
+  const kit = new THREE.Group();
+  const pipe = chicha();
+  pipe.position.copy(CHICHA_OFFSET);
+  kit.add(pipe);
+  kit.add(hose(new THREE.Vector3(-0.68, 0.42, -0.12), new THREE.Vector3(-0.15, 0.78, 0.3)));
+  return { kit, chicha: pipe };
+}
+
+/** Trajet d'un personnage : il marche de point en point et marque des pauses. */
 export interface Waypoint {
   readonly x: number;
   readonly z: number;
@@ -292,24 +326,29 @@ export interface Waypoint {
   readonly pause?: number;
 }
 
+/** Fait marcher un personnage sur un trajet : en boucle (serveurs) ou une seule fois (le patron). */
 export class Walker {
   private index = 0;
   private waitUntil = 0;
   private phase = 0;
   private readonly position: THREE.Vector2;
+  /** Trajet simple terminé (jamais vrai pour un trajet en boucle). */
+  finished = false;
 
   constructor(
     private readonly person: Person,
     private readonly path: readonly Waypoint[],
     private readonly speed: number,
-    private readonly groundAt: (z: number) => number,
+    private readonly groundAt: (x: number, z: number) => number,
+    private readonly loop = true,
   ) {
     const first = path[0]!;
     this.position = new THREE.Vector2(first.x, first.z);
-    person.root.position.set(first.x, groundAt(first.z), first.z);
+    person.root.position.set(first.x, groundAt(first.x, first.z), first.z);
   }
 
   update(now: number, dt: number): void {
+    if (this.finished) return;
     const target = this.path[(this.index + 1) % this.path.length]!;
     if (now < this.waitUntil) {
       this.person.walk(this.phase, 0);
@@ -322,6 +361,7 @@ export class Walker {
       this.position.set(target.x, target.z);
       this.index = (this.index + 1) % this.path.length;
       if (target.pause) this.waitUntil = now + target.pause * 1000;
+      if (!this.loop && this.index === this.path.length - 1) this.finished = true;
     } else {
       this.position.addScaledVector(delta.normalize(), step);
       // Le personnage se tourne doucement vers sa direction de marche (face à +z au repos).
@@ -333,7 +373,7 @@ export class Walker {
     }
     this.phase += dt * this.speed * 7;
     this.person.walk(this.phase, now < this.waitUntil ? 0 : 1);
-    this.person.root.position.set(this.position.x, this.groundAt(this.position.y), this.position.y);
+    this.person.root.position.set(this.position.x, this.groundAt(this.position.x, this.position.y), this.position.y);
   }
 
   get location(): THREE.Vector3 {

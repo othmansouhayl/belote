@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { BELOTE_TABLES, CAFE, SEAT_SIDES, TERRACE_TABLE, VIEWPOINTS, seatOffset } from './cafeLayout.ts';
+import { BELOTE_TABLES, CAFE, SEAT_SIDES, SIDE_TERRACE, TERRACE_TABLE, VIEWPOINTS, groundAt, seatOffset } from './cafeLayout.ts';
 import { ambianceAt, currentHour } from './ambiance.ts';
 import type { Ambiance } from './ambiance.ts';
-import { MOHAMED_NACEUR, NADER, TAREK, Walker, chicha, createPerson, hose, tray } from './characters.ts';
+import { MOHAMED_NACEUR, NADER, SMOKE_OFFSET, TAREK, Walker, createPerson, customerSpec, seatedChicha, tray } from './characters.ts';
+import type { Waypoint } from './characters.ts';
 import type { SeatSide, TableSpot, Viewpoint } from './cafeLayout.ts';
 
 /** État d'une table de belote tel que l'affiche la maquette (informations publiques). */
@@ -167,6 +168,38 @@ const paving = (repeat: [number, number]) =>
     repeat,
   );
 
+/** Carreaux en terre cuite de la terrasse sur palier (4 carreaux de 50 cm par motif). */
+const terracotta = () =>
+  canvasTexture(128, 128, (ctx) => {
+    const rand = seeded(23);
+    for (let i = 0; i < 4; i++) {
+      const shade = 0.9 + rand() * 0.15;
+      ctx.fillStyle = `rgb(${Math.round(184 * shade)}, ${Math.round(104 * shade)}, ${Math.round(72 * shade)})`;
+      ctx.fillRect((i % 2) * 64, Math.floor(i / 2) * 64, 64, 64);
+    }
+    ctx.strokeStyle = '#e3d6c2';
+    ctx.lineWidth = 3;
+    for (const v of [0, 64, 128]) {
+      ctx.beginPath();
+      ctx.moveTo(v, 0);
+      ctx.lineTo(v, 128);
+      ctx.moveTo(0, v);
+      ctx.lineTo(128, v);
+      ctx.stroke();
+    }
+  });
+
+const wcSign = () =>
+  canvasTexture(64, 32, (ctx) => {
+    ctx.fillStyle = '#f2efe8';
+    ctx.fillRect(0, 0, 64, 32);
+    ctx.fillStyle = '#1d1f22';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('WC', 32, 17);
+  });
+
 /* ----------------------------------------------------------------------------
  * Mobilier
  * -------------------------------------------------------------------------- */
@@ -305,9 +338,9 @@ function buildRoom(scene: THREE.Scene): RoomHandles {
   terrace.position.set(0, -0.01, terraceDepth / 2);
   scene.add(terrace);
   const streetMaterial = mat(0x3a3d40, { roughness: 1 });
-  const street = new THREE.Mesh(new THREE.PlaneGeometry(40, 30), streetMaterial);
+  const street = new THREE.Mesh(new THREE.PlaneGeometry(40, 50), streetMaterial);
   street.rotation.x = -Math.PI / 2;
-  street.position.set(0, -0.03, 0);
+  street.position.set(0, -0.03, -5);
   scene.add(street);
 
   // Murs : extérieur sombre, intérieur « blanc sale » avec une plinthe en bois.
@@ -321,20 +354,48 @@ function buildRoom(scene: THREE.Scene): RoomHandles {
   leftWall.add(box(0.03, 0.12, length, MATERIALS.baseboard, -half + 0.015, 0.06, -length / 2));
   scene.add(leftWall);
 
-  // Mur de droite, ouvert pour la 2e entrée (au milieu, au niveau de la marche).
-  const doorFrom = stepZ + 1.2;
-  const doorTo = stepZ + 0.2;
-  for (const [from, to] of [
-    [0, doorFrom],
-    [doorTo, -length],
-  ] as const) {
+  // Mur de droite, ouvert pour la 2e entrée (au milieu, au niveau de la marche), avec des fenêtres
+  // sur la terrasse : au-dessus du comptoir et dans la salle de belote.
+  const doorFrom = SIDE_TERRACE.sideDoor.from;
+  const doorTo = SIDE_TERRACE.sideDoor.to;
+  const rightPanel = panelMaterial(2);
+  const wallPiece = (from: number, to: number, bottom: number, top: number) => {
     const len = from - to;
-    scene.add(box(0.2, wallHeight, len, MATERIALS.wallOuter, half + 0.1, wallHeight / 2, (from + to) / 2));
-    const panel = new THREE.Mesh(new THREE.PlaneGeometry(len, wallHeight), panelMaterial(len));
+    const h = top - bottom;
+    scene.add(box(0.2, h, len, MATERIALS.wallOuter, half + 0.1, bottom + h / 2, (from + to) / 2));
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(len, h), rightPanel);
     panel.rotation.y = -Math.PI / 2;
-    panel.position.set(half - 0.005, wallHeight / 2, (from + to) / 2);
+    panel.position.set(half - 0.005, bottom + h / 2, (from + to) / 2);
     scene.add(panel);
-    scene.add(box(0.03, 0.12, len, MATERIALS.baseboard, half - 0.015, 0.06, (from + to) / 2));
+  };
+  const windowFrame = MATERIALS.black;
+  const windowGlass = new THREE.MeshStandardMaterial({ color: 0x9fd3f0, transparent: true, opacity: 0.38, roughness: 0.1, metalness: 0.1, side: THREE.DoubleSide });
+  for (const [from, to, windows] of [
+    [0, doorFrom, [[-2.2, -3.8], [-4.6, -6.2], [-7.0, -8.6]]],
+    [doorTo, -length, [[-15.0, -16.4], [-17.2, -18.6]]],
+  ] as const) {
+    let z: number = from;
+    const sill = from === 0 ? 1.25 : 1.15;
+    const head = 2.25;
+    for (const [wFrom, wTo] of windows) {
+      wallPiece(z, wFrom, 0, wallHeight);
+      wallPiece(wFrom, wTo, 0, sill);
+      wallPiece(wFrom, wTo, head, wallHeight);
+      const len = wFrom - wTo;
+      const mid = (wFrom + wTo) / 2;
+      const pane = new THREE.Mesh(new THREE.PlaneGeometry(len, head - sill), windowGlass);
+      pane.rotation.y = -Math.PI / 2;
+      pane.position.set(half + 0.1, (sill + head) / 2, mid);
+      scene.add(pane);
+      // Cadre noir, meneau au milieu et rebord de fenêtre.
+      scene.add(box(0.06, 0.05, len, windowFrame, half + 0.1, sill + 0.025, mid));
+      scene.add(box(0.06, 0.05, len, windowFrame, half + 0.1, head - 0.025, mid));
+      for (const edge of [wFrom - 0.025, wTo + 0.025, mid]) scene.add(box(0.06, head - sill, 0.05, windowFrame, half + 0.1, (sill + head) / 2, edge));
+      scene.add(box(0.26, 0.04, len + 0.1, MATERIALS.marble, half - 0.04, sill - 0.02, mid));
+      z = wTo;
+    }
+    wallPiece(z, to, 0, wallHeight);
+    scene.add(box(0.03, 0.12, from - to, MATERIALS.baseboard, half - 0.015, 0.06, (from + to) / 2));
   }
   scene.add(box(0.22, 0.3, doorFrom - doorTo, MATERIALS.wallOuter, half + 0.1, wallHeight - 0.15, (doorFrom + doorTo) / 2));
 
@@ -347,18 +408,20 @@ function buildRoom(scene: THREE.Scene): RoomHandles {
   garage.position.set(0.15, (wallHeight - 0.3) / 2 + stepHeight, -length + 0.01);
   scene.add(garage);
 
-  // Télé 40" excentrée à gauche.
+  // Grande télé pour les matchs, inclinée vers la salle pour que tout le monde la voie.
   const tv = new THREE.Group();
-  tv.add(box(1.0, 0.6, 0.06, MATERIALS.black, 0, 0, 0));
+  tv.add(box(2.2, 1.26, 0.07, MATERIALS.black, 0, 0, 0));
   const tvTexture = tvScreen();
   const screen = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.92, 0.52),
+    new THREE.PlaneGeometry(2.1, 1.16),
     new THREE.MeshStandardMaterial({ map: tvTexture, emissive: 0xffffff, emissiveMap: tvTexture, emissiveIntensity: 0.6 }),
   );
-  screen.position.z = 0.035;
+  screen.position.z = 0.04;
   tv.add(screen);
-  tv.position.set(-1.45, 1.95, -length + 0.12);
+  tv.position.set(-0.75, stepHeight + 1.72, -length + 0.2);
+  tv.rotation.x = 0.12;
   scene.add(tv);
+  scene.add(box(0.3, 0.3, 0.16, MATERIALS.black, -0.75, stepHeight + 1.75, -length + 0.08));
 
   // Façade vitrée : deux vitrines et la double porte.
   const facadeTop = box(width + 0.4, 0.4, 0.2, MATERIALS.wallOuter, 0, wallHeight - 0.2, 0.1);
@@ -440,10 +503,16 @@ function buildToilets(scene: THREE.Scene) {
   scene.add(box(x1 - x0, 2.3, 0.08, wall, (x0 + x1) / 2, y + 1.15, z0));
   scene.add(box(x1 - x0, 2.3, 0.08, wall, (x0 + x1) / 2, y + 1.15, z1));
   scene.add(box(0.08, 2.3, 0.6, wall, x0, y + 1.15, z1 + 0.3));
-  // Porte entrouverte.
-  const door = box(0.06, 2.0, 0.85, mat(0x7a4a2a), x0 - 0.25, y + 1.0, z0 - 0.75);
-  door.rotation.y = 0.6;
-  scene.add(door);
+  // Porte fermée, avec sa poignée et le panneau « WC ».
+  const doorLen = z0 - (z1 + 0.6);
+  scene.add(box(0.06, 2.0, doorLen, mat(0x7a4a2a), x0, y + 1.0, z0 - doorLen / 2));
+  scene.add(box(0.08, 0.3, doorLen, wall, x0, y + 2.15, z0 - doorLen / 2));
+  scene.add(cylinder(0.02, 0.02, 0.1, MATERIALS.metal, x0 - 0.06, y + 1.0, z1 + 0.75, 8).rotateZ(Math.PI / 2));
+  const signTexture = wcSign();
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.14), new THREE.MeshStandardMaterial({ map: signTexture }));
+  sign.rotation.y = -Math.PI / 2;
+  sign.position.set(x0 - 0.035, y + 1.65, z0 - doorLen / 2);
+  scene.add(sign);
   scene.add(cylinder(0.17, 0.15, 0.4, MATERIALS.white, 2.15, y + 0.2, -13.9, 12));
   scene.add(box(0.35, 0.12, 0.28, MATERIALS.white, 1.7, y + 0.85, z0 - 0.2));
 }
@@ -456,6 +525,78 @@ function buildFrontSeating(scene: THREE.Scene) {
     scene.add(chair(-1.75, 0, z - 0.55, Math.PI));
   }
   for (const z of [-1, -4.8, -8.3, -11.8]) scene.add(plant(-2.15, 0, z, 0.9));
+}
+
+/** Un café (tasse blanche) et un thé (verre ambré) posés sur une table. */
+function drinks(x: number, y: number, z: number) {
+  const group = new THREE.Group();
+  const coffee = mat(0x3b2412, { roughness: 0.3 });
+  const tea = new THREE.MeshStandardMaterial({ color: 0xc8732a, transparent: true, opacity: 0.85, roughness: 0.2 });
+  group.add(cylinder(0.04, 0.034, 0.06, MATERIALS.white, -0.12, 0.03, 0.12, 10));
+  group.add(cylinder(0.034, 0.034, 0.005, coffee, -0.12, 0.058, 0.12, 10));
+  group.add(cylinder(0.065, 0.065, 0.008, MATERIALS.white, -0.12, 0.004, 0.12, 14));
+  group.add(cylinder(0.03, 0.025, 0.085, tea, 0.1, 0.043, -0.1, 10));
+  group.add(cylinder(0.03, 0.025, 0.085, tea, 0.14, 0.043, 0.06, 10));
+  group.position.set(x, y, z);
+  return group;
+}
+
+/**
+ * Terrasse sur palier le long du mur de droite : dallage en terre cuite, escalier devant,
+ * marches vers la 2e entrée, garde-corps, et ses tables (les clients sont ajoutés avec les personnages).
+ */
+function buildSideTerrace(scene: THREE.Scene) {
+  const t = SIDE_TERRACE;
+  const side = mat(0xd8cfbf, { roughness: 0.9 });
+  const tileTexture = terracotta();
+  const platform = (xa: number, xb: number, za: number, zb: number, h: number) => {
+    const w = xb - xa;
+    const d = za - zb;
+    const top = tileTexture.clone();
+    top.wrapS = top.wrapT = THREE.RepeatWrapping;
+    top.repeat.set(w, d);
+    top.needsUpdate = true;
+    const topMaterial = new THREE.MeshStandardMaterial({ map: top, roughness: 0.8 });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h + 0.03, d), [side, side, topMaterial, side, side, side]);
+    mesh.position.set((xa + xb) / 2, (h - 0.03) / 2, (za + zb) / 2);
+    scene.add(mesh);
+  };
+  // Palier à +50 cm puis à +70 cm, avec l'entaille des marches vers la 2e entrée.
+  platform(t.x0, t.x1, 0, t.splitZ, t.frontHeight);
+  platform(t.x0, t.x1, t.splitZ, t.sideDoor.from, t.backHeight);
+  platform(t.sideDoor.x1, t.x1, t.sideDoor.from, t.sideDoor.to, t.backHeight);
+  platform(t.x0, t.x1, t.sideDoor.to, -CAFE.length, t.backHeight);
+  for (let i = 0; i < 3; i++) {
+    const stepW = (t.sideDoor.x1 - t.x0) / 3;
+    platform(t.x0 + i * stepW, t.x0 + (i + 1) * stepW, t.sideDoor.from, t.sideDoor.to, (t.backHeight * (i + 1)) / 4);
+  }
+  // Escalier de devant, sur le trottoir.
+  for (let i = 0; i < 3; i++) {
+    const stepD = t.stairs.depth / 3;
+    platform(t.x0, t.stairs.x1, t.stairs.depth - i * stepD, t.stairs.depth - (i + 1) * stepD, (t.frontHeight * (i + 1)) / 4);
+  }
+  // Garde-corps noir le long du bord et au fond.
+  const rail = MATERIALS.black;
+  const railX = t.x1 - 0.04;
+  for (const [from, to, h] of [
+    [0, t.splitZ, t.frontHeight],
+    [t.splitZ, -CAFE.length, t.backHeight],
+  ] as const) {
+    scene.add(box(0.04, 0.04, from - to, rail, railX, h + 0.9, (from + to) / 2));
+    scene.add(box(0.02, 0.02, from - to, rail, railX, h + 0.45, (from + to) / 2));
+    for (let z = from - 0.02; z > to - 0.01; z -= 1.25) scene.add(box(0.04, 0.9, 0.04, rail, railX, h + 0.45, z));
+  }
+  scene.add(box(t.x1 - t.stairs.x1, 0.04, 0.04, rail, (t.x1 + t.stairs.x1) / 2, t.frontHeight + 0.9, -0.02));
+  scene.add(box(t.x1 - t.x0, 0.04, 0.04, rail, (t.x0 + t.x1) / 2, t.backHeight + 0.9, -CAFE.length + 0.02));
+  // Tables avec un café et un thé ; deux chaises face à face.
+  for (const z of t.tables) {
+    const y = groundAt(t.tableX, z);
+    scene.add(squareTable(0.6, t.tableX, y, z));
+    scene.add(chair(t.tableX, y, z + 0.55, 0));
+    scene.add(chair(t.tableX, y, z - 0.55, Math.PI));
+    if (z !== t.tables[0]) scene.add(drinks(t.tableX, y + 0.775, z));
+  }
+  scene.add(plant(t.x1 - 0.3, t.backHeight, -11.4, 0.85), plant(t.x1 - 0.3, t.frontHeight, -0.5, 0.8));
 }
 
 /* ----------------------------------------------------------------------------
@@ -496,7 +637,7 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
   key.target.position.set(0, 0, -8.5);
   key.castShadow = true;
   key.shadow.mapSize.set(2048, 2048);
-  Object.assign(key.shadow.camera, { left: -7, right: 7, top: 15, bottom: -15, near: 1, far: 40 });
+  Object.assign(key.shadow.camera, { left: -8, right: 8, top: 15, bottom: -15, near: 1, far: 40 });
   key.shadow.bias = -0.0006;
   key.shadow.normalBias = 0.03;
   scene.add(key, key.target);
@@ -530,6 +671,18 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
   for (const t of BELOTE_TABLES) pendant(t.x, CAFE.stepHeight + 1.95, t.z);
   for (const z of [-3, -6.5, -10]) pendant(-1.75, 1.95, z);
   for (const z of [-3, -6, -9]) pendant(1.75, 2.0, z);
+  // Appliques sur le mur extérieur, au-dessus de la terrasse sur palier.
+  for (const z of [-4, -15.5]) {
+    const x = CAFE.width / 2 + 0.24;
+    scene.add(box(0.08, 0.22, 0.14, MATERIALS.black, x, 2.35, z));
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), bulbMaterial);
+    bulb.position.set(x + 0.08, 2.3, z);
+    scene.add(bulb);
+    const light = new THREE.PointLight(0xffc98a, 5, 6.5, 1.6);
+    light.position.set(x + 0.4, 2.25, z);
+    scene.add(light);
+    lamps.push(light);
+  }
 
   // Lampadaire sur le trottoir, allumé le soir.
   const streetLamp = new THREE.Group();
@@ -549,6 +702,7 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
   buildCounter(scene);
   buildToilets(scene);
   buildFrontSeating(scene);
+  buildSideTerrace(scene);
   for (const [x, z] of [
     [-2.1, -13.0],
     [2.1, -19.5],
@@ -629,7 +783,7 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
         scene.add(bot);
       }
     });
-    scene.add(plant(1.9, 0, 1.0), plant(-2.4, 0, 0.9), plant(2.2, 0, 3.8, 0.8));
+    scene.add(plant(-2.4, 0, 0.9), plant(2.2, 0, 3.8, 0.8));
     const hit = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.6, 2.2), MATERIALS.hit);
     hit.position.set(x, 1.3, z);
     hit.userData = { kind: 'terrace' };
@@ -649,27 +803,97 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
 
   /* ------------------------------ Personnages ------------------------------ */
 
-  const groundAt = (z: number) => (z < CAFE.stepZ ? CAFE.stepHeight : 0);
+  // Chaque fumeur assis a sa chicha ; la fumée sort devant son visage.
+  const smokers: { readonly kit: THREE.Group; next: number; active: boolean }[] = [];
 
-  // Tarek, le patron : toujours assis à la première table de l'entrée, sa chicha à côté de lui.
+  // Clients de la terrasse sur palier : deux par table (sauf celle du patron), une chicha par table.
+  const customers: THREE.Object3D[] = [];
+  SIDE_TERRACE.tables.slice(1).forEach((z, i) => {
+    const y = groundAt(SIDE_TERRACE.tableX, z);
+    for (const [k, dz, rotation] of [
+      [0, 0.55, Math.PI],
+      [1, -0.55, 0],
+    ] as const) {
+      const person = createPerson(customerSpec(i * 2 + k));
+      person.sit();
+      person.root.position.set(SIDE_TERRACE.tableX, y, z + dz);
+      person.root.rotation.y = rotation;
+      scene.add(person.root);
+      customers.push(person.root);
+    }
+    // La chicha côté garde-corps, son tuyau vers le client assis dos à la rue.
+    const { kit } = seatedChicha();
+    kit.position.set(SIDE_TERRACE.tableX, y, z + 0.55);
+    kit.rotation.y = Math.PI;
+    kit.updateMatrixWorld();
+    scene.add(kit);
+    smokers.push({ kit, next: performance.now() + Math.random() * 4000, active: true });
+  });
+
+  // Tarek, le patron : assis à la première table de l'entrée, il sort de temps en temps
+  // s'installer sur la terrasse, sa chicha à la main, puis revient.
   const tarek = createPerson(TAREK);
-  tarek.sit();
-  tarek.root.position.set(-1.75, 0, -2.42);
-  tarek.root.rotation.y = Math.PI;
   scene.add(tarek.root);
-  const shisha = chicha();
-  shisha.position.set(-1.12, 0, -2.3);
-  scene.add(shisha);
-  scene.add(hose(new THREE.Vector3(-1.07, 0.42, -2.3), new THREE.Vector3(-1.6, 0.78, -2.72)));
+  const tarekKit = seatedChicha();
+  scene.add(tarekKit.kit);
+  const tarekSmoke = { kit: tarekKit.kit, next: 0, active: true };
+  smokers.push(tarekSmoke);
+  const terraceSeatZ = SIDE_TERRACE.tables[0] + 0.55;
+  const TAREK_SEATS = {
+    inside: { x: -1.75, z: -2.42 },
+    terrace: { x: SIDE_TERRACE.tableX, z: terraceSeatZ },
+  } as const;
+  const laneX = SIDE_TERRACE.x0 + 0.55;
+  const TO_TERRACE: Waypoint[] = [
+    { x: -1.75, z: -2.42 },
+    { x: -0.95, z: -2.3 },
+    { x: -0.1, z: -0.9 },
+    { x: 0, z: 0.7 },
+    { x: 1.2, z: 1.3 },
+    { x: laneX, z: 1.35 },
+    { x: laneX, z: SIDE_TERRACE.stairs.depth },
+    { x: laneX, z: -0.1 },
+    { x: laneX, z: terraceSeatZ },
+    { x: SIDE_TERRACE.tableX, z: terraceSeatZ },
+  ];
+  const TO_INSIDE = [...TO_TERRACE].reverse();
+  type Seat = keyof typeof TAREK_SEATS;
+  let tarekState: { seat: Seat; until: number } | { walker: Walker; to: Seat };
+  const seatTarek = (seat: Seat, until: number) => {
+    const { x, z } = TAREK_SEATS[seat];
+    const y = groundAt(x, z);
+    tarek.sit();
+    tarek.root.position.set(x, y, z);
+    tarek.root.rotation.y = Math.PI;
+    tarekKit.kit.position.set(x, y, z);
+    tarekKit.kit.rotation.y = Math.PI;
+    tarekKit.kit.add(tarekKit.chicha);
+    tarekKit.chicha.position.set(-0.63, 0, -0.12);
+    tarekKit.kit.visible = true;
+    tarekKit.kit.updateMatrixWorld();
+    tarekSmoke.active = true;
+    tarekState = { seat, until };
+  };
+  const walkTarek = (to: Seat) => {
+    // Il se lève et emporte sa chicha à la main.
+    tarekKit.kit.visible = false;
+    tarekSmoke.active = false;
+    tarek.root.add(tarekKit.chicha);
+    tarekKit.chicha.position.set(0.37, 0.2, 0);
+    tarekKit.chicha.visible = true;
+    tarekState = { walker: new Walker(tarek, to === 'terrace' ? TO_TERRACE : TO_INSIDE, 0.7, groundAt, false), to };
+  };
+  seatTarek('inside', performance.now() + 15000);
+
   // Bouffées de fumée de chicha qui montent et disparaissent.
   const smokeMaterial = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, transparent: true, opacity: 0, depthWrite: false });
-  const puffs = Array.from({ length: 6 }, () => {
+  const puffs = Array.from({ length: 16 }, () => {
     const puff = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), smokeMaterial.clone());
     puff.visible = false;
     scene.add(puff);
-    return { mesh: puff, born: -1e9 };
+    return { mesh: puff, born: -1e9, kit: tarekKit.kit as THREE.Object3D, drift: Math.random() * 6 };
   });
-  let nextPuff = 0;
+  const smokePoint = new THREE.Vector3();
 
   // Les deux serveurs font leur tournée.
   const nader = createPerson(NADER);
@@ -686,6 +910,15 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
       { x: -0.9, z: -3.9, pause: 2 },
       { x: 0.1, z: -1.3 },
       { x: 0.1, z: 1.3, pause: 3 },
+      // Il monte servir la terrasse sur palier.
+      { x: 1.2, z: 1.45 },
+      { x: laneX - 0.2, z: 1.45 },
+      { x: laneX - 0.2, z: -0.1 },
+      { x: laneX - 0.2, z: SIDE_TERRACE.tables[1], pause: 3 },
+      { x: laneX - 0.2, z: SIDE_TERRACE.tables[2], pause: 2.5 },
+      { x: laneX - 0.2, z: -0.1 },
+      { x: laneX - 0.2, z: 1.45 },
+      { x: 1.2, z: 1.45 },
       { x: 0.3, z: -1.6 },
       { x: 0.55, z: -5 },
     ],
@@ -717,6 +950,7 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     '« Moins de bruit au fond ! »',
     '« Le crédit, c’est fini ! »',
     '« Qui a encore pris ma chaise ?! »',
+    '« Nader ! Le charbon, vite ! »',
   ];
   let tarekLine = 0;
   const characters = [
@@ -816,6 +1050,8 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     object.castShadow = !material.transparent;
     object.receiveShadow = true;
   });
+  // Les clients assis ne bougent pas : pas d'ombre portée, moins de calcul pour le téléphone.
+  for (const customer of customers) customer.traverse((object) => (object.castShadow = false));
 
   const applyAmbiance = (a: Ambiance) => {
     renderer.setClearColor(a.sky);
@@ -901,19 +1137,31 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     naderWalk.update(now, dt);
     nader.carry();
     naceurWalk.update(now, dt);
-    // Le patron s'énerve de temps en temps : bras levé.
-    const cycle = (now / 1000) % 7;
-    tarek.raiseArm(cycle < 1.2 ? Math.sin((cycle / 1.2) * Math.PI) : 0);
-    if (now > nextPuff) {
-      const puff = puffs.find((p) => now - p.born > 2600) ?? puffs[0]!;
+    // Le patron : assis, il s'énerve de temps en temps (bras levé) ; sinon il marche avec sa chicha.
+    if ('walker' in tarekState) {
+      tarekState.walker.update(now, dt);
+      tarek.hold();
+      if (tarekState.walker.finished) seatTarek(tarekState.to, now + 25000 + Math.random() * 20000);
+    } else if (now > tarekState.until) {
+      walkTarek(tarekState.seat === 'inside' ? 'terrace' : 'inside');
+    } else {
+      const cycle = (now / 1000) % 7;
+      tarek.raiseArm(cycle < 1.2 ? Math.sin((cycle / 1.2) * Math.PI) : 0);
+    }
+    for (const smoker of smokers) {
+      if (!smoker.active || now < smoker.next) continue;
+      smoker.next = now + 1800 + Math.random() * 2600;
+      const puff = puffs.find((p) => now - p.born > 2600);
+      if (!puff) continue;
       puff.born = now;
-      nextPuff = now + 1400 + Math.random() * 1600;
+      puff.kit = smoker.kit;
     }
     for (const p of puffs) {
       const age = (now - p.born) / 2600;
-      p.mesh.visible = age >= 0 && age < 1;
+      p.mesh.visible = age >= 0 && age < 1 && p.kit.visible;
       if (!p.mesh.visible) continue;
-      p.mesh.position.set(-1.72 + Math.sin(age * 5) * 0.05, 1.22 + age * 0.7, -2.62 - age * 0.15);
+      smokePoint.set(SMOKE_OFFSET.x + Math.sin(age * 5 + p.drift) * 0.05, SMOKE_OFFSET.y + age * 0.7, SMOKE_OFFSET.z + age * 0.15);
+      p.mesh.position.copy(p.kit.localToWorld(smokePoint));
       p.mesh.scale.setScalar(1 + age * 2.2);
       (p.mesh.material as THREE.MeshStandardMaterial).opacity = 0.45 * (1 - age);
     }
