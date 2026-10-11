@@ -2874,3 +2874,8 @@ button:focus-visible {
   background: #ebe5d6;
   color: #1f2a24;
 }
+
+.cafe-bubble__line {
+  font-size: 0.9rem;
+  color: #1f2a24;
+}

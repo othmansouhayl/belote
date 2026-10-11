@@ -171,11 +171,11 @@ do $$ declare n int; begin
   assert n = 0, 'la vue spectateur devrait être supprimée';
 end $$;
 
--- Une table abandonnée depuis plus de 30 minutes peut être reprise.
+-- Une table abandonnée depuis plus de 10 minutes peut être reprise.
 set role service_role;
 select public.save_room_v2(:'autre', 'CAF345', null, '{}', '[]',
   4::smallint, '{"players":[{"seat":0,"nickname":"Ancien"}]}', '{}') as t4 \gset
-update public.cafe_tables set updated_at = now() - interval '31 minutes' where table_number = 4;
+update public.cafe_tables set updated_at = now() - interval '11 minutes' where table_number = 4;
 select public.save_room_v2('55555555-5555-4555-8555-555555555555', 'CAF456', null, '{}', '[]',
   4::smallint, '{"players":[{"seat":0,"nickname":"Nouveau"}]}', '{}') as reprise \gset
 reset role;

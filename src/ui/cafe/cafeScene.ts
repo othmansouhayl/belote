@@ -6,6 +6,8 @@ import type { Ambiance } from './ambiance.ts';
 import { MOHAMED_NACEUR, NADER, SMOKE_OFFSET, TAREK, Walker, createPerson, customerSpec, seatedChicha, tray } from './characters.ts';
 import type { Waypoint } from './characters.ts';
 import { TAREK_END_LINE } from '../labels.ts';
+import { CAFE_LINES, CAFE_NAMES, bubbleDuration } from './cafeLines.ts';
+import type { CafeCharacter } from './cafeLines.ts';
 import type { SeatSide, TableSpot, Viewpoint } from './cafeLayout.ts';
 
 /** État d'une table de belote tel que l'affiche la maquette (informations publiques). */
@@ -1000,20 +1002,16 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     groundAt,
   );
 
-  // Toucher un personnage : une bulle avec son nom (et une remarque du patron).
-  const TAREK_LINES = [
-    '« Vous jouez ou vous consommez ?! »',
-    '« Moins de bruit au fond ! »',
-    '« Le crédit, c’est fini ! »',
-    '« Qui a encore pris ma chaise ?! »',
-    '« Nader ! Le charbon, vite ! »',
-  ];
-  let tarekLine = 0;
-  const characters = [
-    { id: 'tarek', person: tarek, height: 1.35, text: () => `طارق · le patron 😠<br>${TAREK_LINES[tarekLine++ % TAREK_LINES.length]}` },
-    { id: 'nader', person: nader, height: 2.0, text: () => 'نادر · serveur<br>« Un thé ? Un café ? »' },
-    { id: 'naceur', person: naceur, height: 2.12, text: () => 'محمد ناصر · serveur<br>« Bienvenue au Café Tarek ! »' },
-  ].map((c) => {
+  // Toucher un personnage : une bulle avec son nom et une de ses phrases (à tour de rôle).
+  const bubbleHtml = (id: CafeCharacter, line: string, className = 'cafe-bubble__line') =>
+    `${CAFE_NAMES[id]}<br><span class="${className}" lang="ar" dir="rtl">${line}</span>`;
+  const characters = (
+    [
+      { id: 'tarek', person: tarek, height: 1.35 },
+      { id: 'nader', person: nader, height: 2.0 },
+      { id: 'naceur', person: naceur, height: 2.12 },
+    ] as const
+  ).map((c) => {
     const hit = new THREE.Mesh(new THREE.BoxGeometry(0.7, c.height, 0.7), MATERIALS.hit);
     hit.position.y = c.height / 2;
     hit.userData = { kind: 'character', id: c.id };
@@ -1023,15 +1021,19 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     bubble.className = 'cafe-bubble';
     bubble.style.display = 'none';
     labelLayer.appendChild(bubble);
-    return { ...c, bubble, until: 0 };
+    return { ...c, bubble, until: 0, line: 0 };
   });
-  const showBubble = (id: string, now: number, html?: string, duration = 3500) => {
+  const showBubble = (id: CafeCharacter, now: number, html?: string, duration?: number) => {
     const c = characters.find((x) => x.id === id);
     if (!c) return;
-    c.bubble.innerHTML = html ?? c.text();
-    c.until = now + duration;
+    const lines = CAFE_LINES[id];
+    const line = lines[c.line++ % lines.length]!;
+    c.bubble.innerHTML = html ?? bubbleHtml(id, line);
+    c.until = now + (duration ?? bubbleDuration(line));
   };
-  let nextGrumble = performance.now() + 9000;
+  // Chacun parle aussi tout seul de temps en temps, sans se couper la parole.
+  const openedAt = performance.now();
+  const talkAt: Record<CafeCharacter, number> = { tarek: openedAt + 9000, nader: openedAt + 17000, naceur: openedAt + 26000 };
 
   /* ---------------------------- Caméra et gestes ---------------------------- */
 
@@ -1091,7 +1093,7 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     raycaster.setFromCamera(pointer, camera);
     const hit = raycaster.intersectObjects(pickables, false)[0];
     if (!hit) return;
-    const data = hit.object.userData as CafeTarget | { kind: 'character'; id: string };
+    const data = hit.object.userData as CafeTarget | { kind: 'character'; id: CafeCharacter };
     if (data.kind === 'character') showBubble(data.id, performance.now());
     else callbacks.onSelect(data);
   };
@@ -1206,8 +1208,8 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
         tarek.raiseArm(0.6 + 0.4 * Math.sin(now / 180));
         if (!state.spoke) {
           state.spoke = true;
-          showBubble('tarek', now, `طارق · le patron 😠<br><span class="cafe-bubble__ar" lang="ar" dir="rtl">« ${TAREK_END_LINE} »</span>`, 6000);
-          nextGrumble = now + 20000;
+          showBubble('tarek', now, bubbleHtml('tarek', `« ${TAREK_END_LINE} »`, 'cafe-bubble__ar'), 6000);
+          talkAt.tarek = now + 20000;
         }
       }
       if (state.walker.finished) seatTarek(state.to, now + 20000 + Math.random() * 15000);
@@ -1240,9 +1242,11 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
       p.mesh.scale.setScalar(1 + age * 2.2);
       (p.mesh.material as THREE.MeshStandardMaterial).opacity = 0.45 * (1 - age);
     }
-    if (now > nextGrumble) {
-      showBubble('tarek', now);
-      nextGrumble = now + 20000 + Math.random() * 15000;
+    for (const c of characters) {
+      if (now < talkAt[c.id]) continue;
+      const someoneTalking = characters.some((other) => other.until > now);
+      if (!someoneTalking) showBubble(c.id, now);
+      talkAt[c.id] = now + (c.id === 'tarek' ? 20000 + Math.random() * 15000 : 35000 + Math.random() * 20000);
     }
   };
 

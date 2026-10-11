@@ -112,7 +112,7 @@ describe('Tables du Café Tarek', () => {
     for (const p of PLAYERS) await call(store, p, { type: 'ready', roomId, ready: true });
     await playToEnd(store, roomId);
     expect(store.cafe.get(6)!.info.status).toBe('finished');
-    // D'autres joueurs s'installent aussitôt, sans attendre 30 minutes.
+    // D'autres joueurs s'installent aussitôt, sans attendre 10 minutes.
     const others = await call(store, 'e', { type: 'create', nickname: 'Suivant', table: 6 });
     expect(others.ok).toBe(true);
     expect(store.cafe.get(6)!.info.players.map((p) => p.nickname)).toEqual(['Suivant']);
