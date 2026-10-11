@@ -122,6 +122,31 @@ describe('Tables du Café Tarek', () => {
     expect(store.cafe.get(6)!.info.players.map((p) => p.nickname)).toEqual(['Suivant']);
   });
 
+  it('« Quitter la table » : la table se libère quand les 4 joueurs sont partis, même en pleine partie', async () => {
+    const { roomId, code } = await tableRoom(store, 3);
+    for (const p of PLAYERS) await call(store, p, { type: 'ready', roomId, ready: true });
+    expect(store.cafe.get(3)!.info.status).toBe('playing');
+    for (const p of PLAYERS.slice(0, 3)) expect((await call(store, p, { type: 'quit', roomId })).ok).toBe(true);
+    // Il reste quelqu'un : la table est toujours occupée, les autres voient qui est parti.
+    expect(store.cafe.get(3)!.info.players).toHaveLength(4);
+    const view = store.viewFor(roomId, PLAYERS[3]!)!.view;
+    expect(view.players.filter((p) => p.left).map((p) => p.seat)).toEqual([0, 1, 2]);
+    await call(store, PLAYERS[3]!, { type: 'quit', roomId });
+    expect(store.cafe.has(3)).toBe(false);
+    expect(store.watch.has(roomId)).toBe(false);
+    expect((await call(store, 'e', { type: 'create', nickname: 'Suivant', table: 3 })).ok).toBe(true);
+    // Revenir avec le code redonne sa place (sans reprendre la table, déjà prise).
+    expect((await call(store, PLAYERS[0]!, { type: 'join', code, nickname: 'Tarek' })).ok).toBe(true);
+    expect(store.rooms.get(roomId)!.left).toEqual([PLAYERS[1], PLAYERS[2], PLAYERS[3]]);
+    expect(store.cafe.get(3)!.info.players.map((p) => p.nickname)).toEqual(['Suivant']);
+  });
+
+  it('« Quitter la table » dans le salon d’attente : on quitte le salon', async () => {
+    const { roomId } = await tableRoom(store, 2, ['a', 'b']);
+    expect((await call(store, 'b', { type: 'quit', roomId })).ok).toBe(true);
+    expect(store.rooms.get(roomId)!.players.map((p) => p.playerId)).toEqual(['a']);
+  });
+
   it('une revanche reprend sa table si personne ne l’a prise entre-temps', async () => {
     const { roomId } = await tableRoom(store, 4);
     for (const p of PLAYERS) await call(store, p, { type: 'ready', roomId, ready: true });

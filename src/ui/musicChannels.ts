@@ -14,4 +14,4 @@ export const CHANNELS: readonly Channel[] = [
 
 /** Accueil : volume normal ; partie : très bas, la voix des joueurs passe avant. */
 export type MusicMood = 'home' | 'game';
-export const MUSIC_VOLUME: Record<MusicMood, number> = { home: 0.5, game: 0.12 };
+export const MUSIC_VOLUME: Record<MusicMood, number> = { home: 0.5, game: 0.1 };

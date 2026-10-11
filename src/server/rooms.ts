@@ -139,6 +139,7 @@ export function parseRequest(raw: unknown): RoomRequest | null {
       return settings ? { type: 'settings', roomId, settings } : null;
     }
     case 'leave':
+    case 'quit':
     case 'continue':
       return { type: r.type, roomId };
     case 'game': {
@@ -170,7 +171,8 @@ export function joinRoom(room: RoomAggregate, playerId: string, nickname: string
   const existing = room.players.find((p) => p.playerId === playerId);
   if (existing) {
     const players = room.players.map((p) => (p.playerId === playerId ? { ...p, nickname } : p));
-    return { ok: true, room: { ...room, players } };
+    // Un joueur qui avait quitté la table et revient avec le code reprend sa place.
+    return { ok: true, room: { ...room, players, left: (room.left ?? []).filter((id) => id !== playerId) } };
   }
   if (room.status !== 'lobby') return fail('La partie a déjà commencé dans ce salon.');
   const seat = SEATS.find((s) => !room.players.some((p) => p.seat === s));
@@ -218,8 +220,14 @@ export function applyRoomRequest(
       const players = room.players.map((p) => ({ ...p, ready: false }));
       return { ok: true, room: { ...room, settings: request.settings, players } };
     }
+    case 'quit':
     case 'leave': {
-      if (room.status !== 'lobby') return fail('Impossible de quitter pendant une partie : votre place vous attend.');
+      if (room.status !== 'lobby') {
+        if (request.type === 'leave') return fail('Impossible de quitter pendant une partie : votre place vous attend.');
+        // Partie lancée : la place reste (la partie est figée), mais le joueur a quitté la table.
+        const left = room.left?.includes(playerId) ? room.left : [...(room.left ?? []), playerId];
+        return { ok: true, room: { ...room, left } };
+      }
       const remaining = { ...room, players: room.players.filter((p) => p.playerId !== playerId) };
       // Si l'hôte part, le joueur restant à la plus petite place le remplace.
       return { ok: true, room: { ...remaining, hostId: hostOf(remaining)?.playerId } };
@@ -250,11 +258,17 @@ export function applyRoomRequest(
  * Informations publiques d'un salon installé à une table du café : pseudos, état, scores,
  * et la vue des spectateurs (sans aucune main). Jamais le code du salon.
  */
+/** Tous les joueurs ont quitté la table (bouton « Quitter la table ») : elle est libre. */
+export function everyoneLeft(room: RoomAggregate): boolean {
+  return room.players.length > 0 && room.players.every((p) => room.left?.includes(p.playerId));
+}
+
 export function buildPublicTable(room: RoomAggregate): PublicTableData | null {
   if (room.tableNumber === undefined) return null;
-  const players = [...room.players]
-    .sort((a, b) => a.seat - b.seat)
-    .map(({ seat, nickname, ready }) => ({ seat, nickname, ready }));
+  // Plus personne à la table : aucun pseudo, la base libère la table et la vue des spectateurs.
+  const players = everyoneLeft(room)
+    ? []
+    : [...room.players].sort((a, b) => a.seat - b.seat).map(({ seat, nickname, ready }) => ({ seat, nickname, ready }));
   const game = room.game;
   return {
     tableNumber: room.tableNumber,
@@ -278,7 +292,7 @@ export function buildPublicTable(room: RoomAggregate): PublicTableData | null {
 export function buildViews(room: RoomAggregate): StoredView[] {
   const players = [...room.players]
     .sort((a, b) => a.seat - b.seat)
-    .map(({ seat, nickname, ready }) => ({ seat, nickname, ready }));
+    .map(({ playerId, seat, nickname, ready }) => ({ seat, nickname, ready, ...(room.left?.includes(playerId) ? { left: true } : {}) }));
   const ackSeats = room.players.filter((p) => room.acks.includes(p.playerId)).map((p) => p.seat);
   const hostSeat = hostOf(room)?.seat ?? null;
   return room.players.map((p) => {

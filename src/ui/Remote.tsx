@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { CHANNELS, setMusicOn, tune, useMusic } from './music.ts';
+import { MusicControls } from './MusicControls.tsx';
 import { SpeakingBars } from './VoiceDot.tsx';
+import { PowerIcon } from './icons.tsx';
 
 /** La télécommande de la télé du café : on choisit la musique avant de s'asseoir. */
 export function Remote() {
@@ -34,14 +36,15 @@ export function Remote() {
                 'Télé éteinte'
               )}
             </span>
+            {/* Allumée mais pas encore lancée (le navigateur attendait un toucher) : ce bouton la lance. */}
             <button
               type="button"
               className={`remote__power${music.on ? ' remote__power--on' : ''}`}
               aria-pressed={music.on}
-              aria-label={music.on ? 'Éteindre la musique' : 'Allumer la musique'}
-              onClick={() => setMusicOn(!music.on)}
+              aria-label={music.on && music.playing ? 'Éteindre la musique' : 'Allumer la musique'}
+              onClick={() => setMusicOn(!(music.on && music.playing))}
             >
-              ⏻
+              <PowerIcon />
             </button>
           </div>
           <div className="remote__channels">
@@ -62,7 +65,9 @@ export function Remote() {
               </button>
             ))}
           </div>
-          <p className="remote__note">Pendant la partie, la musique baisse pour qu’on s’entende.</p>
+          {/* Le bouton rouge allume et éteint : ici, seulement le volume. */}
+          <MusicControls mood="home" showSwitch={false} />
+          <p className="remote__note">Pendant la partie, la musique baisse pour qu’on s’entende (réglable dans le menu ☰).</p>
         </div>
       )}
     </div>
