@@ -186,5 +186,37 @@ select :'liberee' = 'ok' and :'reprise' = 'ok' as reprise_ok \gset
   \quit 1
 \endif
 
+-- Une partie finie libère la table aussitôt ; la revanche ne reprend pas une table déjà reprise.
+set role service_role;
+select public.save_room_v2('55555555-5555-4555-8555-555555555555', 'CAF456', 1, '{}', '[]',
+  4::smallint, '{"status":"finished","players":[{"seat":0,"nickname":"Nouveau"}]}', '{}') as finie \gset
+select public.save_room_v2('66666666-6666-4666-8666-666666666666', 'CAF567', null, '{}', '[]',
+  4::smallint, '{"status":"lobby","players":[{"seat":0,"nickname":"Suivant"}]}', '{}') as suivante \gset
+select public.save_room_v2('55555555-5555-4555-8555-555555555555', 'CAF456', 2, '{}', '[]',
+  4::smallint, '{"status":"playing","players":[{"seat":0,"nickname":"Nouveau"}]}', '{}') as revanche \gset
+reset role;
+select :'finie' = 'ok' and :'suivante' = 'ok' and :'revanche' = 'ok' as finie_ok \gset
+\if :finie_ok
+\else
+  \echo 'ÉCHEC : une table dont la partie est finie devrait être libre (' :'finie' ', ' :'suivante' ', ' :'revanche' ')'
+  \quit 1
+\endif
+do $$ declare nick text; begin
+  select info -> 'players' -> 0 ->> 'nickname' into nick from public.cafe_tables where table_number = 4;
+  assert nick = 'Suivant', 'la table reprise doit rester aux nouveaux joueurs, pas à la revanche';
+end $$;
+
+-- Sans personne pour la prendre, la revanche garde sa table.
+set role service_role;
+select public.save_room_v2('66666666-6666-4666-8666-666666666666', 'CAF567', 1, '{}', '[]',
+  4::smallint, '{"status":"finished","players":[{"seat":0,"nickname":"Suivant"}]}', '{}') as finie2 \gset
+select public.save_room_v2('66666666-6666-4666-8666-666666666666', 'CAF567', 2, '{}', '[]',
+  4::smallint, '{"status":"playing","players":[{"seat":0,"nickname":"Suivant"}]}', '{}') as revanche2 \gset
+reset role;
+do $$ declare st text; begin
+  select info ->> 'status' into st from public.cafe_tables where table_number = 4;
+  assert st = 'playing', 'la revanche devrait reprendre sa propre table';
+end $$;
+
 \o
 \echo 'Toutes les vérifications de sécurité de la base sont passées.'

@@ -37,3 +37,6 @@ export function bidShortLabel(action: BidAction): string {
       return `${contractValueLabel(action.value)} ${SUIT_SYMBOLS[action.suit]}`;
   }
 }
+
+/** Ce que dit Tarek, le patron, à la fin de chaque partie : les perdants laissent la place. */
+export const TAREK_END_LINE = 'اللي شاح يلبس';

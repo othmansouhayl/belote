@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createDeck } from '../engine/index.ts';
 import { preloadCards } from './CardView.tsx';
 import { Home } from './Home.tsx';
+import { setMusicMood } from './music.ts';
 import { LocalGame } from './LocalGame.tsx';
 import { OnlineRoom } from './online/OnlineRoom.tsx';
 import { WatchRoom } from './online/WatchRoom.tsx';
@@ -33,6 +34,8 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => preloadCards(createDeck().map((c) => c.id)), []);
+  // La musique baisse pendant les parties (et quand on regarde) : la voix passe avant.
+  useEffect(() => setMusicMood(screen.kind === 'home' ? 'home' : 'game'), [screen.kind]);
 
   const enterRoom = async (request: { type: 'create'; table: number } | { type: 'join'; code: string }) => {
     setBusy(true);

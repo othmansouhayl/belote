@@ -5,6 +5,11 @@ import { teamOf } from './seats.ts';
 
 export const TOTAL_HAND_POINTS = 162;
 
+/** Arrondi à la dizaine « à la tunisienne » : unités 0-4 vers le bas, 5-9 vers le haut. */
+export function roundToTen(points: number): number {
+  return Math.floor((points + 5) / 10) * 10;
+}
+
 /**
  * Cartes encore en main quand la manche s'arrête avant le 8e pli (cartes étalées, capot chuté) :
  * elles reviennent à `team`, avec le dix de der.
@@ -60,9 +65,15 @@ export function resolveContract(
   const heldBelote: [number, number] = [0, 0];
   if (beloteTeam !== null) heldBelote[beloteTeam] = config.belotePoints;
 
+  // Points « صحيحة » ou « casse » : chaque équipe arrondit ses points de plis à la dizaine.
+  const roundedPoints: [number, number] | null = config.roundPointsToTen
+    ? [roundToTen(trickPoints[0]), roundToTen(trickPoints[1])]
+    : null;
+  const points = roundedPoints ?? trickPoints;
+
   const contractPoints: [number, number] = config.beloteCountsForContract
-    ? [trickPoints[0] + heldBelote[0], trickPoints[1] + heldBelote[1]]
-    : [trickPoints[0], trickPoints[1]];
+    ? [points[0] + heldBelote[0], points[1] + heldBelote[1]]
+    : [points[0], points[1]];
 
   const handScore: [number, number] = [0, 0];
   let success: boolean;
@@ -86,7 +97,7 @@ export function resolveContract(
         const fixed = config.failedContractBasePoints * mult;
         handScore[taker] = unannouncedCapot ? Math.max(fixed, capotScore) : fixed;
       } else {
-        const realized = unannouncedCapot ? config.capotUnannouncedPoints : trickPoints[taker];
+        const realized = unannouncedCapot ? config.capotUnannouncedPoints : points[taker];
         let takerBase: number;
         switch (config.contractSuccessScoring) {
           case 'realizedPoints':
@@ -101,7 +112,7 @@ export function resolveContract(
         }
         const capotMult = unannouncedCapot && !config.capotMultiplied ? 1 : mult;
         handScore[taker] = takerBase * capotMult;
-        handScore[defense] = trickPoints[defense];
+        handScore[defense] = points[defense];
       }
     } else {
       const base = config.failedContractBasePoints + (config.failedContractScoring === 'fixedPlusContract' ? value : 0);
@@ -131,6 +142,9 @@ export function resolveContract(
     contract,
     takerTeam: taker,
     trickPoints,
+    ...(roundedPoints
+      ? { roundedPoints, casse: roundedPoints[0] + roundedPoints[1] > trickPoints[0] + trickPoints[1] + 5 }
+      : {}),
     tricksWon,
     belotePoints,
     contractPoints,

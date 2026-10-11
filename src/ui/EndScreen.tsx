@@ -1,6 +1,6 @@
 import type { HandResult, Seat, Team } from '../engine/index.ts';
 import type { ContinueState } from './ResultDialogs.tsx';
-import { SUIT_SYMBOLS, contractValueLabel, isRed } from './labels.ts';
+import { SUIT_SYMBOLS, TAREK_END_LINE, contractValueLabel, isRed } from './labels.ts';
 import type { SeatNames } from './labels.ts';
 import { matchSheet, teamStats } from './gameStats.ts';
 
@@ -70,6 +70,19 @@ export function EndScreen(props: EndScreenProps) {
         <p className="end__subtitle">
           {subtitle} en {history.length} manche{history.length > 1 ? 's' : ''}.
         </p>
+
+        {/* Le patron passe à la table : les perdants laissent la place. */}
+        <div className="end__tarek" role="note">
+          <span className="end__tarek-face" aria-hidden="true">
+            😠
+          </span>
+          <span className="end__tarek-text">
+            <span className="end__tarek-name">طارق · le patron</span>
+            <span lang="ar" dir="rtl" className="end__tarek-line">
+              « {TAREK_END_LINE} »
+            </span>
+          </span>
+        </div>
 
         <div className="end__score">
           <div className={`end__team${winner === myTeam ? ' end__team--winner' : ''}`}>

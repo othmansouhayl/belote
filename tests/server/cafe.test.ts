@@ -26,6 +26,24 @@ async function tableRoom(store: MemoryStore, table: number, players = PLAYERS) {
   return created;
 }
 
+/** Les 4 joueurs jouent (avec la stratégie des bots) jusqu'à la fin de la partie. */
+async function playToEnd(store: MemoryStore, roomId: string, onStep: () => void = () => {}) {
+  for (let step = 0; step < 4000; step++) {
+    const state = store.rooms.get(roomId)!.game!;
+    onStep();
+    if (state.phase === 'gameOver') return;
+    if (state.phase === 'handOver') {
+      for (const p of PLAYERS) await call(store, p, { type: 'continue', roomId });
+      continue;
+    }
+    const seat = state.currentPlayer!;
+    const action: GameAction = chooseBotAction(botView(state, seat));
+    const result = await call(store, PLAYERS[seat]!, { type: 'game', roomId, action });
+    if (!result.ok) throw new Error(result.error);
+  }
+  throw new Error('partie trop longue');
+}
+
 describe('Tables du Café Tarek', () => {
   let store: MemoryStore;
   beforeEach(() => {
@@ -73,7 +91,7 @@ describe('Tables du Café Tarek', () => {
     const { roomId } = await tableRoom(store, 1);
     for (const p of PLAYERS) await call(store, p, { type: 'ready', roomId, ready: true });
     expect(store.cafe.get(1)!.info.status).toBe('playing');
-    for (let step = 0; step < 4000; step++) {
+    await playToEnd(store, roomId, () => {
       const state = store.rooms.get(roomId)!.game!;
       const watch = store.watch.get(roomId)!;
       const json = JSON.stringify([watch, store.cafe.get(1)]);
@@ -84,17 +102,33 @@ describe('Tables du Café Tarek', () => {
         // Les cartes étalées (« تي إفرش عاد ») sont publiques ; les autres mains, jamais.
         for (const card of state.hands[seat] ?? []) expect(json).not.toContain(`"${card.id}"`);
       }
-      if (state.phase === 'gameOver') break;
-      if (state.phase === 'handOver') {
-        for (const p of PLAYERS) await call(store, p, { type: 'continue', roomId });
-        continue;
-      }
-      const seat = state.currentPlayer!;
-      const action: GameAction = chooseBotAction(botView(state, seat));
-      const result = await call(store, PLAYERS[seat]!, { type: 'game', roomId, action });
-      if (!result.ok) throw new Error(result.error);
-    }
+    });
     expect(store.cafe.get(1)!.info.status).toBe('finished');
     expect(store.cafe.get(1)!.info.scores).toEqual(store.rooms.get(roomId)!.game!.scores);
+  });
+
+  it('une partie finie libère la table tout de suite (« اللي شاح يلبس »)', async () => {
+    const { roomId } = await tableRoom(store, 6);
+    for (const p of PLAYERS) await call(store, p, { type: 'ready', roomId, ready: true });
+    await playToEnd(store, roomId);
+    expect(store.cafe.get(6)!.info.status).toBe('finished');
+    // D'autres joueurs s'installent aussitôt, sans attendre 30 minutes.
+    const others = await call(store, 'e', { type: 'create', nickname: 'Suivant', table: 6 });
+    expect(others.ok).toBe(true);
+    expect(store.cafe.get(6)!.info.players.map((p) => p.nickname)).toEqual(['Suivant']);
+    // La revanche des anciens joueurs ne leur rend pas la table déjà reprise.
+    for (const p of PLAYERS) await call(store, p, { type: 'continue', roomId });
+    expect(store.rooms.get(roomId)!.game!.phase).not.toBe('gameOver');
+    expect(store.cafe.get(6)!.info.players.map((p) => p.nickname)).toEqual(['Suivant']);
+  });
+
+  it('une revanche reprend sa table si personne ne l’a prise entre-temps', async () => {
+    const { roomId } = await tableRoom(store, 4);
+    for (const p of PLAYERS) await call(store, p, { type: 'ready', roomId, ready: true });
+    await playToEnd(store, roomId);
+    for (const p of PLAYERS) await call(store, p, { type: 'continue', roomId });
+    expect(store.cafe.get(4)!.roomId).toBe(roomId);
+    expect(store.cafe.get(4)!.info.status).toBe('playing');
+    expect((await call(store, 'e', { type: 'create', nickname: 'Suivant', table: 4 })).ok).toBe(false);
   });
 });

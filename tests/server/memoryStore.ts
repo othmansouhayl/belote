@@ -32,11 +32,13 @@ export class MemoryStore implements RoomStore {
     return room ? this.clone(room) : null;
   }
 
+  /** Table libre : personne, partie finie, ou abandonnée depuis plus de 30 minutes. */
+  private isFree(row: CafeRow | undefined) {
+    return !row || row.info.status === 'finished' || this.now - row.updatedAt >= CAFE_TABLE_STALE_MINUTES * 60_000;
+  }
+
   async insert(room: RoomAggregate, views: readonly StoredView[], table: PublicTableData | null) {
-    if (table) {
-      const current = this.cafe.get(table.tableNumber);
-      if (current && this.now - current.updatedAt < CAFE_TABLE_STALE_MINUTES * 60_000) return 'tableTaken' as const;
-    }
+    if (table && !this.isFree(this.cafe.get(table.tableNumber))) return 'tableTaken' as const;
     if ([...this.rooms.values()].some((r) => r.code === room.code)) return 'conflict' as const;
     this.write(room, views);
     if (table) this.cafe.set(table.tableNumber, { roomId: room.id, info: this.clone(table.info), updatedAt: this.now });
@@ -49,9 +51,10 @@ export class MemoryStore implements RoomStore {
     this.write(room, views);
     if (table) {
       const current = this.cafe.get(table.tableNumber);
-      if (current?.roomId === room.id) {
-        if (table.info.players.length === 0) this.cafe.delete(table.tableNumber);
-        else this.cafe.set(table.tableNumber, { roomId: room.id, info: this.clone(table.info), updatedAt: this.now });
+      if (table.info.players.length === 0) {
+        if (current?.roomId === room.id) this.cafe.delete(table.tableNumber);
+      } else if (current?.roomId === room.id || this.isFree(current)) {
+        this.cafe.set(table.tableNumber, { roomId: room.id, info: this.clone(table.info), updatedAt: this.now });
       }
     }
     this.writeWatch(room, table);

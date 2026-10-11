@@ -2,9 +2,15 @@ import { useEffect, useRef } from 'react';
 import { createCafeScene } from './cafeScene.ts';
 import type { CafeSceneHandle, CafeTarget, SceneTable } from './cafeScene.ts';
 import type { Viewpoint } from './cafeLayout.ts';
+import type { CafeEnding } from '../online/cafeTables.ts';
+import type { Channel } from '../music.ts';
 
 interface CafeViewProps {
   readonly tables: readonly SceneTable[];
+  /** Parties qui viennent de finir : le patron vient à la table. */
+  readonly endings?: readonly CafeEnding[];
+  /** Ce que passe la télé (musique choisie à la télécommande), ou null : le match. */
+  readonly nowPlaying?: Channel | null;
   readonly selected: CafeTarget | null;
   readonly view: Viewpoint;
   readonly onSelect: (target: CafeTarget) => void;
@@ -12,7 +18,7 @@ interface CafeViewProps {
 }
 
 /** La maquette 3D du Café Tarek (chargée à la demande : three.js n'alourdit pas le jeu). */
-export default function CafeView({ tables, selected, view, onSelect, onView }: CafeViewProps) {
+export default function CafeView({ tables, endings = [], nowPlaying = null, selected, view, onSelect, onView }: CafeViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const labelsRef = useRef<HTMLDivElement>(null);
   const handle = useRef<CafeSceneHandle | null>(null);
@@ -34,6 +40,16 @@ export default function CafeView({ tables, selected, view, onSelect, onView }: C
   }, []);
 
   useEffect(() => handle.current?.update(tables, selected), [tables, selected]);
+  useEffect(() => handle.current?.showOnTv(nowPlaying), [nowPlaying]);
+  // Chaque fin de partie ne fait venir le patron qu'une fois.
+  const seenEndings = useRef(new Set<string>());
+  useEffect(() => {
+    for (const ending of endings) {
+      if (seenEndings.current.has(ending.key)) continue;
+      seenEndings.current.add(ending.key);
+      handle.current?.announceEnd(ending.number);
+    }
+  }, [endings]);
   const focused = selected?.kind === 'table' ? selected.number : null;
   useEffect(() => {
     if (focused !== null) handle.current?.focusTable(focused);

@@ -5,6 +5,7 @@ import { ambianceAt, currentHour } from './ambiance.ts';
 import type { Ambiance } from './ambiance.ts';
 import { MOHAMED_NACEUR, NADER, SMOKE_OFFSET, TAREK, Walker, createPerson, customerSpec, seatedChicha, tray } from './characters.ts';
 import type { Waypoint } from './characters.ts';
+import { TAREK_END_LINE } from '../labels.ts';
 import type { SeatSide, TableSpot, Viewpoint } from './cafeLayout.ts';
 
 /** État d'une table de belote tel que l'affiche la maquette (informations publiques). */
@@ -22,6 +23,10 @@ export interface CafeSceneHandle {
   goTo(view: Viewpoint): void;
   /** Rapproche la caméra d'une table de belote (quand elle est sélectionnée). */
   focusTable(number: number): void;
+  /** Une partie vient de finir à cette table : le patron y va et dit « اللي شاح يلبس ». */
+  announceEnd(number: number): void;
+  /** La télé passe la musique choisie à la télécommande, ou le match. */
+  showOnTv(nowPlaying: { readonly artist: string; readonly title: string } | null): void;
   dispose(): void;
 }
 
@@ -111,27 +116,52 @@ const garageDoor = () =>
     }
   });
 
-const tvScreen = () =>
-  canvasTexture(256, 144, (ctx) => {
-    ctx.fillStyle = '#2f8f3a';
-    ctx.fillRect(0, 0, 256, 144);
-    for (let x = 0; x < 256; x += 32) {
-      ctx.fillStyle = x % 64 === 0 ? '#34983f' : '#2b8636';
-      ctx.fillRect(x, 0, 32, 144);
-    }
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(10, 10, 236, 124);
-    ctx.beginPath();
-    ctx.moveTo(128, 10);
-    ctx.lineTo(128, 134);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(128, 72, 18, 0, Math.PI * 2);
-    ctx.stroke();
+/** Le match (par défaut) ou la musique en cours, dessinés sur l'écran de la télé. */
+function drawTv(ctx: CanvasRenderingContext2D, nowPlaying: { readonly artist: string; readonly title: string } | null) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, 512, 288);
+  if (nowPlaying) {
+    const sky = ctx.createLinearGradient(0, 0, 0, 288);
+    sky.addColorStop(0, '#3a1420');
+    sky.addColorStop(1, '#120a10');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, 512, 288);
+    ctx.fillStyle = '#f0c35a';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 64px sans-serif';
+    ctx.fillText('♫', 256, 70);
+    ctx.font = 'bold 46px "Noto Naskh Arabic", "Geeza Pro", "Segoe UI", sans-serif';
+    ctx.direction = 'rtl';
+    ctx.fillText(nowPlaying.artist, 256, 148);
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(150, 60, 4, 4);
-  });
+    ctx.font = '600 36px "Noto Naskh Arabic", "Geeza Pro", "Segoe UI", sans-serif';
+    ctx.direction = nowPlaying.title.match(/[\u0600-\u06ff]/) ? 'rtl' : 'ltr';
+    ctx.fillText(nowPlaying.title, 256, 220);
+    ctx.direction = 'ltr';
+    return;
+  }
+  // Le match : terrain dessiné en 256 × 144, agrandi ×2.
+  ctx.scale(2, 2);
+  ctx.fillStyle = '#2f8f3a';
+  ctx.fillRect(0, 0, 256, 144);
+  for (let x = 0; x < 256; x += 32) {
+    ctx.fillStyle = x % 64 === 0 ? '#34983f' : '#2b8636';
+    ctx.fillRect(x, 0, 32, 144);
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(10, 10, 236, 124);
+  ctx.beginPath();
+  ctx.moveTo(128, 10);
+  ctx.lineTo(128, 134);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(128, 72, 18, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(150, 60, 4, 4);
+}
 
 const signboard = () =>
   canvasTexture(512, 128, (ctx) => {
@@ -301,6 +331,8 @@ function avatar(color: number) {
 interface RoomHandles {
   readonly street: THREE.MeshStandardMaterial;
   readonly sign: THREE.MeshStandardMaterial;
+  /** Écran de la télé (redessiné quand on change de chaîne). */
+  readonly tv: THREE.CanvasTexture;
 }
 
 function buildRoom(scene: THREE.Scene): RoomHandles {
@@ -411,7 +443,12 @@ function buildRoom(scene: THREE.Scene): RoomHandles {
   // Grande télé pour les matchs, inclinée vers la salle pour que tout le monde la voie.
   const tv = new THREE.Group();
   tv.add(box(2.2, 1.26, 0.07, MATERIALS.black, 0, 0, 0));
-  const tvTexture = tvScreen();
+  const tvCanvas = document.createElement('canvas');
+  tvCanvas.width = 512;
+  tvCanvas.height = 288;
+  drawTv(tvCanvas.getContext('2d')!, null);
+  const tvTexture = new THREE.CanvasTexture(tvCanvas);
+  tvTexture.colorSpace = THREE.SRGBColorSpace;
   const screen = new THREE.Mesh(
     new THREE.PlaneGeometry(2.1, 1.16),
     new THREE.MeshStandardMaterial({ map: tvTexture, emissive: 0xffffff, emissiveMap: tvTexture, emissiveIntensity: 0.6 }),
@@ -452,7 +489,7 @@ function buildRoom(scene: THREE.Scene): RoomHandles {
   sign.position.set(0, wallHeight + 0.35, 0.22);
   scene.add(sign);
   scene.add(box(2.7, 0.75, 0.08, MATERIALS.black, 0, wallHeight + 0.35, 0.17));
-  return { street: streetMaterial, sign: signMaterial };
+  return { street: streetMaterial, sign: signMaterial, tv: tvTexture };
 }
 
 /** Comptoir à droite en entrant : machine à café, tasses, vitrine à pâtisseries. */
@@ -857,8 +894,19 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     { x: SIDE_TERRACE.tableX, z: terraceSeatZ },
   ];
   const TO_INSIDE = [...TO_TERRACE].reverse();
+  // Vers la salle de belote : par l'allée entre les tables de gauche et le comptoir.
+  const TO_BACK_ROOM: Waypoint[] = [
+    { x: 0.45, z: -3.6 },
+    { x: 0.55, z: -10.8 },
+    { x: 0.1, z: -12.9 },
+  ];
   type Seat = keyof typeof TAREK_SEATS;
-  let tarekState: { seat: Seat; until: number } | { walker: Walker; to: Seat };
+  let tarekState:
+    | { seat: Seat; until: number }
+    | { walker: Walker; to: Seat }
+    | { walker: Walker; to: Seat; visit: TableSpot; spoke: boolean };
+  /** Tables où une partie vient de finir et où le patron doit encore passer. */
+  const pendingVisits: TableSpot[] = [];
   const seatTarek = (seat: Seat, until: number) => {
     const { x, z } = TAREK_SEATS[seat];
     const y = groundAt(x, z);
@@ -882,6 +930,14 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     tarekKit.chicha.position.set(0.37, 0.2, 0);
     tarekKit.chicha.visible = true;
     tarekState = { walker: new Walker(tarek, to === 'terrace' ? TO_TERRACE : TO_INSIDE, 0.7, groundAt, false), to };
+  };
+  /** Il laisse sa chicha à sa place, va à la table où la partie est finie, puis revient s'asseoir. */
+  const visitTable = (seat: Seat, spot: TableSpot) => {
+    tarekSmoke.active = false;
+    const start = seat === 'inside' ? [TO_TERRACE[0]!, TO_TERRACE[1]!] : TO_INSIDE.slice(0, 8);
+    const go: Waypoint[] = [...start, ...TO_BACK_ROOM, { x: 0, z: spot.z, pause: 6 }];
+    const path = [...go, ...[...go].reverse().slice(1)];
+    tarekState = { walker: new Walker(tarek, path, 1.1, groundAt, false), to: seat, visit: spot, spoke: false };
   };
   seatTarek('inside', performance.now() + 15000);
 
@@ -969,11 +1025,11 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     labelLayer.appendChild(bubble);
     return { ...c, bubble, until: 0 };
   });
-  const showBubble = (id: string, now: number) => {
+  const showBubble = (id: string, now: number, html?: string, duration = 3500) => {
     const c = characters.find((x) => x.id === id);
     if (!c) return;
-    c.bubble.innerHTML = c.text();
-    c.until = now + 3500;
+    c.bubble.innerHTML = html ?? c.text();
+    c.until = now + duration;
   };
   let nextGrumble = performance.now() + 9000;
 
@@ -1122,9 +1178,11 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     }
     place(terraceLabel, terraceAnchor);
     const now = performance.now();
+    // Debout, le patron est plus grand qu'assis : sa bulle remonte.
+    const tarekStanding = 'walker' in tarekState;
     for (const c of characters) {
       anchor.copy(c.person.root.position);
-      anchor.y += c.height + 0.25;
+      anchor.y += (c.id === 'tarek' && tarekStanding ? 1.85 : c.height) + 0.25;
       place(c.bubble, anchor, now > c.until, 116);
     }
   };
@@ -1138,10 +1196,27 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     nader.carry();
     naceurWalk.update(now, dt);
     // Le patron : assis, il s'énerve de temps en temps (bras levé) ; sinon il marche avec sa chicha.
-    if ('walker' in tarekState) {
+    if ('visit' in tarekState) {
+      const state = tarekState;
+      state.walker.update(now, dt);
+      const p = tarek.root.position;
+      if (Math.hypot(p.x, p.z - state.visit.z) < 0.05) {
+        // À la table : il se tourne vers les joueurs, lève le bras et les chasse.
+        tarek.root.rotation.y = state.visit.x > 0 ? Math.PI / 2 : -Math.PI / 2;
+        tarek.raiseArm(0.6 + 0.4 * Math.sin(now / 180));
+        if (!state.spoke) {
+          state.spoke = true;
+          showBubble('tarek', now, `طارق · le patron 😠<br><span class="cafe-bubble__ar" lang="ar" dir="rtl">« ${TAREK_END_LINE} »</span>`, 6000);
+          nextGrumble = now + 20000;
+        }
+      }
+      if (state.walker.finished) seatTarek(state.to, now + 20000 + Math.random() * 15000);
+    } else if ('walker' in tarekState) {
       tarekState.walker.update(now, dt);
       tarek.hold();
       if (tarekState.walker.finished) seatTarek(tarekState.to, now + 25000 + Math.random() * 20000);
+    } else if (pendingVisits.length > 0) {
+      visitTable(tarekState.seat, pendingVisits.shift()!);
     } else if (now > tarekState.until) {
       walkTarek(tarekState.seat === 'inside' ? 'terrace' : 'inside');
     } else {
@@ -1252,6 +1327,16 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     update,
     goTo,
     focusTable,
+    showOnTv(nowPlaying) {
+      const canvas = room.tv.image as HTMLCanvasElement;
+      drawTv(canvas.getContext('2d')!, nowPlaying);
+      room.tv.needsUpdate = true;
+      requestRender();
+    },
+    announceEnd(number: number) {
+      const spot = BELOTE_TABLES.find((t) => t.number === number);
+      if (spot && !pendingVisits.includes(spot)) pendingVisits.push(spot);
+    },
     dispose() {
       cancelAnimationFrame(frame);
       clearInterval(ambianceTimer);

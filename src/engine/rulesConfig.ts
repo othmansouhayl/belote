@@ -82,6 +82,12 @@ export interface RulesConfig {
   readonly lastTrickBonus: number;
 
   // Score
+  /**
+   * VALIDÉ [12 bis] : comme à Oudhref, les points de chaque équipe s'arrondissent à la dizaine :
+   * unités 0-4 vers le bas, 5-9 vers le haut (87 → 90, 74 → 70). Unités 5, 6, 7 = « casse » (les deux
+   * équipes montent : 96/66 → 100/70), 8, 9 = « صحيحة » (88/74 → 90/70). Le contrat se juge sur les points arrondis.
+   */
+  readonly roundPointsToTen: boolean;
   /** VALIDÉ [9] : ×2 pour une coinche. */
   readonly coincheMultiplier: number;
   /** VALIDÉ [9] : ×4 pour une surcoinche. */
@@ -156,6 +162,7 @@ export const DEFAULT_RULES: RulesConfig = {
   beloteCountsForContract: true,
   lastTrickBonus: 10,
 
+  roundPointsToTen: true,
   coincheMultiplier: 2,
   surcoincheMultiplier: 4,
   contractSuccessScoring: 'realizedPoints',
