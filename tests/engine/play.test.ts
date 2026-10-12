@@ -67,6 +67,18 @@ describe('Test 8 — obligations d’atout selon la configuration', () => {
     expect(ids(getLegalCards(hand, t, 2, trump, rules({ requireTrumpWhenPartnerMaster: true })))).toEqual(ids(cards('7P')));
   });
 
+  it('partenaire maître par la coupe, mais plus que des atouts : on doit monter (validé)', () => {
+    // 1 entame Cœur, 2 (partenaire du 0) coupe du 9 de Pique, 3 fournit ; le 0 n'a pas de Cœur.
+    const t = trick(1, 'RC 9P 7C');
+    // Seulement des atouts, dont un plus fort que le 9 : il faut jouer le Valet.
+    expect(ids(getLegalCards(cards('VP 7P'), t, 0, trump, rules()))).toEqual(ids(cards('VP')));
+    // Seulement des atouts, aucun plus fort que le 9 : n'importe lequel.
+    expect(ids(getLegalCards(cards('7P 8P'), t, 0, trump, rules()))).toEqual(ids(cards('7P 8P')));
+    // Il reste une autre couleur : carte libre, comme avant.
+    expect(getLegalCards(cards('VP 7P 9K'), t, 0, trump, rules())).toHaveLength(3);
+    expect(getLegalCards(cards('VP 7P'), t, 0, trump, rules({ overtrumpPartnerWhenOnlyTrumps: false }))).toHaveLength(2);
+  });
+
   it('partenaire maître par la coupe : pas d’obligation de surcouper', () => {
     // 0 entame Cœur, 1 coupe du 10 de Pique, 2 fournit, 3 (partenaire du 1) n’a pas de Cœur.
     const t = trick(0, 'RC 10P 7C');

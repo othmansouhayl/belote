@@ -54,6 +54,11 @@ export interface RulesConfig {
   readonly requireUndertrump: boolean;
   /** VALIDÉ [7] : false = si le partenaire est maître du pli, on joue la carte qu'on veut. */
   readonly requireTrumpWhenPartnerMaster: boolean;
+  /**
+   * VALIDÉ [7 bis] : partenaire maître, mais on n'a plus que des atouts :
+   * on doit monter au-dessus du meilleur atout du pli si on le peut (sinon, n'importe quel atout).
+   */
+  readonly overtrumpPartnerWhenOnlyTrumps: boolean;
   /** VALIDÉ [8] : quand l'atout est demandé, monter sur le meilleur atout du pli si possible. */
   readonly requireHigherTrumpWhenTrumpLed: boolean;
 
@@ -152,6 +157,7 @@ export const DEFAULT_RULES: RulesConfig = {
   requireOvertrump: true,
   requireUndertrump: true,
   requireTrumpWhenPartnerMaster: false,
+  overtrumpPartnerWhenOnlyTrumps: true,
   requireHigherTrumpWhenTrumpLed: true,
 
   allowAnnonces: false,
