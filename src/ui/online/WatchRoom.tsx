@@ -48,6 +48,7 @@ export function WatchRoom({ roomId, tableNumber, onExit }: WatchRoomProps) {
       names={names}
       effects={effects}
       spectator
+      match={view.match}
       banner={`Vous regardez la table ${tableNumber}`}
       onAction={NO_OP}
       cont={{ label: '', acked: true, waitingNames: [], onContinue: NO_OP }}

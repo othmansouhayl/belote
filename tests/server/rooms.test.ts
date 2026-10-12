@@ -68,8 +68,16 @@ describe('Salons privés', () => {
     for (const p of PLAYERS.slice(0, 3)) await call(store, p, { type: 'ready', roomId, ready: true });
     expect(store.viewFor(roomId, PLAYERS[0]!)!.view.status).toBe('lobby');
     await call(store, PLAYERS[3]!, { type: 'ready', roomId, ready: true });
-    const view = store.viewFor(roomId, PLAYERS[0]!)!.view;
+    // D'abord la commande : Mohamed Naceur attend que les 4 aient choisi leur boisson.
+    let view = store.viewFor(roomId, PLAYERS[0]!)!.view;
     expect(view.status).toBe('playing');
+    expect(view.game).toBeNull();
+    expect(view.order).not.toBeNull();
+    const drinks = ['express', 'tey', 'capucin', 'chicha'] as const;
+    for (const [i, p] of PLAYERS.entries()) await call(store, p, { type: 'drink', roomId, drink: drinks[i] });
+    view = store.viewFor(roomId, PLAYERS[0]!)!.view;
+    expect(view.order).toBeNull();
+    expect(view.drinks).toEqual({ 0: 'express', 1: 'tey', 2: 'capucin', 3: 'chicha' });
     expect(view.game?.hand).toHaveLength(8);
     // Plus personne ne peut changer de place ni partir.
     expect((await call(store, PLAYERS[0]!, { type: 'seat', roomId, seat: 1 })).ok).toBe(false);
@@ -109,6 +117,7 @@ describe('Test 13 (serveur) — les vues enregistrées ne révèlent jamais les 
     const store = new MemoryStore();
     const { roomId } = await fullRoom(store);
     for (const p of PLAYERS) await call(store, p, { type: 'ready', roomId, ready: true });
+    for (const p of PLAYERS) await call(store, p, { type: 'drink', roomId, drink: 'tey' });
     for (let step = 0; step < 4000; step++) {
       const state = store.rooms.get(roomId)!.game!;
       for (const p of PLAYERS) {
@@ -129,6 +138,7 @@ describe('Test 13 (serveur) — les vues enregistrées ne révèlent jamais les 
     const store = new MemoryStore();
     const { roomId } = await fullRoom(store);
     for (const p of PLAYERS) await call(store, p, { type: 'ready', roomId, ready: true });
+    for (const p of PLAYERS) await call(store, p, { type: 'drink', roomId, drink: 'tey' });
     const firstSeed = store.rooms.get(roomId)!.game!.seed;
     while (store.rooms.get(roomId)!.game!.handNumber === 1) await playThroughServer(store, roomId, 1);
     expect(store.rooms.get(roomId)!.game!.seed).not.toBe(firstSeed);
@@ -140,6 +150,7 @@ describe('Test 14 — reprise après déconnexion', () => {
     const store = new MemoryStore();
     const { roomId, code } = await fullRoom(store);
     for (const p of PLAYERS) await call(store, p, { type: 'ready', roomId, ready: true });
+    for (const p of PLAYERS) await call(store, p, { type: 'drink', roomId, drink: 'tey' });
     await playThroughServer(store, roomId, 12);
     const before = store.viewFor(roomId, PLAYERS[2]!)!;
 
@@ -156,6 +167,7 @@ describe('Test 14 — reprise après déconnexion', () => {
     const store = new MemoryStore();
     const { roomId, code } = await fullRoom(store);
     for (const p of PLAYERS) await call(store, p, { type: 'ready', roomId, ready: true });
+    for (const p of PLAYERS) await call(store, p, { type: 'drink', roomId, drink: 'tey' });
     await call(store, PLAYERS[1]!, { type: 'join', code, nickname: 'Revenu' });
     await playThroughServer(store, roomId, 40);
     const view = store.viewFor(roomId, PLAYERS[1]!)!.view;
@@ -167,6 +179,7 @@ describe('Test 14 — reprise après déconnexion', () => {
     const store = new MemoryStore();
     const { roomId, code } = await fullRoom(store);
     for (const p of PLAYERS) await call(store, p, { type: 'ready', roomId, ready: true });
+    for (const p of PLAYERS) await call(store, p, { type: 'drink', roomId, drink: 'tey' });
     expect(await call(store, 'usurpateur', { type: 'join', code, nickname: 'Joueur 3' })).toEqual({
       ok: false,
       error: 'La partie a déjà commencé dans ce salon.',

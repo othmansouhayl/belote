@@ -1,4 +1,15 @@
-import type { GameAction, GameState, PlayerView, RulesConfig, Seat } from '../engine/index.ts';
+import type { GameAction, GameState, MatchState, PlayerView, RulesConfig, Seat } from '../engine/index.ts';
+
+/** Ce qu'on commande à Mohamed Naceur au début du match. */
+export const DRINKS = ['express', 'tey', 'capucin', 'allonge', 'chicha', 'filtre'] as const;
+export type Drink = (typeof DRINKS)[number];
+
+/** Commande en cours : la partie démarre quand les 4 ont choisi (ou à l'échéance, Naceur choisit). */
+export interface DrinkOrder {
+  /** Échéance (millisecondes, horloge du serveur). */
+  readonly deadline: number;
+  readonly drinks: Readonly<Record<string, Drink>>;
+}
 
 export interface RoomPlayer {
   /** Identifiant d'authentification Supabase (anonyme) : jamais envoyé aux autres joueurs. */
@@ -31,6 +42,12 @@ export interface RoomAggregate {
   readonly tableNumber?: number;
   /** Joueurs ayant quitté la table pendant ou après la partie : quand tous sont partis, la table se libère. */
   readonly left?: readonly string[];
+  /** Le match en cours (manches gagnées) ; absent pour les anciens salons. */
+  readonly match?: MatchState;
+  /** Commande des boissons au début du match ; la première manche commence ensuite. */
+  readonly order?: DrinkOrder | null;
+  /** Boissons commandées, par place (pour tout le match). */
+  readonly drinks?: Partial<Record<Seat, Drink>>;
 }
 
 /**
@@ -51,6 +68,7 @@ export interface WatchView {
   readonly status: RoomAggregate['status'];
   readonly players: RoomView['players'];
   readonly game: PlayerView | null;
+  readonly match: MatchState;
 }
 
 /** Données publiques d'un salon installé à une table du café. */
@@ -79,6 +97,11 @@ export interface RoomView {
   readonly hostSeat: Seat | null;
   readonly ackSeats: readonly Seat[];
   readonly game: PlayerView | null;
+  /** Manches gagnées dans le match en cours. */
+  readonly match: MatchState;
+  /** Commande en cours : échéance et ce que chacun a déjà choisi. */
+  readonly order: { readonly deadline: number; readonly chosen: Partial<Record<Seat, Drink>> } | null;
+  readonly drinks: Partial<Record<Seat, Drink>>;
 }
 
 export type RoomRequest =
@@ -90,6 +113,10 @@ export type RoomRequest =
   | { readonly type: 'leave'; readonly roomId: string }
   /** Quitter la table pendant ou après une partie : la table se libère quand les 4 sont partis. */
   | { readonly type: 'quit'; readonly roomId: string }
+  /** Choisir sa boisson ; sans boisson et après l'échéance, Naceur choisit pour les retardataires. */
+  | { readonly type: 'drink'; readonly roomId: string; readonly drink?: Drink }
+  /** Arrêter le match après une manche (au lieu de jouer la suivante). */
+  | { readonly type: 'endMatch'; readonly roomId: string }
   | { readonly type: 'game'; readonly roomId: string; readonly action: GameAction }
   | { readonly type: 'continue'; readonly roomId: string };
 
@@ -103,6 +130,8 @@ export interface ServerDeps {
   readonly newRoomCode: () => string;
   /** Graine secrète d'au moins 128 bits pour le mélange. */
   readonly newSecureSeed: () => string;
+  /** Heure actuelle (millisecondes) ; Date.now par défaut. */
+  readonly now?: () => number;
 }
 
 export interface StoredView {

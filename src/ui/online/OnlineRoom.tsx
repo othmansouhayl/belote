@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { SEATS } from '../../engine/index.ts';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { NEW_MATCH, SEATS, isMatchOver } from '../../engine/index.ts';
 import type { GameAction, Seat } from '../../engine/index.ts';
 import type { RoomRequest } from '../../server/types.ts';
 import { GameTable } from '../GameTable.tsx';
@@ -14,6 +14,11 @@ import { SuitText } from '../SuitText.tsx';
 import { useVoice } from './voice/useVoice.ts';
 import { voiceLinkOf } from './voice/voiceLink.ts';
 import type { VoiceLinkState } from '../VoiceDot.tsx';
+import { CafeCutscene } from './CafeCutscene.tsx';
+import { OrderPanel } from './OrderPanel.tsx';
+import { DRINK_LABELS, servedDrinks } from './drinks.ts';
+import type { Cutscene } from '../cafe/cafeScene.ts';
+import type { Drink } from '../../server/types.ts';
 
 interface OnlineRoomProps {
   readonly roomId: string;
@@ -81,6 +86,26 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
     [roomId, showNotice],
   );
 
+  // Seuils du match : à 500 points, Nader apporte les boissons ; à 1000, il presse la table.
+  const [scenes, setScenes] = useState<('drinks' | 'hung')[]>([]);
+  const seenScenes = useRef(new Set<string>());
+  useEffect(() => {
+    const g = view?.game;
+    const hand = g?.lastHandResult;
+    if (!g || !hand || (g.phase !== 'handOver' && g.phase !== 'gameOver')) return;
+    const before = [g.scores[0] - hand.handScore[0], g.scores[1] - hand.handScore[1]];
+    const crossed = (t: number) => [0, 1].some((i) => before[i]! < t && g.scores[i]! >= t);
+    const manche = (view.match?.games.length ?? 0) - (g.phase === 'gameOver' ? 1 : 0);
+    const next: ('drinks' | 'hung')[] = [];
+    if (crossed(500) && Object.keys(view.drinks ?? {}).length > 0) next.push('drinks');
+    if (crossed(1000)) next.push('hung');
+    const fresh = next.filter((kind) => !seenScenes.current.has(`${manche}:${kind}`));
+    if (fresh.length === 0) return;
+    for (const kind of fresh) seenScenes.current.add(`${manche}:${kind}`);
+    setScenes((queue) => [...queue, ...fresh]);
+  }, [view]);
+  const closeScene = useCallback(() => setScenes((queue) => queue.slice(1)), []);
+
   if (removed) {
     return (
       <Message
@@ -97,6 +122,31 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
   if (!view) return <Message title="Connexion au salon…" text="Un instant." />;
 
   const banner = connection === 'offline' ? 'Connexion perdue : reconnexion en cours…' : null;
+
+  const tableNumber = view.tableNumber ?? 1;
+  const tablePlayers = view.players.map((p) => ({ seat: p.seat, nickname: p.nickname }));
+
+  // Début du match : Mohamed Naceur prend la commande des boissons, en 3D.
+  if (view.order && !view.game) {
+    return (
+      <>
+        <CafeCutscene cutscene={{ kind: 'order', table: tableNumber }} players={tablePlayers}>
+          <OrderPanel
+            view={view}
+            names={names}
+            onChoose={(drink: Drink) => void send({ type: 'drink', drink })}
+            onTimeout={() => void sendRequest({ type: 'drink', roomId })}
+          />
+          <VoiceBar voice={voice} className="voice--lobby" />
+        </CafeCutscene>
+        {effects.notice && (
+          <div className="toast toast--fixed" role="status">
+            <SuitText text={effects.notice} />
+          </div>
+        )}
+      </>
+    );
+  }
 
   if (view.status === 'lobby' || !view.game) {
     return (
@@ -129,6 +179,10 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
 
   const game = view.game;
   const acked = view.ackSeats.includes(view.mySeat);
+  const scene = scenes[0];
+  const mancheKey = `${roomId}:${(view.match?.games.length ?? 0) - (game.phase === 'gameOver' ? 1 : 0)}`;
+  const served = servedDrinks(view.drinks ?? {}, mancheKey);
+  const cutscene: Cutscene | null = scene ? { kind: scene, table: tableNumber, served } : null;
   const waitingNames = acked ? SEATS.filter((s) => !view.ackSeats.includes(s)).map((s) => names[s]) : [];
 
   return (
@@ -146,12 +200,17 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
         voiceLinks={voiceLinks}
         onAction={(action: GameAction) => void send({ type: 'game', action })}
         cont={{
-          label: game.phase === 'gameOver' ? 'Rejouer avec la même table' : 'Manche suivante',
+          label:
+            game.phase === 'gameOver' ? (isMatchOver(view.match ?? NEW_MATCH) ? 'Nouveau match' : 'Manche suivante') : 'Donne suivante',
           acked,
           waitingNames,
           onContinue: () => void send({ type: 'continue' }),
         }}
         onHome={() => onExit(false)}
+        match={view.match ?? NEW_MATCH}
+        onEndMatch={async () => {
+          if (window.confirm('Terminer le match pour toute la table ?')) await send({ type: 'endMatch' });
+        }}
         menuLabel="Menu"
         onMenu={() => setMenuOpen(true)}
       />
@@ -176,7 +235,59 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
           ]}
         />
       )}
+      {cutscene && !effects.pausedTrick && !effects.finale && (
+        <CafeCutscene key={`${scenes.length}-${scene}`} cutscene={cutscene} players={tablePlayers}>
+          <ScenePanel kind={cutscene.kind} ordered={view.drinks ?? {}} served={served} names={names} onClose={closeScene} />
+        </CafeCutscene>
+      )}
     </>
+  );
+}
+
+/** Le panneau sous la scène 3D : ce que Nader a servi (faux), ou « علقتو ؟ ». Se ferme tout seul. */
+function ScenePanel(props: {
+  readonly kind: Cutscene['kind'];
+  readonly ordered: Partial<Record<number, Drink>>;
+  readonly served: Partial<Record<number, Drink>>;
+  readonly names: SeatNames;
+  readonly onClose: () => void;
+}) {
+  const { kind, ordered, served, names, onClose } = props;
+  useEffect(() => {
+    const timer = setTimeout(onClose, kind === 'drinks' ? 14000 : 10000);
+    return () => clearTimeout(timer);
+  }, [kind, onClose]);
+  return (
+    <div className="order">
+      {kind === 'drinks' ? (
+        <>
+          <p className="order__title">
+            Nader apporte les boissons…
+            <span className="order__hint">comme d’habitude, il s’est trompé 😅</span>
+          </p>
+          <ul className="order__paper">
+            {SEATS.filter((s) => ordered[s]).map((s) => (
+              <li key={s}>
+                <span>{names[s]}</span>
+                <span className="order__pen">
+                  <s>{DRINK_LABELS[ordered[s]!]}</s> → {DRINK_LABELS[served[s]!]}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="order__title">
+          <span lang="ar" dir="rtl">
+            « علقتو ؟ ... هيا إكبسو رواحكم الماتش بش يبدا »
+          </span>
+          <span className="order__hint">Nader presse la table : le match à la télé va commencer.</span>
+        </p>
+      )}
+      <button type="button" className="btn btn--primary btn--wide" onClick={onClose}>
+        Revenir à la partie
+      </button>
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { applyAction, createGame, getPlayerView, legalBids, startNextHand } from '../engine/index.ts';
-import type { GameAction, GameState, Seat } from '../engine/index.ts';
+import { NEW_MATCH, applyAction, createGame, endMatch, getPlayerView, isMatchOver, legalBids, recordGame, startNextHand } from '../engine/index.ts';
+import type { GameAction, GameState, MatchState, Seat } from '../engine/index.ts';
 import { botView, chooseBotAction } from '../bots/simpleBot.ts';
 import { GameTable } from './GameTable.tsx';
 import { GameMenu } from './GameMenu.tsx';
@@ -27,6 +27,7 @@ interface LocalGameProps {
 export function LocalGame({ targetScore, onExit }: LocalGameProps) {
   const [game, setGame] = useState<GameState>(() => createGame({ seed: initialSeed(), rules: { targetScore } }));
   const [menuOpen, setMenuOpen] = useState(false);
+  const [match, setMatch] = useState<MatchState>(NEW_MATCH);
   const gameRef = useRef(game);
   gameRef.current = game;
 
@@ -48,6 +49,11 @@ export function LocalGame({ targetScore, onExit }: LocalGameProps) {
       }
       gameRef.current = result.state;
       setGame(result.state);
+      // Fin de manche : on la note dans le match.
+      const done = result.state;
+      if (done.phase === 'gameOver' && before.phase !== 'gameOver' && done.winner !== null) {
+        setMatch((m) => recordGame(m, done.scores, done.winner!));
+      }
     },
     [showNotice],
   );
@@ -67,12 +73,19 @@ export function LocalGame({ targetScore, onExit }: LocalGameProps) {
   const onContinue = useCallback(() => {
     const current = gameRef.current;
     if (current.phase === 'gameOver') {
+      // Manche suivante, ou nouveau match si celui-ci est fini.
+      if (isMatchOver(match)) setMatch(NEW_MATCH);
       setGame(createGame({ seed: newSeed(), rules: { targetScore } }));
       return;
     }
     const next = startNextHand(current);
     if (next.ok) setGame(next.state);
-  }, [targetScore]);
+  }, [targetScore, match]);
+
+  const restartMatch = () => {
+    setMatch(NEW_MATCH);
+    setGame(createGame({ seed: newSeed(), rules: { targetScore } }));
+  };
 
   return (
     <>
@@ -82,12 +95,14 @@ export function LocalGame({ targetScore, onExit }: LocalGameProps) {
         effects={effects}
         onAction={(action) => perform(HUMAN, action)}
         cont={{
-          label: game.phase === 'gameOver' ? 'Nouvelle partie' : 'Manche suivante',
+          label: game.phase === 'gameOver' ? (isMatchOver(match) ? 'Nouveau match' : 'Manche suivante') : 'Donne suivante',
           acked: false,
           waitingNames: [],
           onContinue,
         }}
         onHome={onExit}
+        match={match}
+        onEndMatch={() => setMatch((m) => endMatch(m))}
         menuLabel="Menu"
         onMenu={() => setMenuOpen(true)}
       />
@@ -95,6 +110,15 @@ export function LocalGame({ targetScore, onExit }: LocalGameProps) {
         <GameMenu
           onClose={() => setMenuOpen(false)}
           actions={[
+            {
+              label: 'Nouveau match',
+              hint: 'Efface le match en cours et recommence à 0 - 0.',
+              onClick: () => {
+                if (!window.confirm('Recommencer un nouveau match ? Le match en cours sera effacé.')) return;
+                restartMatch();
+                setMenuOpen(false);
+              },
+            },
             {
               label: 'Quitter la partie',
               danger: true,

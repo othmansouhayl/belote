@@ -8,6 +8,8 @@ import type { Waypoint } from './characters.ts';
 import { TAREK_END_LINE } from '../labels.ts';
 import { CAFE_LINES, CAFE_NAMES, bubbleDuration } from './cafeLines.ts';
 import type { CafeCharacter } from './cafeLines.ts';
+import { drinkModel, tableKit } from './tableProps.ts';
+import type { Drink } from '../../server/types.ts';
 import type { SeatSide, TableSpot, Viewpoint } from './cafeLayout.ts';
 
 /** État d'une table de belote tel que l'affiche la maquette (informations publiques). */
@@ -36,7 +38,28 @@ interface Callbacks {
   readonly onSelect: (target: CafeTarget) => void;
   /** Appelé quand la caméra change de point de vue (étiquette « salle de belote » touchée). */
   readonly onView: (view: Viewpoint) => void;
+  /** Scène 3D pendant une partie : le serveur est arrivé à la table. */
+  readonly onArrive?: () => void;
 }
+
+/**
+ * Petites scènes pendant le match, à la table des joueurs :
+ * - « order » : Mohamed Naceur apporte tapis, carton et stylo, et prend la commande ;
+ * - « drinks » : à 500 points, Nader apporte les boissons (toujours les mauvaises) ;
+ * - « hung » : à 1000 points, Nader vient presser la table, le match à la télé va commencer.
+ */
+export interface Cutscene {
+  readonly kind: 'order' | 'drinks' | 'hung';
+  readonly table: number;
+  /** Boissons posées devant chaque place (par numéro de place). */
+  readonly served?: Partial<Record<number, Drink>>;
+}
+
+const CUTSCENE_LINES: Record<Cutscene['kind'], string> = {
+  order: 'شنو بش تشربو هاي فيسع',
+  drinks: 'تفضلو 😅',
+  hung: 'علقتو ؟ ... هيا إكبسو رواحكم الماتش بش يبدا',
+};
 
 const TEAM_COLORS = [0x5aa9e6, 0xf08a68];
 const SKIN = 0xd9a77c;
@@ -650,7 +673,12 @@ interface TableObjects {
   readonly names: HTMLSpanElement[];
 }
 
-export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement, callbacks: Callbacks): CafeSceneHandle {
+export function createCafeScene(
+  container: HTMLElement,
+  labelLayer: HTMLElement,
+  callbacks: Callbacks,
+  cutscene: Cutscene | null = null,
+): CafeSceneHandle {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'default' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0x0d2219);
@@ -959,7 +987,7 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
   carried.position.set(0.22, 1.02, 0.36);
   nader.root.add(carried);
   scene.add(nader.root);
-  const naderWalk = new Walker(
+  let naderWalk = new Walker(
     nader,
     [
       { x: 0.55, z: -8.4, pause: 3 },
@@ -985,7 +1013,7 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
   );
   const naceur = createPerson(MOHAMED_NACEUR);
   scene.add(naceur.root);
-  const naceurWalk = new Walker(
+  let naceurWalk = new Walker(
     naceur,
     [
       { x: 0.5, z: -10.9, pause: 2 },
@@ -1001,6 +1029,42 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     0.9,
     groundAt,
   );
+
+  // Scène pendant une partie : le serveur vient de l'entrée de la salle jusqu'à la table des joueurs.
+  const cutSpot = cutscene ? (BELOTE_TABLES.find((t) => t.number === cutscene.table) ?? BELOTE_TABLES[0]!) : null;
+  const cutWaiter = cutscene?.kind === 'order' ? naceur : nader;
+  let cutWalker: Walker | null = null;
+  let arrived = false;
+  const tableTop = CAFE.stepHeight + 0.776;
+  const kit = tableKit();
+  const placeDrinks = (served: Partial<Record<number, Drink>>, spot: TableSpot) => {
+    SEAT_SIDES.forEach((side, seat) => {
+      const drink = served[seat];
+      if (!drink) return;
+      const model = drinkModel(drink);
+      const onFloor = drink === 'chicha';
+      const { dx, dz } = seatOffset(side, onFloor ? 0.62 : 0.3);
+      // La chicha se pose par terre, à côté de la chaise.
+      const lateral = onFloor ? seatOffset(SEAT_SIDES[(seat + 1) % 4]!, 0.32) : { dx: 0, dz: 0 };
+      model.position.set(spot.x + dx + lateral.dx, onFloor ? CAFE.stepHeight : tableTop, spot.z + dz + lateral.dz);
+      scene.add(model);
+    });
+  };
+  if (cutscene && cutSpot) {
+    cutWalker = new Walker(cutWaiter, [{ x: 0.2, z: -12.4 }, { x: 0, z: -13.8 }, { x: 0, z: cutSpot.z }], 0.9, groundAt, false);
+    if (cutscene.kind === 'order') naceurWalk = cutWalker;
+    else {
+      naderWalk = cutWalker;
+      // L'autre serveur reste au comptoir : la salle du fond est à Nader.
+      naceur.root.visible = false;
+    }
+    kit.position.set(cutSpot.x, tableTop, cutSpot.z);
+    kit.visible = cutscene.kind !== 'order';
+    scene.add(kit);
+    if (cutscene.kind === 'hung' && cutscene.served) placeDrinks(cutscene.served, cutSpot);
+    // Pendant la scène, pas d'étiquettes de tables : seulement la bulle du serveur.
+    labelLayer.classList.add('cafe__labels--cutscene');
+  }
 
   // Toucher un personnage : une bulle avec son nom et une de ses phrases (à tour de rôle).
   const bubbleHtml = (id: CafeCharacter, line: string, className = 'cafe-bubble__line') =>
@@ -1033,7 +1097,9 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
   };
   // Chacun parle aussi tout seul de temps en temps, sans se couper la parole.
   const openedAt = performance.now();
-  const talkAt: Record<CafeCharacter, number> = { tarek: openedAt + 9000, nader: openedAt + 17000, naceur: openedAt + 26000 };
+  const talkAt: Record<CafeCharacter, number> = cutscene
+    ? { tarek: Infinity, nader: Infinity, naceur: Infinity }
+    : { tarek: openedAt + 9000, nader: openedAt + 17000, naceur: openedAt + 26000 };
 
   /* ---------------------------- Caméra et gestes ---------------------------- */
 
@@ -1049,6 +1115,12 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
   controls.minAzimuthAngle = -0.85;
   controls.maxAzimuthAngle = 0.85;
   controls.rotateSpeed = 0.7;
+  if (cutSpot) {
+    // Scène à la table : la caméra se pose près des joueurs.
+    controls.minDistance = 2.5;
+    camera.position.set(cutSpot.x * 0.1 - 0.5, CAFE.stepHeight + 3.9, cutSpot.z + 3.0);
+    controls.target.set(cutSpot.x * 0.55, CAFE.stepHeight + 0.6, cutSpot.z - 0.4);
+  }
   controls.update();
 
   let tween: { from: THREE.Vector3[]; to: THREE.Vector3[]; start: number; duration: number } | null = null;
@@ -1197,6 +1269,16 @@ export function createCafeScene(container: HTMLElement, labelLayer: HTMLElement,
     naderWalk.update(now, dt);
     nader.carry();
     naceurWalk.update(now, dt);
+    if (cutscene && cutSpot && cutWalker?.finished && !arrived) {
+      // Arrivé à la table : il se tourne vers les joueurs, pose ce qu'il apporte et parle.
+      arrived = true;
+      cutWaiter.root.rotation.y = cutSpot.x > 0 ? Math.PI / 2 : -Math.PI / 2;
+      kit.visible = true;
+      if (cutscene.kind === 'drinks' && cutscene.served) placeDrinks(cutscene.served, cutSpot);
+      const who = cutscene.kind === 'order' ? 'naceur' : 'nader';
+      showBubble(who, now, bubbleHtml(who, CUTSCENE_LINES[cutscene.kind]), 600000);
+      callbacks.onArrive?.();
+    }
     // Le patron : assis, il s'énerve de temps en temps (bras levé) ; sinon il marche avec sa chicha.
     if ('visit' in tarekState) {
       const state = tarekState;
