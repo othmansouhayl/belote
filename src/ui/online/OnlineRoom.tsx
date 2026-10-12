@@ -104,7 +104,12 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
     for (const kind of fresh) seenScenes.current.add(`${manche}:${kind}`);
     setScenes((queue) => [...queue, ...fresh]);
   }, [view]);
-  const closeScene = useCallback(() => setScenes((queue) => queue.slice(1)), []);
+  const [sceneArrived, setSceneArrived] = useState(false);
+  const closeScene = useCallback(() => {
+    setSceneArrived(false);
+    setScenes((queue) => queue.slice(1));
+  }, []);
+  const onSceneArrive = useCallback(() => setSceneArrived(true), []);
 
   if (removed) {
     return (
@@ -236,8 +241,15 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
         />
       )}
       {cutscene && !effects.pausedTrick && !effects.finale && (
-        <CafeCutscene key={`${scenes.length}-${scene}`} cutscene={cutscene} players={tablePlayers}>
-          <ScenePanel kind={cutscene.kind} ordered={view.drinks ?? {}} served={served} names={names} onClose={closeScene} />
+        <CafeCutscene key={`${scenes.length}-${scene}`} cutscene={cutscene} players={tablePlayers} onArrive={onSceneArrive}>
+          <ScenePanel
+            kind={cutscene.kind}
+            arrived={sceneArrived}
+            ordered={view.drinks ?? {}}
+            served={served}
+            names={names}
+            onClose={closeScene}
+          />
         </CafeCutscene>
       )}
     </>
@@ -247,16 +259,19 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
 /** Le panneau sous la scène 3D : ce que Nader a servi (faux), ou « علقتو ؟ ». Se ferme tout seul. */
 function ScenePanel(props: {
   readonly kind: Cutscene['kind'];
+  /** Le serveur est arrivé à la table : on laisse le temps de lire, puis on revient au jeu. */
+  readonly arrived: boolean;
   readonly ordered: Partial<Record<number, Drink>>;
   readonly served: Partial<Record<number, Drink>>;
   readonly names: SeatNames;
   readonly onClose: () => void;
 }) {
-  const { kind, ordered, served, names, onClose } = props;
+  const { kind, arrived, ordered, served, names, onClose } = props;
   useEffect(() => {
-    const timer = setTimeout(onClose, kind === 'drinks' ? 14000 : 10000);
+    // Après l'arrivée du serveur : le temps de lire ; sinon, au plus 40 s (3D très lente).
+    const timer = setTimeout(onClose, arrived ? (kind === 'drinks' ? 9000 : 7000) : 40000);
     return () => clearTimeout(timer);
-  }, [kind, onClose]);
+  }, [kind, arrived, onClose]);
   return (
     <div className="order">
       {kind === 'drinks' ? (

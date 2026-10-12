@@ -1,4 +1,4 @@
-import { Component, Suspense, lazy, useMemo, useState } from 'react';
+import { Component, Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Cutscene, SceneTable } from '../cafe/cafeScene.ts';
 import { supportsWebGL } from '../cafe/webgl.ts';
@@ -31,6 +31,10 @@ interface CafeCutsceneProps {
  */
 export function CafeCutscene({ cutscene, players, children, onArrive }: CafeCutsceneProps) {
   const [webgl] = useState(supportsWebGL);
+  // Sans 3D, pas de serveur qui marche : le panneau est tout de suite « arrivé ».
+  useEffect(() => {
+    if (!webgl) onArrive?.();
+  }, [webgl, onArrive]);
   const tables = useMemo<SceneTable[]>(
     () => [{ number: cutscene.table, status: 'playing', players, scores: null }],
     [cutscene.table, players],

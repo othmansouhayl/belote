@@ -38,10 +38,10 @@ export function EndScreen(props: EndScreenProps) {
   const winners = ([0, 1, 2, 3] as Seat[]).filter((s) => s % 2 === winner);
   const partner = winners.find((s) => s !== mySeat);
   const subtitle = spectator
-    ? `${names[winners[0]!]} et ${names[winners[1]!]} remportent la partie`
+    ? `${names[winners[0]!]} et ${names[winners[1]!]} remportent la manche`
     : victory
-      ? `${partner !== undefined ? names[partner] : 'Votre partenaire'} et vous remportez la partie`
-      : `${names[winners[0]!]} et ${names[winners[1]!]} remportent la partie`;
+      ? `${partner !== undefined ? names[partner] : 'Votre partenaire'} et vous remportez la manche`
+      : `${names[winners[0]!]} et ${names[winners[1]!]} remportent la manche`;
   const ours = teamStats(history, myTeam);
   const theirs = teamStats(history, them);
   const rows = matchSheet(history, myTeam);
