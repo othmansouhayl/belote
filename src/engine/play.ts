@@ -43,7 +43,12 @@ export function getLegalCards(hand: readonly Card[], trick: Trick, seat: Seat, t
   }
 
   if (trumps.length === 0 || !config.requireTrumpWhenVoid) return [...hand];
-  if (master.seat === partnerOf(seat) && !config.requireTrumpWhenPartnerMaster) return [...hand];
+  if (master.seat === partnerOf(seat) && !config.requireTrumpWhenPartnerMaster) {
+    // Partenaire maître : carte libre… sauf si on n'a plus que des atouts, alors on monte si on peut.
+    const onlyTrumps = trumps.length === hand.length;
+    if (onlyTrumps && config.overtrumpPartnerWhenOnlyTrumps && higherTrumps.length > 0) return higherTrumps;
+    return [...hand];
+  }
 
   const trickHasTrump = bestTrumpStrength >= 0;
   if (!trickHasTrump || !config.requireOvertrump) return trumps;
