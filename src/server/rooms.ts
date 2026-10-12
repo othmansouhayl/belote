@@ -1,16 +1,22 @@
 import {
   CONTRACT_SUCCESS_SCORINGS,
+  NEW_MATCH,
   SEATS,
   SUITS,
   applyAction,
   createGame,
   getPlayerView,
+  endMatch,
   getSpectatorView,
+  isMatchOver,
   makeRules,
+  recordGame,
   startNextHand,
 } from '../engine/index.ts';
 import type { BidAction, GameAction, RulesConfig, Seat } from '../engine/index.ts';
+import { DRINKS } from './types.ts';
 import type {
+  Drink,
   PublicTableData,
   RoomAggregate,
   RoomPlayer,
@@ -28,6 +34,9 @@ export const ROOM_CODE_LENGTH = 6;
 export const CAFE_TABLE_COUNT = 6;
 /** Une table sans aucune action depuis ce délai est considérée comme libre. */
 export const CAFE_TABLE_STALE_MINUTES = 10;
+
+/** Temps laissé à chacun pour commander sa boisson au début du match. */
+export const ORDER_SECONDS = 30;
 
 /** Valeurs proposées dans les réglages du salon (le serveur refuse toute autre valeur). */
 export const TARGET_SCORES = [500, 1000, 1500, 2000] as const;
@@ -141,7 +150,13 @@ export function parseRequest(raw: unknown): RoomRequest | null {
     case 'leave':
     case 'quit':
     case 'continue':
+    case 'endMatch':
       return { type: r.type, roomId };
+    case 'drink': {
+      if (r.drink === undefined || r.drink === null) return { type: 'drink', roomId };
+      const drink = DRINKS.find((d) => d === r.drink);
+      return drink ? { type: 'drink', roomId, drink } : null;
+    }
     case 'game': {
       const action = parseAction(r.action);
       return action ? { type: 'game', roomId, action } : null;
@@ -180,6 +195,21 @@ export function joinRoom(room: RoomAggregate, playerId: string, nickname: string
   return { ok: true, room: { ...room, players: [...room.players, { playerId, nickname, seat, ready: false }] } };
 }
 
+const nowOf = (deps: ServerDeps) => (deps.now ?? Date.now)();
+
+/** Début de match : Mohamed Naceur prend la commande ; la première manche commence ensuite. */
+function startOrder(room: RoomAggregate, deps: ServerDeps): RoomAggregate {
+  return { ...room, status: 'playing', acks: [], game: null, match: NEW_MATCH, order: { deadline: nowOf(deps) + ORDER_SECONDS * 1000, drinks: {} } };
+}
+
+/** Tout le monde a commandé : on note les boissons par place et la première manche commence. */
+function finishOrderIfComplete(room: RoomAggregate, drinksById: Readonly<Record<string, Drink>>, deps: ServerDeps): RoomAggregate {
+  if (!room.players.every((p) => drinksById[p.playerId])) return { ...room, order: { ...room.order!, drinks: drinksById } };
+  const drinks: Partial<Record<Seat, Drink>> = {};
+  for (const p of room.players) drinks[p.seat] = drinksById[p.playerId]!;
+  return { ...room, order: null, drinks, game: createGame({ rules: room.settings.rules, seed: deps.newSecureSeed() }) };
+}
+
 function member(room: RoomAggregate, playerId: string): RoomPlayer | undefined {
   return room.players.find((p) => p.playerId === playerId);
 }
@@ -205,11 +235,8 @@ export function applyRoomRequest(
       const players = room.players.map((p) => (p.playerId === playerId ? { ...p, ready: request.ready } : p));
       const updated = { ...room, players };
       if (players.length === 4 && players.every((p) => p.ready)) {
-        // §11.1 : la partie commence quand 4 joueurs sont présents et prêts.
-        return {
-          ok: true,
-          room: { ...updated, status: 'playing', acks: [], game: createGame({ rules: room.settings.rules, seed: deps.newSecureSeed() }) },
-        };
+        // §11.1 : 4 joueurs présents et prêts. D'abord la commande des boissons, puis la partie.
+        return { ok: true, room: startOrder(updated, deps) };
       }
       return { ok: true, room: updated };
     }
@@ -232,11 +259,36 @@ export function applyRoomRequest(
       // Si l'hôte part, le joueur restant à la plus petite place le remplace.
       return { ok: true, room: { ...remaining, hostId: hostOf(remaining)?.playerId } };
     }
+    case 'drink': {
+      const order = room.order;
+      if (!order) return fail('La commande est déjà prise.');
+      if (request.drink) return { ok: true, room: finishOrderIfComplete(room, { ...order.drinks, [playerId]: request.drink }, deps) };
+      // Échéance passée : Naceur choisit pour ceux qui n'ont rien dit.
+      if (nowOf(deps) < order.deadline) return fail('Chacun a encore le temps de choisir.');
+      const seed = deps.newSecureSeed();
+      const filled: Record<string, Drink> = { ...order.drinks };
+      room.players.forEach((p, i) => {
+        filled[p.playerId] ??= DRINKS[(seed.charCodeAt(i % seed.length) + i) % DRINKS.length]!;
+      });
+      return { ok: true, room: finishOrderIfComplete(room, filled, deps) };
+    }
     case 'game': {
       if (!room.game) return fail("La partie n'a pas commencé.");
       const result = applyAction(room.game, me.seat, request.action);
       if (!result.ok) return fail(result.error);
-      return { ok: true, room: { ...room, game: result.state, acks: [] } };
+      const state = result.state;
+      // Fin de manche : on la note dans le match.
+      const match =
+        state.phase === 'gameOver' && room.game.phase !== 'gameOver' && state.winner !== null
+          ? recordGame(room.match ?? NEW_MATCH, state.scores, state.winner)
+          : room.match;
+      return { ok: true, room: { ...room, game: state, acks: [], ...(match ? { match } : {}) } };
+    }
+    case 'endMatch': {
+      if (room.game?.phase !== 'gameOver') return fail('On ne peut arrêter le match qu’à la fin d’une manche.');
+      const match = room.match ?? NEW_MATCH;
+      if (isMatchOver(match)) return fail('Le match est déjà terminé.');
+      return { ok: true, room: { ...room, match: endMatch(match), acks: [] } };
     }
     case 'continue': {
       const game = room.game;
@@ -245,6 +297,8 @@ export function applyRoomRequest(
       if (acks.length < 4) return { ok: true, room: { ...room, acks } };
       // Nouvelle graine secrète pour chaque manche : rien ne relie deux donnes entre elles.
       if (game.phase === 'gameOver') {
+        // Match fini : un nouveau match commence par une nouvelle commande ; sinon, manche suivante.
+        if (isMatchOver(room.match ?? NEW_MATCH)) return { ok: true, room: startOrder(room, deps) };
         return { ok: true, room: { ...room, acks: [], game: createGame({ rules: room.settings.rules, seed: deps.newSecureSeed() }) } };
       }
       const next = startNextHand({ ...game, seed: deps.newSecureSeed() });
@@ -273,7 +327,8 @@ export function buildPublicTable(room: RoomAggregate): PublicTableData | null {
   return {
     tableNumber: room.tableNumber,
     info: {
-      status: game?.phase === 'gameOver' ? 'finished' : room.status,
+      // La table se libère à la fin du match (pas entre deux manches).
+      status: game?.phase === 'gameOver' && isMatchOver(room.match ?? NEW_MATCH) ? 'finished' : room.status,
       players: players.map(({ seat, nickname }) => ({ seat, nickname })),
       scores: game ? [game.scores[0], game.scores[1]] : null,
       targetScore: makeRules(room.settings.rules).targetScore,
@@ -284,8 +339,19 @@ export function buildPublicTable(room: RoomAggregate): PublicTableData | null {
       status: room.status,
       players,
       game: game ? getSpectatorView(game) : null,
+      match: room.match ?? NEW_MATCH,
     },
   };
+}
+
+/** Ce que chacun a déjà commandé (visible de tous, comme sur le papier de Naceur). */
+function chosenBySeat(room: RoomAggregate): Partial<Record<Seat, Drink>> {
+  const chosen: Partial<Record<Seat, Drink>> = {};
+  for (const p of room.players) {
+    const drink = room.order?.drinks[p.playerId];
+    if (drink) chosen[p.seat] = drink;
+  }
+  return chosen;
 }
 
 /** Vue de chaque joueur : uniquement ce qu'il a le droit de voir (§11.4). */
@@ -307,6 +373,9 @@ export function buildViews(room: RoomAggregate): StoredView[] {
       hostSeat,
       ackSeats,
       game: room.game ? getPlayerView(room.game, p.seat) : null,
+      match: room.match ?? NEW_MATCH,
+      order: room.order ? { deadline: room.order.deadline, chosen: chosenBySeat(room) } : null,
+      drinks: room.drinks ?? {},
     };
     return { playerId: p.playerId, seat: p.seat, view };
   });

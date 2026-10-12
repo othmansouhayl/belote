@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { SEATS, winningCard } from '../engine/index.ts';
-import type { GameAction, PlayerView, Seat, Team } from '../engine/index.ts';
+import { NEW_MATCH, SEATS, isMatchOver, matchWinner, matchWins, winningCard } from '../engine/index.ts';
+import type { GameAction, MatchState, PlayerView, Seat, Team } from '../engine/index.ts';
+import { ScoreSheet } from './ScoreSheet.tsx';
+import { sheetRows } from './scoreSheet.ts';
 import { BiddingPanel } from './BiddingPanel.tsx';
 import { FinaleOverlay } from './FinaleOverlay.tsx';
 import { LastTrick } from './LastTrick.tsx';
@@ -41,11 +43,16 @@ interface GameTableProps {
   readonly onHome?: () => void;
   /** Spectateur : il voit la table (cartes posées, enchères, scores) mais ne joue pas. */
   readonly spectator?: boolean;
+  /** Le match en cours (manches gagnées). */
+  readonly match?: MatchState;
+  /** Arrêter le match à la fin d'une manche. */
+  readonly onEndMatch?: () => void;
 }
 
 export function GameTable(props: GameTableProps) {
   const { view, names, effects, onAction, cont, menuLabel, onMenu, absentSeats, busy = false, banner } = props;
-  const { voiceBar, speakingSeats, voiceMutedSeats, voiceLinks, onHome, spectator = false } = props;
+  const { voiceBar, speakingSeats, voiceMutedSeats, voiceLinks, onHome, spectator = false, match = NEW_MATCH, onEndMatch } = props;
+  const [sheetOpen, setSheetOpen] = useState(false);
   const { pausedTrick, notice, beloteBubble, finale } = effects;
   const mySeat = view.seat;
   const myTeam = (mySeat % 2) as Team;
@@ -55,6 +62,20 @@ export function GameTable(props: GameTableProps) {
     ? [`${names[0]} & ${names[2]}`, `${names[1]} & ${names[3]}`]
     : ['Nous', 'Eux'];
   const trump = view.contract?.suit ?? null;
+
+  // Le carton : les manches finies, puis les totaux de la manche en cours ; en fin de manche, le compteur.
+  const gameOver = view.phase === 'gameOver';
+  const recorded = gameOver && match.games.length > 0;
+  const sheet = (
+    <ScoreSheet
+      previous={recorded ? match.games.slice(0, -1) : match.games}
+      rows={sheetRows(view.handHistory, myTeam)}
+      counterAfter={recorded ? matchWins(match) : null}
+      final={recorded && isMatchOver(match)}
+      matchWinner={matchWinner(match)}
+      myTeam={myTeam}
+    />
+  );
 
   const playable = useMemo(() => {
     if (!myTurn || view.phase !== 'playing') return null;
@@ -118,6 +139,8 @@ export function GameTable(props: GameTableProps) {
         menuLabel={menuLabel}
         onMenu={onMenu}
         teamLabels={teamLabels}
+        matchWins={match.games.length > 0 ? matchWins(match) : null}
+        onScores={() => setSheetOpen(true)}
       />
 
       <main className="table">
@@ -204,8 +227,7 @@ export function GameTable(props: GameTableProps) {
       {view.phase === 'handOver' && !pausedTrick && !finale && view.lastHandResult && (
         <HandResultDialog
           result={view.lastHandResult}
-          scores={view.scores}
-          target={view.config.targetScore}
+          sheet={sheet}
           myTeam={myTeam}
           names={names}
           cont={cont}
@@ -226,7 +248,21 @@ export function GameTable(props: GameTableProps) {
           onHome={onHome}
           teamLabels={teamLabels}
           spectator={spectator}
+          sheet={sheet}
+          matchOver={!recorded || isMatchOver(match)}
+          matchWinner={matchWinner(match)}
+          onEndMatch={onEndMatch}
         />
+      )}
+      {sheetOpen && (
+        <div className="overlay" role="dialog" aria-modal="true" aria-label="Carton de score" onClick={() => setSheetOpen(false)}>
+          <div className="sheet-dialog" onClick={(e) => e.stopPropagation()}>
+            {sheet}
+            <button type="button" className="btn btn--primary btn--wide" onClick={() => setSheetOpen(false)} autoFocus>
+              Fermer
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

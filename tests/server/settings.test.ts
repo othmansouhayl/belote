@@ -67,6 +67,7 @@ describe('Réglages du salon', () => {
     const { roomId } = await room(store);
     await handleRequest(store, deps, 'hote', { type: 'settings', roomId, settings: settings({ targetScore: 500 }) });
     for (const p of PLAYERS) await handleRequest(store, deps, p, { type: 'ready', roomId, ready: true });
+    for (const p of PLAYERS) await handleRequest(store, deps, p, { type: 'drink', roomId, drink: 'tey' });
     const config = store.rooms.get(roomId)!.game!.config;
     expect(config.targetScore).toBe(500);
     expect(config.contractSuccessScoring).toBe('contractPlusPoints');

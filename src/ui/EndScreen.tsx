@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { HandResult, Seat, Team } from '../engine/index.ts';
 import type { ContinueState } from './ResultDialogs.tsx';
 import { SUIT_SYMBOLS, TAREK_END_LINE, contractValueLabel, isRed } from './labels.ts';
@@ -16,6 +17,14 @@ interface EndScreenProps {
   readonly onHome?: () => void;
   readonly teamLabels?: readonly [string, string];
   readonly spectator?: boolean;
+  /** Le carton de score avec le compteur de manches. */
+  readonly sheet: ReactNode;
+  /** Le match est fini (3 manches gagnées, ou arrêté) ; sinon, on peut jouer la manche suivante. */
+  readonly matchOver: boolean;
+  /** Équipe qui a gagné le match (null : match arrêté sans vainqueur). */
+  readonly matchWinner: Team | null;
+  /** Arrêter le match au lieu de jouer la manche suivante. */
+  readonly onEndMatch?: () => void;
 }
 
 const CONFETTI_COLORS = ['#f0c35a', '#7cc4ff', '#ff9f80', '#8fe3a8', '#ffffff'];
@@ -23,15 +32,16 @@ const CONFETTI_COLORS = ['#f0c35a', '#7cc4ff', '#ff9f80', '#8fe3a8', '#ffffff'];
 /** Écran de fin de partie : vainqueur, score final, statistiques et feuille de match. */
 export function EndScreen(props: EndScreenProps) {
   const { winner, history, scores, target, myTeam, mySeat, names, cont, onHome, teamLabels = ['Nous', 'Eux'], spectator = false } = props;
+  const { sheet, matchOver, matchWinner, onEndMatch } = props;
   const them: Team = myTeam === 0 ? 1 : 0;
   const victory = !spectator && winner === myTeam;
   const winners = ([0, 1, 2, 3] as Seat[]).filter((s) => s % 2 === winner);
   const partner = winners.find((s) => s !== mySeat);
   const subtitle = spectator
-    ? `${names[winners[0]!]} et ${names[winners[1]!]} remportent la partie`
+    ? `${names[winners[0]!]} et ${names[winners[1]!]} remportent la manche`
     : victory
-    ? `${partner !== undefined ? names[partner] : 'Votre partenaire'} et vous remportez la partie`
-    : `${names[winners[0]!]} et ${names[winners[1]!]} remportent la partie`;
+      ? `${partner !== undefined ? names[partner] : 'Votre partenaire'} et vous remportez la manche`
+      : `${names[winners[0]!]} et ${names[winners[1]!]} remportent la manche`;
   const ours = teamStats(history, myTeam);
   const theirs = teamStats(history, them);
   const rows = matchSheet(history, myTeam);
@@ -63,26 +73,42 @@ export function EndScreen(props: EndScreenProps) {
       )}
 
       <div className="end__panel">
-        <p className="end__eyebrow">Fin de la partie · objectif {target} points</p>
+        <p className="end__eyebrow">
+          {matchOver ? 'Fin du match' : 'Fin de la manche'} · objectif {target} points
+        </p>
         <h2 id="game-over-title" className={`end__title ${victory ? 'end__title--win' : 'end__title--lose'}`}>
-          {spectator ? 'Fin de la partie' : victory ? 'Victoire !' : 'Défaite'}
+          {spectator
+            ? matchOver
+              ? 'Fin du match'
+              : 'Fin de la manche'
+            : matchOver
+              ? matchWinner === null
+                ? 'Match terminé'
+                : matchWinner === myTeam
+                  ? 'Match gagné !'
+                  : 'Match perdu'
+              : victory
+                ? 'Manche gagnée !'
+                : 'Manche perdue'}
         </h2>
         <p className="end__subtitle">
-          {subtitle} en {history.length} manche{history.length > 1 ? 's' : ''}.
+          {subtitle} en {history.length} donne{history.length > 1 ? 's' : ''}.
         </p>
 
-        {/* Le patron passe à la table : les perdants laissent la place. */}
-        <div className="end__tarek" role="note">
-          <span className="end__tarek-face" aria-hidden="true">
-            😠
-          </span>
-          <span className="end__tarek-text">
-            <span className="end__tarek-name">طارق · le patron</span>
-            <span lang="ar" dir="rtl" className="end__tarek-line">
-              « {TAREK_END_LINE} »
+        {/* Fin du match : le patron passe à la table, les perdants laissent la place. */}
+        {matchOver && (
+          <div className="end__tarek" role="note">
+            <span className="end__tarek-face" aria-hidden="true">
+              😠
             </span>
-          </span>
-        </div>
+            <span className="end__tarek-text">
+              <span className="end__tarek-name">طارق · le patron</span>
+              <span lang="ar" dir="rtl" className="end__tarek-line">
+                « {TAREK_END_LINE} »
+              </span>
+            </span>
+          </div>
+        )}
 
         <div className="end__score">
           <div className={`end__team${winner === myTeam ? ' end__team--winner' : ''}`}>
@@ -98,27 +124,32 @@ export function EndScreen(props: EndScreenProps) {
           </div>
         </div>
 
-        <table className="end__stats">
-          <thead>
-            <tr>
-              <th scope="col" />
-              <th scope="col">{teamLabels[0]}</th>
-              <th scope="col">{teamLabels[1]}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {statRows.map(([label, a, b]) => (
-              <tr key={label}>
-                <th scope="row">{label}</th>
-                <td>{a}</td>
-                <td>{b}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {sheet}
 
         <details className="end__sheet">
-          <summary>Feuille de match ({rows.length} manches)</summary>
+          <summary>Statistiques de la manche</summary>
+          <table className="end__stats">
+            <thead>
+              <tr>
+                <th scope="col" />
+                <th scope="col">{teamLabels[0]}</th>
+                <th scope="col">{teamLabels[1]}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {statRows.map(([label, a, b]) => (
+                <tr key={label}>
+                  <th scope="row">{label}</th>
+                  <td>{a}</td>
+                  <td>{b}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+
+        <details className="end__sheet">
+          <summary>Détail des donnes ({rows.length})</summary>
           <table className="sheet">
             <thead>
               <tr>
@@ -136,8 +167,7 @@ export function EndScreen(props: EndScreenProps) {
                   <tr key={index} className={result.success ? '' : 'sheet__row--fail'}>
                     <td>{index}</td>
                     <td>
-                      <span className="sheet__who">{names[c.bidder]}</span>{' '}
-                      {contractValueLabel(c.value)}{' '}
+                      <span className="sheet__who">{names[c.bidder]}</span> {contractValueLabel(c.value)}{' '}
                       <span className={isRed(c.suit) ? 'sheet__suit--red' : ''}>{SUIT_SYMBOLS[c.suit]}</span>
                       {doubled}
                       <span className="sheet__result">{result.success ? ' réussi' : ' chuté'}</span>
@@ -160,6 +190,11 @@ export function EndScreen(props: EndScreenProps) {
         {!spectator && (
           <button type="button" className="btn btn--primary btn--wide" onClick={cont.onContinue} disabled={cont.acked} autoFocus>
             {cont.acked ? 'En attente des autres joueurs…' : cont.label}
+          </button>
+        )}
+        {!spectator && !matchOver && onEndMatch && !cont.acked && (
+          <button type="button" className="btn btn--link btn--wide" onClick={onEndMatch}>
+            Terminer le match
           </button>
         )}
         {!spectator && cont.waitingNames.length > 0 && (

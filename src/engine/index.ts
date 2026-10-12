@@ -9,4 +9,5 @@ export { getLegalCards, resolveTrick, validatePlay, winningCard } from './play.t
 export { TOTAL_HAND_POINTS, applyHandScore, calculateHandPoints, resolveContract, roundToTen, type HandRemainder } from './scoring.ts';
 export { applyAction, canClaim, createGame, legalBids, legalCards, startNextHand, type CreateGameOptions } from './game.ts';
 export { canClaimNow, canClaimWith, claimOrder } from './claim.ts';
+export { MATCH_MAX_GAMES, MATCH_WINS_NEEDED, NEW_MATCH, endMatch, isMatchOver, matchWinner, matchWins, recordGame, type MatchGame, type MatchState } from './match.ts';
 export { getPlayerView, getSpectatorView, type PlayerView } from './view.ts';
