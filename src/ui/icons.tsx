@@ -1,4 +1,14 @@
-const base = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true } as const;
+const base = {
+  width: 22,
+  height: 22,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 2,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  'aria-hidden': true,
+} as const;
 
 export function MicIcon() {
   return (
@@ -45,6 +55,16 @@ export function PowerIcon() {
   return (
     <svg {...base}>
       <path d="M12 3v9M6.3 6.3a8 8 0 1 0 11.4 0" />
+    </svg>
+  );
+}
+
+/** Le logo : un carreau (« ديناري ») rouge sur une carte crème. */
+export function BrandMark() {
+  return (
+    <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+      <rect x="5" y="2" width="30" height="36" rx="5" fill="#fffaf0" stroke="#f0c35a" strokeWidth="2" />
+      <path d="M20 9 L29 20 L20 31 L11 20 Z" fill="#c62828" />
     </svg>
   );
 }

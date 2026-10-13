@@ -2,6 +2,7 @@ import { Component, Suspense, lazy, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { CAFE_TABLE_COUNT, ROOM_CODE_LENGTH, TARGET_SCORES } from '../server/rooms.ts';
 import { SoundToggle } from './SoundToggle.tsx';
+import { BrandMark } from './icons.tsx';
 import { Remote } from './Remote.tsx';
 import { CHANNELS, useMusic } from './music.ts';
 import { promptInstall, useInstallState } from './install.ts';
@@ -69,7 +70,10 @@ export function Home(props: HomeProps) {
   const [webgl] = useState(supportsWebGL);
   const install = useInstallState();
 
-  const cleanCode = code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, ROOM_CODE_LENGTH);
+  const cleanCode = code
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, ROOM_CODE_LENGTH);
   const nicknameOk = nickname.trim().length > 0;
   const full = onlineConfigured && tables.length >= CAFE_TABLE_COUNT;
 
@@ -170,7 +174,12 @@ export function Home(props: HomeProps) {
         </h2>
         <p className="sheet__text">Assieds-toi : tu recevras un code à envoyer à tes trois amis.</p>
         {nicknameField}
-        <button type="button" className="btn btn--primary btn--wide" disabled={busy || !nicknameOk} onClick={() => onCreate(selected.number)}>
+        <button
+          type="button"
+          className="btn btn--primary btn--wide"
+          disabled={busy || !nicknameOk}
+          onClick={() => onCreate(selected.number)}
+        >
           S'asseoir à la table {selected.number}
         </button>
       </>
@@ -227,8 +236,8 @@ export function Home(props: HomeProps) {
     sheet = (
       <>
         <p className="sheet__text">
-          Touche une <strong>table au fond du café</strong> pour jouer en ligne avec tes amis, ou la <strong>terrasse</strong> pour
-          jouer contre les bots.
+          Touche une <strong>table au fond du café</strong> pour jouer en ligne avec tes amis, ou la <strong>terrasse</strong> pour jouer
+          contre les bots.
         </p>
         {onlineConfigured && (
           <button type="button" className="btn btn--ghost btn--wide" onClick={() => setCodeMode(true)}>
@@ -252,17 +261,18 @@ export function Home(props: HomeProps) {
   return (
     <div className="home-cafe">
       <header className="cafe-header">
-        <div className="cafe-header__titles">
-          <h1 className="cafe-header__title" lang="ar" dir="rtl">
-            قهوة طارق
-          </h1>
-          <p className="cafe-header__welcome">
-            <span lang="en">Welcome to Café Tarek</span>
-            <span aria-hidden="true"> · </span>
-            <span lang="ar" dir="rtl">
-              مرحبا بكم في قهوة طارق
-            </span>
-          </p>
+        <div className="brand">
+          <BrandMark />
+          <div className="brand__titles">
+            <h1 className="brand__name">Kaboot Dineri</h1>
+            <p className="brand__tag">
+              <span lang="ar" dir="rtl">
+                كبوط ديناري
+              </span>
+              <span aria-hidden="true"> · </span>
+              <span>Belote au Café Tarek</span>
+            </p>
+          </div>
         </div>
         <SoundToggle className="cafe-header__sound" />
       </header>
@@ -328,6 +338,12 @@ export function Home(props: HomeProps) {
           </button>
         )}
         {sheet}
+        <footer className="site-footer">
+          Ce jeu est développé par{' '}
+          <a href="https://www.linkedin.com/in/souhayl-othman/" target="_blank" rel="noopener noreferrer">
+            Souhayl Othman
+          </a>
+        </footer>
         {error && (
           <p className="screen__error" role="alert">
             {error}
