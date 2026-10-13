@@ -35,7 +35,7 @@ Jeu de belote coinchée tunisienne à 4, jouable dans le navigateur.
 
 ## Jouer
 
-Le jeu est en ligne sur https://othmansouhayl.github.io/belote/ (mis à jour à chaque fusion dans `main`).
+Le jeu est en ligne sur https://kabootdineri.com (mis à jour à chaque fusion dans `main`). L'ancienne adresse https://othmansouhayl.github.io/belote/ y redirige.
 
 Le site s'installe comme une application (Android : bouton « Installer » sur l'accueil ;
 iPhone : Safari → Partager → « Sur l'écran d'accueil »). Une fois installé, le mode
