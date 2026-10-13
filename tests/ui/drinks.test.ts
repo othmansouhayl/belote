@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DRINKS } from '../../src/server/types.ts';
-import { servedDrink, servedDrinks } from '../../src/ui/online/drinks.ts';
+import { DRINK_AR, naderDrinkLine, servedDrink, servedDrinks } from '../../src/ui/online/drinks.ts';
 
 describe('Nader apporte les boissons', () => {
   it('jamais celle qui a été commandée, et la même sur les 4 téléphones', () => {
@@ -18,5 +18,10 @@ describe('Nader apporte les boissons', () => {
     const served = servedDrinks({ 0: 'tey', 1: 'express', 2: 'chicha', 3: 'filtre' }, 'salon:0');
     expect(Object.keys(served)).toEqual(['0', '1', '2', '3']);
     expect(served[0]).not.toBe('tey');
+  });
+
+  it('la phrase de Nader : ce qui a été commandé, puis ce qu’il a apporté', () => {
+    expect(naderDrinkLine('tey', 'capucin')).toBe('مافماش تاي جبتلك كابوسان .. موش عاجبك معادش تجي');
+    for (const drink of DRINKS) expect(DRINK_AR[drink]).toBeTruthy();
   });
 });

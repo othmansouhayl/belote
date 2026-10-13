@@ -11,6 +11,21 @@ export const DRINK_LABELS: Record<Drink, string> = {
   filtre: 'Filtre',
 };
 
+/** Les mêmes, comme Nader les dit (pour sa phrase en tunisien). */
+export const DRINK_AR: Record<Drink, string> = {
+  express: 'إكسبريس',
+  tey: 'تاي',
+  capucin: 'كابوسان',
+  allonge: 'ألونجي',
+  chicha: 'شيشة',
+  filtre: 'فيلتر',
+};
+
+/** Ce que Nader dit à chacun en posant la mauvaise boisson devant lui. */
+export function naderDrinkLine(ordered: Drink, served: Drink): string {
+  return `مافماش ${DRINK_AR[ordered]} جبتلك ${DRINK_AR[served]} .. موش عاجبك معادش تجي`;
+}
+
 function hash(text: string): number {
   let h = 2166136261;
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);

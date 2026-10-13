@@ -56,7 +56,7 @@ const AMBIANCES: Record<DayPhase, Ambiance> = {
     keyIntensity: 2.1,
     lampIntensity: 1.5,
     bulbGlow: 0.6,
-    street: 0x8d8a85,
+    street: 0x55585b,
     streetLights: false,
   },
   golden: {
@@ -69,7 +69,7 @@ const AMBIANCES: Record<DayPhase, Ambiance> = {
     keyIntensity: 1.7,
     lampIntensity: 3.5,
     bulbGlow: 1.2,
-    street: 0x6e6460,
+    street: 0x4d484a,
     streetLights: false,
   },
   evening: {
@@ -82,7 +82,7 @@ const AMBIANCES: Record<DayPhase, Ambiance> = {
     keyIntensity: 1.25,
     lampIntensity: 6,
     bulbGlow: 2.4,
-    street: 0x3a3d44,
+    street: 0x33363c,
     streetLights: true,
   },
   night: {
@@ -95,7 +95,7 @@ const AMBIANCES: Record<DayPhase, Ambiance> = {
     keyIntensity: 1.05,
     lampIntensity: 6.5,
     bulbGlow: 2.6,
-    street: 0x2a2c32,
+    street: 0x25272c,
     streetLights: true,
   },
 };
