@@ -188,6 +188,17 @@ export function createPerson(spec: PersonSpec): Person {
     brow.rotation.z = spec.angry ? side * 0.45 : 0;
     head.add(brow);
   }
+  // Nez et oreilles : un visage lisible de près, avec très peu de géométrie.
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.05, 6), skin);
+  nose.rotation.x = Math.PI / 2;
+  nose.position.set(0, -0.015, 0.14);
+  head.add(nose);
+  for (const side of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 6), skin);
+    ear.scale.set(0.45, 1, 0.75);
+    ear.position.set(side * 0.13, -0.005, -0.005);
+    head.add(ear);
+  }
   const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 10, Math.PI), mat(0x5a2a22));
   mouth.position.set(0, -0.06, 0.118);
   // Sourire pour les serveurs, bouche tombante pour le patron.
@@ -196,7 +207,10 @@ export function createPerson(spec: PersonSpec): Person {
   head.add(mouth);
   if (spec.angry) {
     for (const side of [-1, 1]) {
-      const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 6), new THREE.MeshStandardMaterial({ color: 0xd9534f, transparent: true, opacity: 0.55 }));
+      const cheek = new THREE.Mesh(
+        new THREE.SphereGeometry(0.025, 8, 6),
+        new THREE.MeshStandardMaterial({ color: 0xd9534f, transparent: true, opacity: 0.55 }),
+      );
       cheek.position.set(side * 0.075, -0.025, 0.1);
       head.add(cheek);
     }
@@ -253,7 +267,10 @@ export function createPerson(spec: PersonSpec): Person {
 /** Plateau avec un verre de thé, tenu par un serveur. */
 export function tray(): THREE.Group {
   const group = new THREE.Group();
-  const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.015, 20), new THREE.MeshStandardMaterial({ color: 0xc9ccd1, metalness: 0.7, roughness: 0.3 }));
+  const plate = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.17, 0.17, 0.015, 20),
+    new THREE.MeshStandardMaterial({ color: 0xc9ccd1, metalness: 0.7, roughness: 0.3 }),
+  );
   group.add(plate);
   const glass = new THREE.Mesh(
     new THREE.CylinderGeometry(0.03, 0.025, 0.08, 10),
@@ -287,7 +304,10 @@ export function chicha(): THREE.Group {
   const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.03, 0.07, 10), new THREE.MeshStandardMaterial({ color: 0x8a3b22 }));
   bowl.position.y = 0.72;
   group.add(bowl);
-  const coal = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.02, 0.03), new THREE.MeshStandardMaterial({ color: 0xff5a1f, emissive: 0xff3a10, emissiveIntensity: 1.2 }));
+  const coal = new THREE.Mesh(
+    new THREE.BoxGeometry(0.03, 0.02, 0.03),
+    new THREE.MeshStandardMaterial({ color: 0xff5a1f, emissive: 0xff3a10, emissiveIntensity: 1.2 }),
+  );
   coal.position.y = 0.765;
   group.add(coal);
   return group;

@@ -59,6 +59,21 @@ export const SIDE_TERRACE = {
   tables: [-2.2, -5.3, -8.4, -14.0, -16.6, -19.1],
 } as const;
 
+/**
+ * Le café est au coin de deux rues : la terrasse de devant donne sur la rue de devant (z > 0),
+ * la terrasse sur palier donne sur la rue de côté (x > 5,3). Trottoirs jusqu'aux bordures.
+ */
+export const STREETS = {
+  /** Bordure du trottoir de devant, puis la chaussée. */
+  frontCurbZ: 3.8,
+  frontRoad: [3.95, 11.0] as const,
+  /** Bordure du trottoir de côté, puis la chaussée. */
+  sideCurbX: 5.3,
+  sideRoad: [5.45, 12.5] as const,
+  /** La chaussée est un peu plus basse que le trottoir (la bordure fait la marche). */
+  roadY: -0.12,
+} as const;
+
 /** Hauteur du sol à un endroit (café, salle du fond, terrasse sur palier, escaliers). */
 export function groundAt(x: number, z: number): number {
   const t = SIDE_TERRACE;
@@ -79,7 +94,7 @@ export function groundAt(x: number, z: number): number {
 /** Les deux points de vue : l'entrée (comptoir) et le fond du café (télé, tables de belote). */
 export const VIEWPOINTS = {
   // Assez haut pour voir par-dessus l'enseigne, un peu à droite pour voir la terrasse sur palier.
-  entrance: { camera: [1.1, 12.6, 7.6], target: [0.85, 0, -4.6] },
+  entrance: { camera: [1.6, 12.8, 11.8], target: [1.2, 0, -3.2] },
   back: { camera: [0.8, 9.4, -10.2], target: [0.8, 0.2, -16.3] },
 } as const;
 

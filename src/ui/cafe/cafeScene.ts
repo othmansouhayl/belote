@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { BELOTE_TABLES, CAFE, SEAT_SIDES, SIDE_TERRACE, TERRACE_TABLE, VIEWPOINTS, groundAt, seatOffset } from './cafeLayout.ts';
+import { BELOTE_TABLES, CAFE, SEAT_SIDES, SIDE_TERRACE, STREETS, TERRACE_TABLE, VIEWPOINTS, groundAt, seatOffset } from './cafeLayout.ts';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ambianceAt, currentHour } from './ambiance.ts';
 import type { Ambiance } from './ambiance.ts';
 import { MOHAMED_NACEUR, NADER, SMOKE_OFFSET, TAREK, Walker, createPerson, customerSpec, seatedChicha, tray } from './characters.ts';
@@ -53,6 +54,26 @@ export interface Cutscene {
   readonly table: number;
   /** Boissons posées devant chaque place (par numéro de place). */
   readonly served?: Partial<Record<number, Drink>>;
+  /** Scène des boissons vue par ce joueur : la caméra est à sa place, à hauteur des yeux. */
+  readonly viewerSeat?: number;
+  /** Ce que dit le serveur à la place de sa phrase habituelle (personnalisée pour ce joueur). */
+  readonly line?: string;
+}
+
+/**
+ * Vue subjective à une table : les yeux du joueur assis, le point regardé (en face, un peu
+ * de côté) et l'endroit où le serveur se poste pour être bien vu : de l'autre côté de la table,
+ * côté allée (ou côté entrée pour un joueur assis à l'est ou à l'ouest).
+ */
+function povAt(spot: TableSpot, seat: number) {
+  const { dx, dz } = seatOffset(SEAT_SIDES[seat % 4]!, 1);
+  const px = dz !== 0 ? (spot.x > 0 ? -1 : 1) : 0;
+  const pz = dx !== 0 ? 1 : 0;
+  return {
+    eye: new THREE.Vector3(spot.x + dx * 0.95, CAFE.stepHeight + 1.18, spot.z + dz * 0.95),
+    look: new THREE.Vector3(spot.x - dx * 0.45 + px * 0.38, CAFE.stepHeight + 1.08, spot.z - dz * 0.45 + pz * 0.38),
+    stand: { x: spot.x - dx * 0.45 + px * 0.75, z: spot.z - dz * 0.45 + pz * 0.75 },
+  };
 }
 
 const CUTSCENE_LINES: Record<Cutscene['kind'], string> = {
@@ -360,8 +381,79 @@ interface RoomHandles {
   readonly tv: THREE.CanvasTexture;
 }
 
+/** Trottoirs, bordures, chaussées (avec marquages) et immeubles voisins autour du café, au coin de deux rues. */
+function buildStreets(scene: THREE.Scene, asphalt: THREE.MeshStandardMaterial) {
+  const { frontCurbZ, frontRoad, sideCurbX, sideRoad, roadY } = STREETS;
+  const flat = (w: number, d: number, material: THREE.Material, x: number, y: number, z: number) => {
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), material);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(x, y, z);
+    scene.add(mesh);
+    return mesh;
+  };
+  // Chaussée partout en dessous (couleur selon l'heure).
+  flat(70, 80, asphalt, 3, roadY, -6);
+  // Trottoirs : devant (où est la terrasse des bots) et le long de la terrasse sur palier.
+  const front = frontCurbZ;
+  const westEdge = -14;
+  flat(
+    sideCurbX - westEdge,
+    front,
+    new THREE.MeshStandardMaterial({ map: paving([10, 2.5]), roughness: 0.9 }),
+    (sideCurbX + westEdge) / 2,
+    -0.01,
+    front / 2,
+  );
+  const sideFrom = CAFE.width / 2;
+  flat(
+    sideCurbX - sideFrom,
+    26,
+    new THREE.MeshStandardMaterial({ map: paving([2, 13]), roughness: 0.9 }),
+    (sideCurbX + sideFrom) / 2,
+    -0.01,
+    -13,
+  );
+  // Bordures en pierre.
+  const curb = mat(0xb9b3a7, { roughness: 0.85 });
+  scene.add(box(sideCurbX - westEdge + 0.15, 0.13, 0.15, curb, (sideCurbX + westEdge) / 2 + 0.075, roadY + 0.065, frontCurbZ + 0.075));
+  scene.add(box(0.15, 0.13, 26 + frontCurbZ, curb, sideCurbX + 0.075, roadY + 0.065, (frontCurbZ - 26) / 2));
+  // Marquages blancs : lignes discontinues au milieu des rues et passages piétons au coin (une seule forme).
+  const marks: THREE.BufferGeometry[] = [];
+  const mark = (w: number, d: number, x: number, z: number) => {
+    const g = new THREE.PlaneGeometry(w, d);
+    g.rotateX(-Math.PI / 2);
+    g.translate(x, roadY + 0.006, z);
+    marks.push(g);
+  };
+  const frontMid = (frontRoad[0] + frontRoad[1]) / 2;
+  const sideMid = (sideRoad[0] + sideRoad[1]) / 2;
+  // Carrefour : les deux rues se croisent au coin du café, sans marquage au milieu du croisement.
+  for (let x = westEdge; x < sideRoad[0] - 1; x += 3.2) mark(1.6, 0.12, x, frontMid);
+  for (let x = sideRoad[1] + 1; x < 30; x += 3.2) mark(1.6, 0.12, x, frontMid);
+  for (let z = frontRoad[0] - 1.5; z > -30; z -= 3.2) mark(0.12, 1.6, sideMid, z);
+  for (let z = frontRoad[1] + 1.5; z < 25; z += 3.2) mark(0.12, 1.6, sideMid, z);
+  const zebraX = sideCurbX - 1.5;
+  const zebraZ = frontCurbZ - 1.5;
+  for (let z = frontRoad[0] + 0.4; z < frontRoad[1] - 0.2; z += 0.9) mark(2.2, 0.45, zebraX, z);
+  for (let x = sideRoad[0] + 0.4; x < sideRoad[1] - 0.2; x += 0.9) mark(0.45, 2.2, x, zebraZ);
+  const markings = new THREE.Mesh(mergeGeometries(marks), new THREE.MeshStandardMaterial({ color: 0xf2f0ea, roughness: 0.8 }));
+  scene.add(markings);
+  // Immeubles voisins, simples et bas : à gauche et derrière le café, et de l'autre côté des deux rues.
+  const facade = mat(0xd8cdb8, { roughness: 0.95 });
+  const facade2 = mat(0xc9b9a0, { roughness: 0.95 });
+  scene.add(box(westEdge * -1 - 2.75, 3.4, 24, facade, (westEdge - 2.75) / 2, 1.7 + roadY, -12));
+  scene.add(box(sideCurbX + 2.75, 3.0, 6, facade2, (sideCurbX - 2.75) / 2, 1.5 + roadY, -23.3));
+  // Les trois autres coins du carrefour.
+  const across = 6;
+  const acrossFront = frontRoad[1] + across / 2;
+  const acrossSide = sideRoad[1] + across / 2;
+  scene.add(box(sideRoad[0] - 0.15 - westEdge, 3.6, across, facade2, (sideRoad[0] - 0.15 + westEdge) / 2, 1.8 + roadY, acrossFront));
+  scene.add(box(across, 3.6, frontRoad[0] - 0.15 + 30, facade, acrossSide, 1.8 + roadY, (frontRoad[0] - 0.15 - 30) / 2));
+  scene.add(box(across, 4.2, across, facade, acrossSide, 2.1 + roadY, acrossFront));
+}
+
 function buildRoom(scene: THREE.Scene): RoomHandles {
-  const { width, length, wallHeight, stepZ, stepHeight, terraceDepth } = CAFE;
+  const { width, length, wallHeight, stepZ, stepHeight } = CAFE;
   const half = width / 2;
   const frontLength = -stepZ;
   const backLength = length + stepZ;
@@ -386,19 +478,9 @@ function buildRoom(scene: THREE.Scene): RoomHandles {
   scene.add(back);
   scene.add(box(width, 0.06, 0.12, MATERIALS.darkWood, 0, stepHeight + 0.01, stepZ - 0.04));
 
-  // Terrasse et trottoir.
-  const terrace = new THREE.Mesh(
-    new THREE.PlaneGeometry(width + 3, terraceDepth),
-    new THREE.MeshStandardMaterial({ map: paving([4, 2.5]), roughness: 0.9 }),
-  );
-  terrace.rotation.x = -Math.PI / 2;
-  terrace.position.set(0, -0.01, terraceDepth / 2);
-  scene.add(terrace);
+  // Le café est au coin de deux rues : trottoirs, bordures, chaussées et voisins.
   const streetMaterial = mat(0x3a3d40, { roughness: 1 });
-  const street = new THREE.Mesh(new THREE.PlaneGeometry(40, 50), streetMaterial);
-  street.rotation.x = -Math.PI / 2;
-  street.position.set(0, -0.03, -5);
-  scene.add(street);
+  buildStreets(scene, streetMaterial);
 
   // Murs : extérieur sombre, intérieur « blanc sale » avec une plinthe en bois.
   const panelMaterial = (len: number) => new THREE.MeshStandardMaterial({ map: plaster([len / 2, 1]), roughness: 0.9 });
@@ -426,10 +508,32 @@ function buildRoom(scene: THREE.Scene): RoomHandles {
     scene.add(panel);
   };
   const windowFrame = MATERIALS.black;
-  const windowGlass = new THREE.MeshStandardMaterial({ color: 0x9fd3f0, transparent: true, opacity: 0.38, roughness: 0.1, metalness: 0.1, side: THREE.DoubleSide });
+  const windowGlass = new THREE.MeshStandardMaterial({
+    color: 0x9fd3f0,
+    transparent: true,
+    opacity: 0.38,
+    roughness: 0.1,
+    metalness: 0.1,
+    side: THREE.DoubleSide,
+  });
   for (const [from, to, windows] of [
-    [0, doorFrom, [[-2.2, -3.8], [-4.6, -6.2], [-7.0, -8.6]]],
-    [doorTo, -length, [[-15.0, -16.4], [-17.2, -18.6]]],
+    [
+      0,
+      doorFrom,
+      [
+        [-2.2, -3.8],
+        [-4.6, -6.2],
+        [-7.0, -8.6],
+      ],
+    ],
+    [
+      doorTo,
+      -length,
+      [
+        [-15.0, -16.4],
+        [-17.2, -18.6],
+      ],
+    ],
   ] as const) {
     let z: number = from;
     const sill = from === 0 ? 1.25 : 1.15;
@@ -447,7 +551,8 @@ function buildRoom(scene: THREE.Scene): RoomHandles {
       // Cadre noir, meneau au milieu et rebord de fenêtre.
       scene.add(box(0.06, 0.05, len, windowFrame, half + 0.1, sill + 0.025, mid));
       scene.add(box(0.06, 0.05, len, windowFrame, half + 0.1, head - 0.025, mid));
-      for (const edge of [wFrom - 0.025, wTo + 0.025, mid]) scene.add(box(0.06, head - sill, 0.05, windowFrame, half + 0.1, (sill + head) / 2, edge));
+      for (const edge of [wFrom - 0.025, wTo + 0.025, mid])
+        scene.add(box(0.06, head - sill, 0.05, windowFrame, half + 0.1, (sill + head) / 2, edge));
       scene.add(box(0.26, 0.04, len + 0.1, MATERIALS.marble, half - 0.04, sill - 0.02, mid));
       z = wTo;
     }
@@ -488,7 +593,8 @@ function buildRoom(scene: THREE.Scene): RoomHandles {
   // Façade vitrée : deux vitrines et la double porte.
   const facadeTop = box(width + 0.4, 0.4, 0.2, MATERIALS.wallOuter, 0, wallHeight - 0.2, 0.1);
   scene.add(facadeTop);
-  for (const x of [-half + 0.05, -0.9, 0.9, half - 0.05]) scene.add(box(0.1, wallHeight - 0.4, 0.12, MATERIALS.black, x, (wallHeight - 0.4) / 2, 0.1));
+  for (const x of [-half + 0.05, -0.9, 0.9, half - 0.05])
+    scene.add(box(0.1, wallHeight - 0.4, 0.12, MATERIALS.black, x, (wallHeight - 0.4) / 2, 0.1));
   for (const [x, w] of [
     [-1.7, 1.5],
     [1.7, 1.5],
@@ -509,7 +615,12 @@ function buildRoom(scene: THREE.Scene): RoomHandles {
     scene.add(door);
   }
   const signTexture = signboard();
-  const signMaterial = new THREE.MeshStandardMaterial({ map: signTexture, emissive: 0xffffff, emissiveMap: signTexture, emissiveIntensity: 0.35 });
+  const signMaterial = new THREE.MeshStandardMaterial({
+    map: signTexture,
+    emissive: 0xffffff,
+    emissiveMap: signTexture,
+    emissiveIntensity: 0.35,
+  });
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65), signMaterial);
   sign.position.set(0, wallHeight + 0.35, 0.22);
   scene.add(sign);
@@ -637,19 +748,6 @@ function buildSideTerrace(scene: THREE.Scene) {
     const stepD = t.stairs.depth / 3;
     platform(t.x0, t.stairs.x1, t.stairs.depth - i * stepD, t.stairs.depth - (i + 1) * stepD, (t.frontHeight * (i + 1)) / 4);
   }
-  // Garde-corps noir le long du bord et au fond.
-  const rail = MATERIALS.black;
-  const railX = t.x1 - 0.04;
-  for (const [from, to, h] of [
-    [0, t.splitZ, t.frontHeight],
-    [t.splitZ, -CAFE.length, t.backHeight],
-  ] as const) {
-    scene.add(box(0.04, 0.04, from - to, rail, railX, h + 0.9, (from + to) / 2));
-    scene.add(box(0.02, 0.02, from - to, rail, railX, h + 0.45, (from + to) / 2));
-    for (let z = from - 0.02; z > to - 0.01; z -= 1.25) scene.add(box(0.04, 0.9, 0.04, rail, railX, h + 0.45, z));
-  }
-  scene.add(box(t.x1 - t.stairs.x1, 0.04, 0.04, rail, (t.x1 + t.stairs.x1) / 2, t.frontHeight + 0.9, -0.02));
-  scene.add(box(t.x1 - t.x0, 0.04, 0.04, rail, (t.x0 + t.x1) / 2, t.backHeight + 0.9, -CAFE.length + 0.02));
   // Tables avec un café et un thé ; deux chaises face à face.
   for (const z of t.tables) {
     const y = groundAt(t.tableX, z);
@@ -759,10 +857,10 @@ export function createCafeScene(
   const lampHead = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), lampHeadMaterial);
   lampHead.position.set(-0.45, 3.05, 0);
   streetLamp.add(lampHead);
-  streetLamp.position.set(2.9, 0, 3.9);
+  streetLamp.position.set(2.9, 0, STREETS.frontCurbZ - 0.3);
   scene.add(streetLamp);
   const streetLight = new THREE.PointLight(0xffd08a, 0, 8, 1.4);
-  streetLight.position.set(2.45, 3.0, 3.9);
+  streetLight.position.set(2.45, 3.0, STREETS.frontCurbZ - 0.3);
   scene.add(streetLight);
 
   const room = buildRoom(scene);
@@ -1037,21 +1135,48 @@ export function createCafeScene(
   let arrived = false;
   const tableTop = CAFE.stepHeight + 0.776;
   const kit = tableKit();
-  const placeDrinks = (served: Partial<Record<number, Drink>>, spot: TableSpot) => {
-    SEAT_SIDES.forEach((side, seat) => {
+  /** Où se pose la boisson d'une place : sur la table devant le joueur, la chicha par terre à côté de sa chaise. */
+  const drinkSpot = (seat: number, drink: Drink, spot: TableSpot) => {
+    const onFloor = drink === 'chicha';
+    const { dx, dz } = seatOffset(SEAT_SIDES[seat]!, onFloor ? 0.62 : 0.3);
+    const lateral = onFloor ? seatOffset(SEAT_SIDES[(seat + 1) % 4]!, 0.32) : { dx: 0, dz: 0 };
+    return new THREE.Vector3(spot.x + dx + lateral.dx, onFloor ? CAFE.stepHeight : tableTop, spot.z + dz + lateral.dz);
+  };
+  const placeDrinks = (served: Partial<Record<number, Drink>>, spot: TableSpot, skipSeat?: number) => {
+    SEAT_SIDES.forEach((_, seat) => {
       const drink = served[seat];
-      if (!drink) return;
+      if (!drink || seat === skipSeat) return;
       const model = drinkModel(drink);
-      const onFloor = drink === 'chicha';
-      const { dx, dz } = seatOffset(side, onFloor ? 0.62 : 0.3);
-      // La chicha se pose par terre, à côté de la chaise.
-      const lateral = onFloor ? seatOffset(SEAT_SIDES[(seat + 1) % 4]!, 0.32) : { dx: 0, dz: 0 };
-      model.position.set(spot.x + dx + lateral.dx, onFloor ? CAFE.stepHeight : tableTop, spot.z + dz + lateral.dz);
+      model.position.copy(drinkSpot(seat, drink, spot));
       scene.add(model);
     });
   };
+  // Vue subjective (scène des boissons) : Nader porte sur son plateau la boisson de ce joueur.
+  const pov = cutscene?.kind === 'drinks' && cutscene.viewerSeat !== undefined && cutSpot ? povAt(cutSpot, cutscene.viewerSeat) : null;
+  const ownServed = pov && cutscene?.viewerSeat !== undefined ? cutscene.served?.[cutscene.viewerSeat] : undefined;
+  let ownDrink: THREE.Object3D | null = null;
+  let placing: { from: THREE.Vector3; to: THREE.Vector3; start: number } | null = null;
+  if (ownServed) {
+    ownDrink = drinkModel(ownServed);
+    if (ownServed === 'chicha') {
+      // Trop grande pour le plateau : il la porte de l'autre main.
+      ownDrink.position.set(-0.34, 0.22, 0.06);
+      nader.root.add(ownDrink);
+    } else {
+      for (const item of carried.children.slice(1)) item.visible = false;
+      ownDrink.position.set(-0.01, 0.008, 0.01);
+      carried.add(ownDrink);
+    }
+  }
   if (cutscene && cutSpot) {
-    cutWalker = new Walker(cutWaiter, [{ x: 0.2, z: -12.4 }, { x: 0, z: -13.8 }, { x: 0, z: cutSpot.z }], 0.9, groundAt, false);
+    const path = pov
+      ? [{ x: 0.2, z: -12.4 }, { x: 0, z: -13.8 }, { x: 0, z: pov.stand.z }, pov.stand]
+      : [
+          { x: 0.2, z: -12.4 },
+          { x: 0, z: -13.8 },
+          { x: 0, z: cutSpot.z },
+        ];
+    cutWalker = new Walker(cutWaiter, path, 0.9, groundAt, false);
     if (cutscene.kind === 'order') naceurWalk = cutWalker;
     else {
       naderWalk = cutWalker;
@@ -1115,7 +1240,13 @@ export function createCafeScene(
   controls.minAzimuthAngle = -0.85;
   controls.maxAzimuthAngle = 0.85;
   controls.rotateSpeed = 0.7;
-  if (cutSpot) {
+  if (pov) {
+    // Assis à sa place : on regarde la table et le serveur, sans tourner la caméra.
+    Object.assign(controls, { enableRotate: false, enableZoom: false, minDistance: 0.1, minPolarAngle: 0, maxPolarAngle: Math.PI });
+    Object.assign(controls, { minAzimuthAngle: -Infinity, maxAzimuthAngle: Infinity });
+    camera.position.copy(pov.eye);
+    controls.target.copy(pov.look);
+  } else if (cutSpot) {
     // Scène à la table : la caméra se pose près des joueurs.
     controls.minDistance = 2.5;
     camera.position.set(cutSpot.x * 0.1 - 0.5, CAFE.stepHeight + 3.9, cutSpot.z + 3.0);
@@ -1182,6 +1313,16 @@ export function createCafeScene(
   });
   // Les clients assis ne bougent pas : pas d'ombre portée, moins de calcul pour le téléphone.
   for (const customer of customers) customer.traverse((object) => (object.castShadow = false));
+  if (pov) {
+    // Assis dans le café, on voit le plafond (vu d'en haut, le café reste ouvert). Sans ombre portée.
+    const ceiling = new THREE.Mesh(
+      new THREE.PlaneGeometry(CAFE.width, CAFE.length),
+      mat(0xeee6d8, { roughness: 0.95, emissive: 0x2c2822 }),
+    );
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.set(0, CAFE.wallHeight, -CAFE.length / 2);
+    scene.add(ceiling);
+  }
 
   const applyAmbiance = (a: Ambiance) => {
     renderer.setClearColor(a.sky);
@@ -1213,6 +1354,13 @@ export function createCafeScene(
     camera.aspect = width / height;
     // Écran en portrait : on recule un peu pour voir toute la largeur du café.
     camera.fov = width < height ? 56 : 46;
+    // Assis à table : assez large pour voir à la fois sa place et le serveur debout.
+    // (de la boisson posée devant soi jusqu'au visage du serveur).
+    if (pov)
+      camera.fov = Math.min(
+        84,
+        Math.max(68, 2 * THREE.MathUtils.radToDeg(Math.atan(Math.tan(THREE.MathUtils.degToRad(26)) / camera.aspect))),
+      );
     camera.updateProjectionMatrix();
     requestRender();
   };
@@ -1223,13 +1371,14 @@ export function createCafeScene(
   const projected = new THREE.Vector3();
   const place = (el: HTMLElement, point: THREE.Vector3, hide = false, margin = 0) => {
     projected.copy(point).project(camera);
-    const visible = !hide && projected.z < 1 && Math.abs(projected.x) < 1.15 && Math.abs(projected.y) < 1.15;
+    const visible = !hide && projected.z < 1 && Math.abs(projected.x) < 1.15 && Math.abs(projected.y) < (margin > 0 ? 3 : 1.15);
     el.style.display = visible ? '' : 'none';
     if (!visible) return;
-    // Les bulles des personnages restent entièrement dans l'écran.
+    // Les bulles des personnages restent entièrement dans l'écran (de près, la tête peut en sortir).
     const rawX = ((projected.x + 1) / 2) * width;
     const x = margin > 0 ? Math.min(Math.max(rawX, margin), width - margin) : rawX;
-    const y = ((1 - projected.y) / 2) * height;
+    const rawY = ((1 - projected.y) / 2) * height;
+    const y = margin > 0 ? Math.min(Math.max(rawY, 64), height - 64) : rawY;
     el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
   };
 
@@ -1257,6 +1406,8 @@ export function createCafeScene(
     for (const c of characters) {
       anchor.copy(c.person.root.position);
       anchor.y += (c.id === 'tarek' && tarekStanding ? 1.85 : c.height) + 0.25;
+      // De près (vue subjective), la bulle se pose sur le serveur pour laisser voir son visage.
+      if (pov && c.id === 'nader') anchor.y = c.person.root.position.y + 0.95;
       place(c.bubble, anchor, now > c.until, 116);
     }
   };
@@ -1272,12 +1423,36 @@ export function createCafeScene(
     if (cutscene && cutSpot && cutWalker?.finished && !arrived) {
       // Arrivé à la table : il se tourne vers les joueurs, pose ce qu'il apporte et parle.
       arrived = true;
-      cutWaiter.root.rotation.y = cutSpot.x > 0 ? Math.PI / 2 : -Math.PI / 2;
       kit.visible = true;
-      if (cutscene.kind === 'drinks' && cutscene.served) placeDrinks(cutscene.served, cutSpot);
-      const who = cutscene.kind === 'order' ? 'naceur' : 'nader';
-      showBubble(who, now, bubbleHtml(who, CUTSCENE_LINES[cutscene.kind]), 600000);
-      callbacks.onArrive?.();
+      if (pov && ownDrink && ownServed && cutscene.viewerSeat !== undefined) {
+        // Face au joueur, il prend sa boisson et la pose devant lui ; il parle une fois posée.
+        const p = cutWaiter.root.position;
+        cutWaiter.root.rotation.y = Math.atan2(pov.eye.x - p.x, pov.eye.z - p.z);
+        if (cutscene.served) placeDrinks(cutscene.served, cutSpot, cutscene.viewerSeat);
+        scene.updateMatrixWorld();
+        const from = ownDrink.getWorldPosition(new THREE.Vector3());
+        scene.attach(ownDrink);
+        placing = { from, to: drinkSpot(cutscene.viewerSeat, ownServed, cutSpot), start: now };
+      } else {
+        cutWaiter.root.rotation.y = cutSpot.x > 0 ? Math.PI / 2 : -Math.PI / 2;
+        if (cutscene.kind === 'drinks' && cutscene.served) placeDrinks(cutscene.served, cutSpot);
+        const who = cutscene.kind === 'order' ? 'naceur' : 'nader';
+        showBubble(who, now, bubbleHtml(who, cutscene.line ?? CUTSCENE_LINES[cutscene.kind]), 600000);
+        callbacks.onArrive?.();
+      }
+    }
+    if (placing && ownDrink) {
+      // La boisson passe du plateau à la table, en petit arc ; le bras accompagne le geste.
+      const t = Math.min(1, (now - placing.start) / 1100);
+      const ease = t * t * (3 - 2 * t);
+      ownDrink.position.lerpVectors(placing.from, placing.to, ease);
+      ownDrink.position.y += Math.sin(Math.PI * t) * 0.12;
+      nader.raiseArm(0.18 * Math.sin(Math.PI * t));
+      if (t >= 1) {
+        placing = null;
+        showBubble('nader', now, bubbleHtml('nader', cutscene?.line ?? CUTSCENE_LINES.drinks), 600000);
+        callbacks.onArrive?.();
+      }
     }
     // Le patron : assis, il s'énerve de temps en temps (bras levé) ; sinon il marche avec sa chicha.
     if ('visit' in tarekState) {

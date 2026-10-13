@@ -16,7 +16,7 @@ import { voiceLinkOf } from './voice/voiceLink.ts';
 import type { VoiceLinkState } from '../VoiceDot.tsx';
 import { CafeCutscene } from './CafeCutscene.tsx';
 import { OrderPanel } from './OrderPanel.tsx';
-import { DRINK_LABELS, servedDrinks } from './drinks.ts';
+import { DRINK_LABELS, naderDrinkLine, servedDrinks } from './drinks.ts';
 import type { Cutscene } from '../cafe/cafeScene.ts';
 import type { Drink } from '../../server/types.ts';
 
@@ -187,7 +187,20 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
   const scene = scenes[0];
   const mancheKey = `${roomId}:${(view.match?.games.length ?? 0) - (game.phase === 'gameOver' ? 1 : 0)}`;
   const served = servedDrinks(view.drinks ?? {}, mancheKey);
-  const cutscene: Cutscene | null = scene ? { kind: scene, table: tableNumber, served } : null;
+  // Les boissons : chacun voit la scène de sa place, et Nader lui dit ce qu'il a commandé et ce qu'il apporte.
+  const myOrder = view.drinks?.[view.mySeat];
+  const myServed = served[view.mySeat];
+  const cutscene: Cutscene | null = !scene
+    ? null
+    : scene === 'drinks'
+      ? {
+          kind: scene,
+          table: tableNumber,
+          served,
+          viewerSeat: view.mySeat,
+          line: myOrder && myServed ? naderDrinkLine(myOrder, myServed) : undefined,
+        }
+      : { kind: scene, table: tableNumber, served };
   const waitingNames = acked ? SEATS.filter((s) => !view.ackSeats.includes(s)).map((s) => names[s]) : [];
 
   return (

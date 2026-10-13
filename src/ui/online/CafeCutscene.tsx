@@ -35,9 +35,11 @@ export function CafeCutscene({ cutscene, players, children, onArrive }: CafeCuts
   useEffect(() => {
     if (!webgl) onArrive?.();
   }, [webgl, onArrive]);
+  // En vue subjective, on ne se voit pas soi-même : on est assis à sa place.
+  const viewer = cutscene.viewerSeat;
   const tables = useMemo<SceneTable[]>(
-    () => [{ number: cutscene.table, status: 'playing', players, scores: null }],
-    [cutscene.table, players],
+    () => [{ number: cutscene.table, status: 'playing', players: players.filter((p) => p.seat !== viewer), scores: null }],
+    [cutscene.table, players, viewer],
   );
   return (
     <div className="cutscene" role="dialog" aria-modal="true" aria-label="Au Café Tarek">
@@ -45,7 +47,15 @@ export function CafeCutscene({ cutscene, players, children, onArrive }: CafeCuts
         {webgl && (
           <Boundary>
             <Suspense fallback={<div className="cafe-loading">Le serveur arrive…</div>}>
-              <CafeView tables={tables} selected={null} view="back" onSelect={NO_OP} onView={NO_OP} cutscene={cutscene} onArrive={onArrive} />
+              <CafeView
+                tables={tables}
+                selected={null}
+                view="back"
+                onSelect={NO_OP}
+                onView={NO_OP}
+                cutscene={cutscene}
+                onArrive={onArrive}
+              />
             </Suspense>
           </Boundary>
         )}
