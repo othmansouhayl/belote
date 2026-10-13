@@ -19,11 +19,24 @@
   --trick-w: clamp(56px, 17.5vw, 88px);
   --trick-h: calc(var(--trick-w) * var(--card-ratio));
   --radius: 14px;
-  --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  /* Polices embarquées avec le site (marchent aussi hors ligne) : Lalezar pour les titres et les scores,
+     Cairo pour le texte, en français comme en arabe. */
+  --serif: 'Lalezar', 'Cairo Variable', Georgia, serif;
+  --arabic: 'Cairo Variable', 'Noto Naskh Arabic', 'Geeza Pro', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
   /* Texture de feutrine très légère (bruit SVG). */
   --felt-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   color-scheme: dark;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    'Cairo Variable',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  /* Lalezar n'a qu'une graisse (déjà épaisse) : pas de faux gras ni de faux italique. */
+  font-synthesis: none;
+  /* Cairo a de grandes marges verticales : interligne resserré. */
+  line-height: 1.4;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -87,9 +100,7 @@ button:focus-visible {
   height: 100dvh;
   max-width: 560px;
   margin: 0 auto;
-  background:
-    var(--felt-noise),
-    radial-gradient(ellipse 90% 70% at 50% 42%, var(--felt) 0%, var(--felt-dark) 70%, var(--felt-edge) 100%);
+  background: var(--felt-noise), radial-gradient(ellipse 90% 70% at 50% 42%, var(--felt) 0%, var(--felt-dark) 70%, var(--felt-edge) 100%);
   padding-top: env(safe-area-inset-top);
   overflow: hidden;
 }
@@ -998,9 +1009,7 @@ button:focus-visible {
   max-width: 560px;
   margin: 0 auto;
   padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
-  background:
-    var(--felt-noise),
-    radial-gradient(ellipse 100% 70% at 50% 18%, var(--felt) 0%, var(--felt-dark) 70%, var(--felt-edge) 100%);
+  background: var(--felt-noise), radial-gradient(ellipse 100% 70% at 50% 18%, var(--felt) 0%, var(--felt-dark) 70%, var(--felt-edge) 100%);
 }
 
 .screen--center {
@@ -1427,7 +1436,7 @@ button:focus-visible {
 /* Texte arabe : pas d'espacement entre les lettres (il casserait leur liaison). */
 .home__title[lang='ar'],
 .home__welcome--ar {
-  font-family: 'Noto Naskh Arabic', 'Geeza Pro', 'Segoe UI', 'Arabic Typesetting', 'Noto Sans Arabic', sans-serif;
+  font-family: var(--arabic);
   letter-spacing: 0;
 }
 
@@ -1940,7 +1949,7 @@ button:focus-visible {
   min-height: 54px;
   background: linear-gradient(135deg, #ffd56b, var(--gold-deep));
   color: #2b2104;
-  font-family: 'Noto Naskh Arabic', 'Geeza Pro', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  font-family: var(--arabic);
   font-size: 1.35rem;
   letter-spacing: 0;
   box-shadow:
@@ -1983,7 +1992,7 @@ button:focus-visible {
 
 .finale__shout {
   margin: 0;
-  font-family: 'Noto Naskh Arabic', 'Geeza Pro', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  font-family: var(--arabic);
   font-size: clamp(2.4rem, 13vw, 4rem);
   font-weight: 800;
   line-height: 1.2;
@@ -2175,30 +2184,67 @@ button:focus-visible {
   z-index: 3;
 }
 
-.cafe-header__titles {
-  text-align: left;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
-.cafe-header__title {
+.brand svg {
+  flex: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  transform: rotate(-8deg);
+}
+
+.brand__titles {
+  min-width: 0;
+}
+
+.brand__name {
   margin: 0;
-  text-align: left;
-  font-family: 'Noto Naskh Arabic', 'Geeza Pro', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
-  font-size: 1.7rem;
-  line-height: 1.2;
-  letter-spacing: 0;
+  font-family: 'Lalezar', 'Cairo Variable', sans-serif;
+  font-weight: 400;
+  font-size: clamp(1.45rem, 7vw, 1.9rem);
+  line-height: 1;
+  letter-spacing: 0.02em;
   color: #fff8e6;
-  text-align: start;
+  white-space: nowrap;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
 }
 
-.cafe-header__welcome {
-  margin: 0;
+.brand__tag {
+  margin: 2px 0 0;
   font-size: 0.78rem;
+  line-height: 1.3;
   color: var(--gold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.cafe-header__welcome [lang='ar'] {
-  font-family: 'Noto Naskh Arabic', 'Geeza Pro', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
-  letter-spacing: 0;
+.brand__tag [lang='ar'] {
+  font-weight: 700;
+}
+
+.site-footer {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(240, 195, 90, 0.15);
+  font-size: 0.78rem;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.site-footer a {
+  color: var(--gold);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.site-footer a:hover,
+.site-footer a:focus-visible {
+  text-decoration: underline;
 }
 
 .cafe-stage {
@@ -2563,7 +2609,7 @@ button:focus-visible {
 .btn--capot {
   background: #6b2bb0;
   color: #fff;
-  font-family: 'Noto Naskh Arabic', 'Geeza Pro', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  font-family: var(--arabic);
   font-size: 1.15rem;
   letter-spacing: 0;
 }

@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { App } from './ui/App.tsx';
 import './ui/app.css';
 import '@fontsource/caveat/600.css';
+import '@fontsource/lalezar/400.css';
+import '@fontsource-variable/cairo/wght.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

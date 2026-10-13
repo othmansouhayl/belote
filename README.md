@@ -1,4 +1,6 @@
-# قهوة طارق · Café Tarek — Belote coinchée tunisienne
+# Kaboot Dineri · كبوط ديناري — Belote coinchée tunisienne
+
+« Dineri » (ديناري), c'est le carreau. On joue au Café Tarek (قهوة طارق).
 
 Jeu de belote coinchée tunisienne à 4, jouable dans le navigateur.
 
