@@ -2319,6 +2319,17 @@ button:focus-visible {
   border-color: rgba(124, 196, 255, 0.7);
 }
 
+/* Tables pas encore ouvertes (Café Garage) : on les voit, on ne peut pas encore s'y asseoir. */
+.cafe-label--locked {
+  pointer-events: none;
+  border-color: rgba(240, 195, 90, 0.6);
+}
+
+.cafe-label--locked .cafe-label__status {
+  color: var(--gold);
+  font-weight: 800;
+}
+
 .cafe-label--selected {
   background: var(--gold);
   border-color: #fff;
@@ -3433,6 +3444,14 @@ button:focus-visible {
   fill: #c62828;
 }
 
+.town-pin--visit .town-pin__drop {
+  fill: #d9822b;
+}
+
+.town-pin--visit .town-pin__fr {
+  fill: #b5651d;
+}
+
 .town-pin--locked .town-pin__name,
 .town-pin--locked .town-pin__fr {
   fill: #6f675d;
@@ -3474,6 +3493,14 @@ button:focus-visible {
   fill: var(--gold);
   font-size: 18px;
   font-weight: 800;
+}
+
+.town__sign {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-align: center;
+  color: var(--gold);
 }
 
 .town__hint {

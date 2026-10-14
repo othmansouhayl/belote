@@ -18,7 +18,7 @@ interface TownMapProps {
   readonly busy: boolean;
   readonly error: string | null;
   readonly onResume: (room: SavedRoom) => void;
-  /** Entrer dans un café ouvert (pour l'instant : le Café Tarek). */
+  /** Entrer dans un café ouvert (pour l'instant : le Café Tarek), ou en visiter un pas encore ouvert. */
   readonly onEnter: (cafe: TownCafeId) => void;
 }
 
@@ -139,12 +139,12 @@ function useMapGestures() {
 /** Repère d'un café : rouge et animé s'il est ouvert, gris avec un cadenas sinon. */
 function CafePin(props: { readonly cafe: TownCafe; readonly closedShown: boolean; readonly scale: number; readonly onPick: () => void }) {
   const { cafe, closedShown, scale, onPick } = props;
-  const label = cafe.open ? `${cafe.fr} : entrer` : `${cafe.fr} : encore fermé`;
+  const label = cafe.open ? `${cafe.fr} : entrer` : cafe.visit ? `${cafe.fr} : visiter (pas encore ouvert)` : `${cafe.fr} : encore fermé`;
   const textX = cafe.labelSide === 'left' ? -22 : 22;
   const anchor = cafe.labelSide === 'left' ? 'end' : 'start';
   return (
     <g
-      className={`town-pin${cafe.open ? ' town-pin--open' : ' town-pin--locked'}${closedShown ? ' town-pin--selected' : ''}`}
+      className={`town-pin${cafe.open ? ' town-pin--open' : cafe.visit ? ' town-pin--visit' : ' town-pin--locked'}${closedShown ? ' town-pin--selected' : ''}`}
       // Les repères gardent la même taille à l'écran quand on zoome : seuls les cafés s'écartent.
       transform={`translate(${cafe.x} ${cafe.y}) scale(${scale})`}
       role="button"
@@ -164,7 +164,7 @@ function CafePin(props: { readonly cafe: TownCafe; readonly closedShown: boolean
         {cafe.ar}
       </text>
       <text x={textX} y="-14" className="town-pin__fr" textAnchor={anchor}>
-        {cafe.open ? `${cafe.fr} · entrer` : cafe.fr}
+        {cafe.open ? `${cafe.fr} · entrer` : cafe.visit ? `${cafe.fr} · visiter` : cafe.fr}
       </text>
       {closedShown && (
         <g className="town-pin__closed" transform="translate(0 -74)">
@@ -197,7 +197,7 @@ export function TownMap({ savedRoom, busy, error, onResume, onEnter }: TownMapPr
     return () => clearTimeout(timer);
   }, [closed]);
   const pick = (cafe: TownCafe) => {
-    if (cafe.open) onEnter(cafe.id);
+    if (cafe.open || cafe.visit) onEnter(cafe.id);
     else setClosed(cafe.id);
   };
   // Dessinés en dernier (donc au-dessus) : le café dont la bulle est affichée, puis le Café Tarek.
