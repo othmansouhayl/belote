@@ -4,6 +4,8 @@ import { BELOTE_TABLES, CAFE, SEAT_SIDES, SIDE_TERRACE, STREETS, TERRACE_TABLE, 
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ambianceAt, currentHour } from './ambiance.ts';
 import type { Ambiance } from './ambiance.ts';
+import { createCrowd } from './crowd.ts';
+import type { TableStatus } from './crowdPlan.ts';
 import { MOHAMED_NACEUR, NADER, SMOKE_OFFSET, TAREK, Walker, createPerson, customerSpec, seatedChicha, tray } from './characters.ts';
 import type { Waypoint } from './characters.ts';
 import { TAREK_END_LINE } from '../labels.ts';
@@ -995,6 +997,12 @@ export function createCafeScene(
     smokers.push({ kit, next: performance.now() + Math.random() * 4000, active: true });
   });
 
+  // Les habitués, les spectateurs et les clients de l'entrée et du comptoir. Pendant une scène à
+  // une table, la salle de belote reste calme (la vue est celle des joueurs).
+  const crowd = createCrowd(scene, { backRoom: !cutscene, excludedTable: cutscene?.table });
+  crowd.setTables(new Map(BELOTE_TABLES.map((t) => [t.number, 'free' as TableStatus])));
+  customers.push(...crowd.roots);
+
   // Tarek, le patron : assis à la première table de l'entrée, il sort de temps en temps
   // s'installer sur la terrasse, sa chicha à la main, puis revient.
   const tarek = createPerson(TAREK);
@@ -1419,6 +1427,7 @@ export function createCafeScene(
     last = now;
     naderWalk.update(now, dt);
     nader.carry();
+    crowd.update(now, dt);
     naceurWalk.update(now, dt);
     if (cutscene && cutSpot && cutWalker?.finished && !arrived) {
       // Arrivé à la table : il se tourne vers les joueurs, pose ce qu'il apporte et parle.
@@ -1533,6 +1542,7 @@ export function createCafeScene(
   /* ------------------------- Mise à jour des tables ------------------------- */
 
   const update = (states: readonly SceneTable[], selected: CafeTarget | null) => {
+    crowd.setTables(new Map(BELOTE_TABLES.map((t) => [t.number, states.find((s) => s.number === t.number)?.status ?? 'free'])));
     for (const t of tables) {
       const state = states.find((s) => s.number === t.spot.number);
       const status = state?.status ?? 'free';
@@ -1552,7 +1562,9 @@ export function createCafeScene(
       });
       const statusText =
         status === 'free'
-          ? 'Libre'
+          ? crowd.regularTables().includes(t.spot.number)
+            ? 'Libre · habitués'
+            : 'Libre'
           : status === 'lobby'
             ? `En attente · ${players.length}/4`
             : status === 'playing'
