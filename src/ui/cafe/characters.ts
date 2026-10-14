@@ -81,6 +81,18 @@ export const ROCHDI: PersonSpec = {
   hairColor: 0xa8a29a,
 };
 
+/** Nizar (نزار), serveur du Café Chouâa : 40 ans, noir, grand et mince. */
+export const NIZAR: PersonSpec = {
+  height: 1.82,
+  skin: 0x5a3a26,
+  shirt: 0xf3f1ec,
+  trousers: 0x23252b,
+  shoes: 0x2a1c12,
+  hair: 'short',
+  hairColor: 0x0f0c0a,
+  belly: 0.88,
+};
+
 /** Clients de la terrasse : des tenues variées, de tous les jours. */
 export function customerSpec(index: number): PersonSpec {
   const shirts = [0x2e5e8c, 0x8c3b2e, 0x4f7a4a, 0xd9c7a0, 0x3a3a40, 0x9b6bb0, 0xe0e0da, 0x6b4f3a, 0x2f7d7a, 0xc9803a];

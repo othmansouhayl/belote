@@ -30,7 +30,7 @@ export const TOWN_CAFES: readonly TownCafe[] = [
   // Au coin où l'avenue tourne vers la rue du 13 Août.
   { id: 'garage', ar: 'قهوة الڨراج', fr: 'Café Garage', x: 566, y: 318, open: false, visit: true, labelSide: 'right' },
   // À l'ouest, au départ de l'avenue sur la P15 (حي خير الدين).
-  { id: 'chouaa', ar: 'قهوة الشعاع', fr: 'Café Chouâa', x: 330, y: 340, open: false, labelSide: 'right' },
+  { id: 'chouaa', ar: 'قهوة الشعاع', fr: 'Café Chouâa', x: 330, y: 340, open: false, visit: true, labelSide: 'right' },
   // Au nord, près du jardin et du marché.
   { id: 'souk', ar: 'قهوة السوق', fr: 'Café du Souk', x: 486, y: 274, open: false, labelSide: 'left' },
 ];

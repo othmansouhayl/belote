@@ -1,7 +1,4 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { ambianceAt, currentHour } from './ambiance.ts';
-import type { Ambiance } from './ambiance.ts';
 import { MATERIALS, box, canvasTexture, chair, cylinder, mat, plant, plaster, squareTable, terrazzo, wcSign } from './cafeScene.ts';
 import { SEAT_SIDES, seatOffset } from './cafeLayout.ts';
 import { KHALIFA, ROCHDI, Walker, createPerson, customerSpec, seatedChicha, tray } from './characters.ts';
@@ -18,6 +15,7 @@ import {
   garageGroundAt,
 } from './garageLayout.ts';
 import { drinkModel } from './tableProps.ts';
+import { createVisitStage } from './visitStage.ts';
 
 /**
  * Le Café Garage (قهوة الڨراج) en 3D, pour la visite (on n'y joue pas encore) :
@@ -266,53 +264,20 @@ function seatPerson(scene: THREE.Scene, person: Person, x: number, z: number, ro
 }
 
 export function createGarageScene(container: HTMLElement, labelLayer: HTMLElement): GarageSceneHandle {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'default' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  container.appendChild(renderer.domElement);
-  renderer.domElement.className = 'cafe__canvas';
-
-  const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x0d2219, 26, 48);
-  const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 90);
-  camera.position.set(...GARAGE_VIEW.camera);
-
-  const hemi = new THREE.HemisphereLight(0xfff1dc, 0x3a2a1c, 1.1);
-  scene.add(hemi);
-  const key = new THREE.DirectionalLight(0xffe2b8, 1.6);
-  key.position.set(9, 15, 6);
-  key.target.position.set(0, 0, -1);
-  key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048);
-  Object.assign(key.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: 1, far: 45 });
-  key.shadow.bias = -0.0006;
-  key.shadow.normalBias = 0.03;
-  scene.add(key, key.target);
+  const stage = createVisitStage(container, labelLayer, { view: GARAGE_VIEW, shadowExtent: 13, fog: [26, 48], distance: [6, 22] });
+  const { scene } = stage;
   // Ampoules au-dessus des tables de la salle.
-  const bulbMaterial = new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffc46b, emissiveIntensity: 1.5 });
-  const lamps: THREE.PointLight[] = [];
   for (const [x, z] of [
     [2.6, 2.4],
     [-2.6, 2.6],
     [1.8, -2.7],
     [-3.5, -2.6],
-  ] as const) {
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), bulbMaterial);
-    bulb.position.set(x, 2.45, z);
-    scene.add(bulb, cylinder(0.005, 0.005, 0.45, MATERIALS.black, x, 2.7, z, 4));
-    const light = new THREE.PointLight(0xffc98a, 5, 7, 1.6);
-    light.position.set(x, 2.35, z);
-    scene.add(light);
-    lamps.push(light);
-  }
+  ] as const)
+    stage.bulb(x, z);
 
   /* -------------------------------- Le décor -------------------------------- */
 
-  const asphalt = mat(0x55585b, { roughness: 1 });
-  ground(scene, asphalt);
+  ground(scene, stage.asphalt);
   neighbours(scene);
   const { room } = GARAGE;
   const floor = new THREE.Mesh(
@@ -360,18 +325,10 @@ export function createGarageScene(container: HTMLElement, labelLayer: HTMLElemen
   plate.rotation.y = -Math.PI / 2;
   plate.position.set(15.94, 2.4, -2);
   scene.add(plate);
-  const lampHead = new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffd08a, emissiveIntensity: 0 });
-  scene.add(cylinder(0.05, 0.06, 3.4, MATERIALS.black, 11.5, 1.7, -4));
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8), lampHead);
-  head.position.set(11.5, 3.45, -4);
-  scene.add(head);
-  const streetLight = new THREE.PointLight(0xffd08a, 0, 10, 1.4);
-  streetLight.position.set(11.5, 3.3, -4);
-  scene.add(streetLight);
+  stage.streetLamp(11.5, -4);
 
   /* ------------------------------- Les tables ------------------------------- */
 
-  const labels: { el: HTMLElement; anchor: THREE.Vector3 }[] = [];
   // Les 2 tables de belote : vides, elles attendent l'ouverture du jeu en ligne.
   GARAGE_BELOTE_TABLES.forEach((t, i) => {
     scene.add(squareTable(0.95, t.x, 0, t.z));
@@ -379,20 +336,19 @@ export function createGarageScene(container: HTMLElement, labelLayer: HTMLElemen
       const { dx, dz, rotation } = seatOffset(side, 0.68);
       scene.add(chair(t.x + dx, 0, t.z + dz, rotation));
     }
-    const label = document.createElement('div');
-    label.className = 'cafe-label cafe-label--locked';
-    label.innerHTML = `<span class="cafe-label__title">Table ${i + 1}</span><span class="cafe-label__status" lang="ar">مازلنا مسكرين</span>`;
-    labelLayer.appendChild(label);
-    labels.push({ el: label, anchor: new THREE.Vector3(t.x, 0.95, t.z) });
+    stage.label(
+      'cafe-label cafe-label--locked',
+      `<span class="cafe-label__title">Table ${i + 1}</span><span class="cafe-label__status" lang="ar">مازلنا مسكرين</span>`,
+      new THREE.Vector3(t.x, 0.95, t.z),
+    );
   });
 
   const players: { person: Person; turn: number; players: number }[] = [];
   const talkers: { person: Person; offset: number }[] = [];
-  const people: THREE.Object3D[] = [];
   let spec = 40;
   const customer = () => {
     const p = createPerson(customerSpec(spec++));
-    people.push(p.root);
+    stage.noShadow(p.root);
     return p;
   };
 
@@ -477,81 +433,9 @@ export function createGarageScene(container: HTMLElement, labelLayer: HTMLElemen
   // Toujours pressé : il marche presque deux fois plus vite que les serveurs du Café Tarek.
   const rochdiWalk = new Walker(rochdi, ROCHDI_ROUND, 1.65, garageGroundAt);
 
-  scene.traverse((object) => {
-    if (!(object instanceof THREE.Mesh)) return;
-    object.castShadow = !(object.material as THREE.Material).transparent;
-    object.receiveShadow = true;
-  });
-  // Les clients ne projettent pas d'ombre : moins de calcul pour le téléphone.
-  for (const p of people) p.traverse((o) => (o.castShadow = false));
+  /* ---------------------------- Animation ---------------------------- */
 
-  /* ---------------------------- Caméra et lumière ---------------------------- */
-
-  const controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(...GARAGE_VIEW.target);
-  controls.enablePan = false;
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.12;
-  controls.minDistance = 6;
-  controls.maxDistance = 22;
-  controls.minPolarAngle = 0.3;
-  controls.maxPolarAngle = 1.2;
-  controls.rotateSpeed = 0.7;
-  controls.update();
-
-  const applyAmbiance = (a: Ambiance) => {
-    renderer.setClearColor(a.sky);
-    (scene.fog as THREE.Fog).color.setHex(a.sky);
-    hemi.color.setHex(a.hemiSky);
-    hemi.groundColor.setHex(a.hemiGround);
-    hemi.intensity = a.hemiIntensity;
-    key.color.setHex(a.keyColor);
-    key.intensity = a.keyIntensity;
-    for (const lamp of lamps) lamp.intensity = a.lampIntensity;
-    bulbMaterial.emissiveIntensity = a.bulbGlow;
-    asphalt.color.setHex(a.street);
-    lampHead.emissiveIntensity = a.streetLights ? 2.5 : 0;
-    streetLight.intensity = a.streetLights ? 7 : 0;
-  };
-  applyAmbiance(ambianceAt(currentHour(new Date(), window.location.search)));
-  const ambianceTimer = setInterval(() => applyAmbiance(ambianceAt(currentHour(new Date(), window.location.search))), 60_000);
-
-  let width = 1;
-  let height = 1;
-  const resize = () => {
-    width = container.clientWidth || 1;
-    height = container.clientHeight || 1;
-    renderer.setSize(width, height, false);
-    camera.aspect = width / height;
-    camera.fov = width < height ? 58 : 46;
-    camera.updateProjectionMatrix();
-  };
-  const observer = new ResizeObserver(resize);
-  observer.observe(container);
-  resize();
-
-  const projected = new THREE.Vector3();
-  const placeLabels = () => {
-    for (const { el, anchor } of labels) {
-      projected.copy(anchor).project(camera);
-      const visible = projected.z < 1 && Math.abs(projected.x) < 1.1 && Math.abs(projected.y) < 1.1;
-      el.style.display = visible ? '' : 'none';
-      if (!visible) continue;
-      const x = ((projected.x + 1) / 2) * width;
-      const y = ((1 - projected.y) / 2) * height;
-      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
-    }
-  };
-
-  let frame = 0;
-  let last = performance.now();
-  const loop = (now: number) => {
-    frame = requestAnimationFrame(loop);
-    // Environ 30 images par seconde suffisent (économie de batterie).
-    if (now - last < 33) return;
-    const dt = Math.min(0.1, (now - last) / 1000);
-    last = now;
-    const t = now / 1000;
+  stage.start((now, dt, t) => {
     rochdiWalk.update(now, dt);
     rochdi.carry();
     // Khalifa, derrière son comptoir : il se balance, sert un café de temps en temps.
@@ -568,31 +452,7 @@ export function createGarageScene(container: HTMLElement, labelLayer: HTMLElemen
       const cycle = (t + s.offset) % 5;
       s.person.raiseArm(cycle < 1.1 ? 0.35 * Math.sin((cycle / 1.1) * Math.PI) : 0);
     }
-    controls.update();
-    renderer.render(scene, camera);
-    placeLabels();
-  };
-  frame = requestAnimationFrame(loop);
+  });
 
-  return {
-    dispose() {
-      cancelAnimationFrame(frame);
-      clearInterval(ambianceTimer);
-      observer.disconnect();
-      controls.dispose();
-      scene.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          object.geometry.dispose();
-          const materials = Array.isArray(object.material) ? object.material : [object.material];
-          for (const m of materials) {
-            (m as THREE.MeshStandardMaterial).map?.dispose();
-            m.dispose();
-          }
-        }
-      });
-      renderer.dispose();
-      renderer.domElement.remove();
-      labelLayer.replaceChildren();
-    },
-  };
+  return { dispose: () => stage.dispose() };
 }
