@@ -88,11 +88,9 @@ function neighbours(scene: THREE.Scene) {
   const blocks: [number, number, number, number, number][] = [
     // x0, x1, z0, z1, hauteur
     [-22, -6.25, -4.5, 6, 3.4], // à l'ouest du café
-    [-22, 6.2, 6.1, 7.1, 2.4], // mur de la cour, au sud
     [-22, 17, 10.8, 18, 3.2], // de l'autre côté de la rue du sud
     [-22, -4, -16, -8.5, 3.6], // au nord de la rue du milieu
     [-1.5, 4.6, -12.5, -8.5, 3.3], // entre la rue du milieu et la rue en diagonale (le magasin)
-    [17.2, 26, -14, 9, 3.4], // de l'autre côté de la place
   ];
   blocks.forEach(([x0, x1, z0, z1, h], i) =>
     scene.add(box(x1 - x0, h, z1 - z0, facades[i % facades.length]!, (x0 + x1) / 2, h / 2, (z0 + z1) / 2)),
@@ -215,6 +213,50 @@ function television(scene: THREE.Scene) {
   scene.add(panel);
 }
 
+/**
+ * Volkswagen Polo 3 vert pistache, en formes simples : petite citadine à hayon (l'avant vers +z avant
+ * rotation), pare-chocs gris, phares, vitres teintées, roues.
+ */
+function polo3(): THREE.Group {
+  const car = new THREE.Group();
+  const paint = mat(0x9cc96b, { roughness: 0.35, metalness: 0.25 });
+  const glass = mat(0x2c3a44, { roughness: 0.1, metalness: 0.3 });
+  const trim = mat(0x55595e, { roughness: 0.6 });
+  // Caisse (3,75 m × 1,65 m), capot plongeant à l'avant.
+  car.add(box(1.64, 0.5, 3.6, paint, 0, 0.55, 0));
+  const hood = box(1.6, 0.12, 0.95, paint, 0, 0.8, 1.25);
+  hood.rotation.x = 0.12;
+  car.add(hood);
+  // Habitacle : pare-brise incliné, toit, hayon presque vertical à l'arrière.
+  car.add(box(1.5, 0.5, 1.75, paint, 0, 1.05, -0.35));
+  const windshield = box(1.42, 0.5, 0.06, glass, 0, 1.03, 0.6);
+  windshield.rotation.x = -0.75;
+  car.add(windshield);
+  car.add(box(1.52, 0.34, 1.5, glass, 0, 1.08, -0.38));
+  car.add(box(1.4, 0.36, 0.05, glass, 0, 1.08, -1.24));
+  // Pare-chocs, phares et feux, rétroviseurs.
+  for (const z of [1.82, -1.82]) car.add(box(1.68, 0.2, 0.12, trim, 0, 0.38, z));
+  for (const x of [-0.55, 0.55]) {
+    car.add(box(0.36, 0.14, 0.04, mat(0xfff6d8, { emissive: 0x332f20 }), x, 0.66, 1.81));
+    car.add(box(0.26, 0.16, 0.04, mat(0xb32020), x * 1.15, 0.7, -1.81));
+    car.add(box(0.1, 0.08, 0.14, paint, x * 1.62, 0.98, 0.45));
+  }
+  for (const [x, z] of [
+    [-0.8, 1.2],
+    [0.8, 1.2],
+    [-0.8, -1.15],
+    [0.8, -1.15],
+  ] as const) {
+    const wheel = cylinder(0.3, 0.3, 0.2, MATERIALS.black, x, 0.3, z, 14);
+    wheel.rotation.z = Math.PI / 2;
+    car.add(wheel);
+    const hub = cylinder(0.14, 0.14, 0.21, MATERIALS.metal, x, 0.3, z, 10);
+    hub.rotation.z = Math.PI / 2;
+    car.add(hub);
+  }
+  return car;
+}
+
 /** Un client assis : sur la chaise, tourné vers sa table. */
 function seatPerson(scene: THREE.Scene, person: Person, x: number, z: number, rotation: number) {
   person.sit();
@@ -308,26 +350,15 @@ export function createGarageScene(container: HTMLElement, labelLayer: HTMLElemen
   ] as const)
     scene.add(plant(x, y, z, 0.85));
 
-  // La place : une vieille voiture garée, la plaque de rue et un lampadaire.
-  const car = new THREE.Group();
-  car.add(box(1.7, 0.55, 3.9, mat(0x2f5f9a, { roughness: 0.4, metalness: 0.3 }), 0, 0.55, 0));
-  car.add(box(1.5, 0.5, 2.0, mat(0x9fc6e0, { roughness: 0.1, metalness: 0.2 }), 0, 1.05, -0.2));
-  for (const [x, z] of [
-    [-0.85, 1.25],
-    [0.85, 1.25],
-    [-0.85, -1.25],
-    [0.85, -1.25],
-  ] as const) {
-    const wheel = cylinder(0.32, 0.32, 0.22, MATERIALS.black, x, 0.32, z, 14);
-    wheel.rotation.z = Math.PI / 2;
-    car.add(wheel);
-  }
-  car.position.set(14, 0, 4.5);
-  car.rotation.y = 0.3;
+  // La place : une Volkswagen Polo 3 vert pistache garée au coin du café, la plaque de la place et un lampadaire.
+  const car = polo3();
+  car.position.set(7.3, 0, 5.9);
+  car.rotation.y = Math.PI / 2;
   scene.add(car);
+  scene.add(cylinder(0.04, 0.04, 2.6, MATERIALS.metal, 16, 1.3, -2));
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.52), new THREE.MeshStandardMaterial({ map: squareSign(), roughness: 0.6 }));
   plate.rotation.y = -Math.PI / 2;
-  plate.position.set(17.15, 2.4, -2);
+  plate.position.set(15.94, 2.4, -2);
   scene.add(plate);
   const lampHead = new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffd08a, emissiveIntensity: 0 });
   scene.add(cylinder(0.05, 0.06, 3.4, MATERIALS.black, 11.5, 1.7, -4));
