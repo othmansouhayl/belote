@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createDeck } from '../engine/index.ts';
 import { preloadCards } from './CardView.tsx';
 import { Home } from './Home.tsx';
+import { TownMap } from './map/TownMap.tsx';
 import { setMusicMood } from './music.ts';
 import { LocalGame } from './LocalGame.tsx';
 import { OnlineRoom } from './online/OnlineRoom.tsx';
@@ -10,6 +11,7 @@ import { loadNickname, loadSavedRoom, saveNickname, saveRoom, sendRequest } from
 import type { SavedRoom } from './online/client.ts';
 
 type Screen =
+  | { readonly kind: 'map' }
   | { readonly kind: 'home' }
   | { readonly kind: 'local'; readonly targetScore: number }
   | { readonly kind: 'online'; readonly room: SavedRoom }
@@ -27,7 +29,8 @@ function clearInviteFromUrl() {
 }
 
 export function App() {
-  const [screen, setScreen] = useState<Screen>({ kind: 'home' });
+  // On arrive sur la carte de Oudhref ; avec un lien d'invitation, directement au café.
+  const [screen, setScreen] = useState<Screen>(() => (inviteCodeFromUrl() ? { kind: 'home' } : { kind: 'map' }));
   const [nickname, setNickname] = useState(loadNickname);
   const [savedRoom, setSavedRoom] = useState<SavedRoom | null>(loadSavedRoom);
   const [busy, setBusy] = useState(false);
@@ -35,7 +38,7 @@ export function App() {
 
   useEffect(() => preloadCards(createDeck().map((c) => c.id)), []);
   // La musique baisse pendant les parties (et quand on regarde) : la voix passe avant.
-  useEffect(() => setMusicMood(screen.kind === 'home' ? 'home' : 'game'), [screen.kind]);
+  useEffect(() => setMusicMood(screen.kind === 'home' || screen.kind === 'map' ? 'home' : 'game'), [screen.kind]);
 
   const enterRoom = async (request: { type: 'create'; table: number } | { type: 'join'; code: string }) => {
     setBusy(true);
@@ -83,6 +86,18 @@ export function App() {
     );
   }
 
+  if (screen.kind === 'map') {
+    return (
+      <TownMap
+        savedRoom={savedRoom}
+        busy={busy}
+        error={error}
+        onResume={(room) => void enterRoom({ type: 'join', code: room.code })}
+        onEnter={() => setScreen({ kind: 'home' })}
+      />
+    );
+  }
+
   return (
     <Home
       nickname={nickname}
@@ -96,6 +111,7 @@ export function App() {
       onWatch={(roomId, table) => setScreen({ kind: 'watch', roomId, table })}
       onJoin={(code) => void enterRoom({ type: 'join', code })}
       onResume={(room) => void enterRoom({ type: 'join', code: room.code })}
+      onMap={() => setScreen({ kind: 'map' })}
     />
   );
 }
