@@ -1,26 +1,21 @@
 import * as THREE from 'three';
 import { MATERIALS, box, canvasTexture, chair, cylinder, mat, plant, plaster, squareTable, terrazzo, wcSign } from './cafeScene.ts';
-import { SEAT_SIDES, seatOffset } from './cafeLayout.ts';
+import { seatOffset } from './cafeLayout.ts';
+import type { SeatSide } from './cafeLayout.ts';
 import { NIZAR, Walker, createPerson, customerSpec, tray } from './characters.ts';
 import type { Person } from './characters.ts';
-import {
-  CHOUAA,
-  CHOUAA_ESTRADE_TABLES,
-  CHOUAA_TABLES,
-  CHOUAA_VIEW,
-  CHOUAA_WINDOW_TABLES,
-  NIZAR_ROUND,
-  chouaaGroundAt,
-} from './chouaaLayout.ts';
+import { BELOTE_TABLE, CHOUAA, CHOUAA_BELOTE_TABLES, CHOUAA_TABLES, CHOUAA_VIEW, NIZAR_ROUND, SMALL_TABLE, chouaaGroundAt } from './chouaaLayout.ts';
+import type { ChairLayout } from './chouaaLayout.ts';
 import { cardsOnTable } from './crowd.ts';
 import { drinkModel } from './tableProps.ts';
-import { createVisitStage } from './visitStage.ts';
+import { createVisitStage, mergeByMaterial } from './visitStage.ts';
 
 /**
  * Le Café Chouâa (قهوة الشعاع) en 3D, pour la visite (on n'y joue pas encore), d'après la maquette
  * « rayon.ifc » : une grande salle au coin de deux rues, l'entrée principale sur la rue principale,
  * la porte d'angle dans le pan coupé, 8 petites fenêtres sur la rue de côté, 4 poteaux, et au fond
- * l'estrade avec le comptoir en L et les WC. Nizar, le serveur, fait sa tournée.
+ * l'estrade avec le comptoir en L et les WC. Un café toujours encombré de tables (2 seulement pour la
+ * belote), une terrasse sur les deux trottoirs, la télé contre la façade. Nizar, le serveur, fait sa tournée.
  */
 export interface ChouaaSceneHandle {
   dispose(): void;
@@ -237,9 +232,9 @@ function toilets(scene: THREE.Scene) {
   scene.add(sign);
 }
 
-/** La télé, au mur du fond, au-dessus de l'estrade : le match. */
+/** La télé, suspendue au plafond contre la façade sud, tournée vers le fond de la salle : le match. */
 function television(scene: THREE.Scene) {
-  const { tv, room } = CHOUAA;
+  const { tv, wallHeight } = CHOUAA;
   const screen = canvasTexture(256, 144, (ctx) => {
     ctx.fillStyle = '#2f8a3a';
     ctx.fillRect(0, 0, 256, 144);
@@ -257,11 +252,22 @@ function television(scene: THREE.Scene) {
     ctx.fillRect(96, 80, 5, 5);
   });
   const height = tv.width * 0.56;
-  scene.add(box(tv.width + 0.08, height + 0.08, 0.08, MATERIALS.black, tv.x, tv.y, room.z0 + 0.06));
+  scene.add(box(tv.width + 0.08, height + 0.08, 0.08, MATERIALS.black, tv.x, tv.y, tv.z));
   const panel = new THREE.Mesh(new THREE.PlaneGeometry(tv.width, height), new THREE.MeshBasicMaterial({ map: screen }));
-  panel.position.set(tv.x, tv.y, room.z0 + 0.11);
+  panel.rotation.y = Math.PI;
+  panel.position.set(tv.x, tv.y, tv.z - 0.05);
   scene.add(panel);
+  // Le support, accroché au plafond.
+  const top = tv.y + height / 2 + 0.04;
+  scene.add(box(0.06, wallHeight - top, 0.06, MATERIALS.black, tv.x, (top + wallHeight) / 2, tv.z + 0.02));
 }
+
+/** Où sont les chaises selon la disposition, deux à deux face à face (les deux premières se font face). */
+const SIDES: Record<ChairLayout, readonly SeatSide[]> = {
+  four: ['south', 'north', 'east', 'west'],
+  ns: ['south', 'north'],
+  ew: ['east', 'west'],
+};
 
 /** Un client assis : sur la chaise, tourné vers sa table. */
 function seatPerson(scene: THREE.Scene, person: Person, x: number, y: number, z: number, rotation: number) {
@@ -274,10 +280,19 @@ function seatPerson(scene: THREE.Scene, person: Person, x: number, y: number, z:
 export function createChouaaScene(container: HTMLElement, labelLayer: HTMLElement): ChouaaSceneHandle {
   const stage = createVisitStage(container, labelLayer, { view: CHOUAA_VIEW, shadowExtent: 16, fog: [30, 56], distance: [7, 26] });
   const { scene } = stage;
-  for (const t of [...CHOUAA_TABLES, ...CHOUAA_ESTRADE_TABLES]) stage.bulb(t.x, t.z);
-  stage.bulb(5.2, -1.0);
-  stage.bulb(5.2, 2.0);
-  stage.bulb(3.6, -5.6);
+  // Quelques ampoules réparties sur la salle et l'estrade (chaque lumière coûte cher au téléphone).
+  for (const [x, z] of [
+    [-4.0, -1.6],
+    [-4.0, 3.6],
+    [-0.33, -1.6],
+    [-0.33, 3.6],
+    [2.6, 1.0],
+    [5.2, -0.9],
+    [5.2, 2.5],
+    [-2.0, -5.9],
+    [3.6, -5.6],
+  ] as const)
+    stage.bulb(x, z);
 
   /* -------------------------------- Le décor -------------------------------- */
 
@@ -315,7 +330,26 @@ export function createChouaaScene(container: HTMLElement, labelLayer: HTMLElemen
   stage.streetLamp(-2, 8.6);
   stage.streetLamp(8.4, -3);
 
-  /* ------------------------------- Les clients ------------------------------- */
+  /* ------------------------------- Les tables ------------------------------- */
+
+  // Tables et chaises ne bougent pas : on les fusionne (quelques dessins au lieu de plusieurs centaines).
+  const furniture = new THREE.Group();
+  const seatsOf = (t: { x: number; z: number }, chairs: ChairLayout, distance: number) =>
+    SIDES[chairs].map((side) => {
+      const { dx, dz, rotation } = seatOffset(side, distance);
+      return { x: t.x + dx, y: chouaaGroundAt(t.x, t.z), z: t.z + dz, rotation };
+    });
+
+  // Les 2 tables de belote : vides, elles attendent l'ouverture du jeu en ligne.
+  CHOUAA_BELOTE_TABLES.forEach((t, i) => {
+    furniture.add(squareTable(BELOTE_TABLE.size, t.x, 0, t.z));
+    for (const seat of seatsOf(t, 'four', BELOTE_TABLE.chairDistance)) furniture.add(chair(seat.x, seat.y, seat.z, seat.rotation));
+    stage.label(
+      'cafe-label cafe-label--locked',
+      `<span class="cafe-label__title">Belote ${i + 1}</span><span class="cafe-label__status" lang="ar">مازلنا مسكرين</span>`,
+      new THREE.Vector3(t.x, 0.95, t.z),
+    );
+  });
 
   const players: { person: Person; turn: number; players: number }[] = [];
   const talkers: { person: Person; offset: number }[] = [];
@@ -325,77 +359,56 @@ export function createChouaaScene(container: HTMLElement, labelLayer: HTMLElemen
     stage.noShadow(p.root);
     return p;
   };
+  const sit = (seat: { x: number; y: number; z: number; rotation: number }) => {
+    const person = customer();
+    seatPerson(scene, person, seat.x, seat.y, seat.z, seat.rotation + Math.PI);
+    return person;
+  };
+  const put = (object: THREE.Object3D, t: { x: number; z: number }, dz = 0) => {
+    object.position.set(t.x, chouaaGroundAt(t.x, t.z) + TABLE_TOP, t.z + dz);
+    scene.add(object);
+  };
 
-  // Les grandes tables : deux parties de cartes, deux amis autour d'un thé, une table libre.
+  // Les autres tables : une partie de cartes, un habitué seul avec son café, deux amis qui discutent,
+  // et beaucoup de tables libres (un verre oublié de temps en temps).
   CHOUAA_TABLES.forEach((t, i) => {
-    scene.add(squareTable(0.95, t.x, 0, t.z));
-    SEAT_SIDES.forEach((side, seat) => {
-      const { dx, dz, rotation } = seatOffset(side, 0.68);
-      scene.add(chair(t.x + dx, 0, t.z + dz, rotation));
-      const playing = i === 1 || i === 2;
-      if (playing || (i === 0 && seat % 2 === 0)) {
-        const person = customer();
-        seatPerson(scene, person, t.x + dx, 0, t.z + dz, rotation + Math.PI);
-        if (playing) players.push({ person, turn: seat, players: 4 });
-        else talkers.push({ person, offset: seat * 1.3 });
+    const y = chouaaGroundAt(t.x, t.z);
+    furniture.add(squareTable(SMALL_TABLE.size, t.x, y, t.z));
+    const seats = seatsOf(t, t.chairs, SMALL_TABLE.chairDistance);
+    for (const seat of seats) furniture.add(chair(seat.x, seat.y, seat.z, seat.rotation));
+    switch (i % 7) {
+      case 0: {
+        const a = sit(seats[0]!);
+        const b = sit(seats[1]!);
+        put(cardsOnTable(2), t);
+        players.push({ person: a, turn: 0, players: 2 }, { person: b, turn: 1, players: 2 });
+        break;
       }
-    });
-    if (i === 1 || i === 2) {
-      const cards = cardsOnTable(4);
-      cards.position.set(t.x, TABLE_TOP, t.z);
-      scene.add(cards);
-    } else if (i === 0) {
-      for (const [drink, dz] of [
-        ['tey', 0.22],
-        ['capucin', -0.22],
-      ] as const) {
-        const model = drinkModel(drink);
-        model.position.set(t.x, TABLE_TOP, t.z + dz);
-        scene.add(model);
+      case 2:
+        sit(seats[1]!);
+        put(drinkModel('express'), t);
+        break;
+      case 4: {
+        const a = sit(seats[0]!);
+        const b = sit(seats[1]!);
+        put(drinkModel('tey'), t, 0.12);
+        put(drinkModel('capucin'), t, -0.12);
+        talkers.push({ person: a, offset: (i % 5) * 0.9 }, { person: b, offset: 2.4 + (i % 3) });
+        break;
       }
+      case 5:
+        put(drinkModel('tey'), t, 0.1);
+        break;
     }
   });
-  // Un curieux debout qui regarde la partie près de l'entrée.
+  scene.add(mergeByMaterial(furniture));
+
+  // Un habitué debout près d'une table de belote : il attend qu'elle ouvre.
   const watcher = customer();
   watcher.walk(0, 0);
-  watcher.root.position.set(-2.95, 0, 4.35);
-  watcher.root.rotation.y = -2.3;
+  watcher.root.position.set(0.9, 0, 4.9);
+  watcher.root.rotation.y = -2.4;
   scene.add(watcher.root);
-
-  // Les petites tables des fenêtres (chaises au nord et au sud).
-  CHOUAA_WINDOW_TABLES.forEach((t, i) => {
-    scene.add(squareTable(0.7, t.x, 0, t.z));
-    scene.add(chair(t.x, 0, t.z + 0.55, 0));
-    scene.add(chair(t.x, 0, t.z - 0.55, Math.PI));
-    if (i === 0) {
-      // Un vieil habitué seul avec son café, il regarde la rue.
-      seatPerson(scene, customer(), t.x, 0, t.z + 0.55, Math.PI);
-      const cup = drinkModel('express');
-      cup.position.set(t.x, TABLE_TOP, t.z + 0.2);
-      scene.add(cup);
-    } else if (i === 1) {
-      const a = customer();
-      const b = customer();
-      seatPerson(scene, a, t.x, 0, t.z + 0.55, Math.PI);
-      seatPerson(scene, b, t.x, 0, t.z - 0.55, 0);
-      const glass = drinkModel('tey');
-      glass.position.set(t.x, TABLE_TOP, t.z);
-      scene.add(glass);
-      talkers.push({ person: a, offset: 0.4 }, { person: b, offset: 2.8 });
-    }
-  });
-
-  // Sur l'estrade, devant la télé : ils regardent le match (assis côté sud, tournés vers le mur du fond).
-  const up = CHOUAA.estrade.height;
-  CHOUAA_ESTRADE_TABLES.forEach((t, i) => {
-    scene.add(squareTable(0.7, t.x, up, t.z));
-    scene.add(chair(t.x, up, t.z + 0.55, 0));
-    scene.add(chair(t.x, up, t.z - 0.55, Math.PI));
-    seatPerson(scene, customer(), t.x, up, t.z + 0.55, Math.PI);
-    const drink = drinkModel(i === 0 ? 'express' : 'tey');
-    drink.position.set(t.x, up + TABLE_TOP, t.z + 0.15);
-    scene.add(drink);
-  });
 
   /* ---------------------------------- Nizar ---------------------------------- */
 

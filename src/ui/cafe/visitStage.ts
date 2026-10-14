@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ambianceAt, currentHour } from './ambiance.ts';
 import type { Ambiance } from './ambiance.ts';
 import { MATERIALS, cylinder, mat } from './cafeScene.ts';
@@ -202,4 +203,32 @@ export function createVisitStage(container: HTMLElement, labelLayer: HTMLElement
       labelLayer.replaceChildren();
     },
   };
+}
+
+/**
+ * Fusionne un groupe d'objets immobiles (tables, chaises…) en un seul maillage par matière :
+ * le même rendu, mais quelques dessins au lieu de centaines (indispensable sur téléphone).
+ */
+export function mergeByMaterial(group: THREE.Object3D): THREE.Group {
+  group.updateMatrixWorld(true);
+  const byMaterial = new Map<THREE.Material, THREE.BufferGeometry[]>();
+  group.traverse((object) => {
+    if (!(object instanceof THREE.Mesh) || Array.isArray(object.material)) return;
+    const geometry = (object.geometry as THREE.BufferGeometry).clone().applyMatrix4(object.matrixWorld);
+    // Seules la position, la normale et les coordonnées de texture servent ici.
+    for (const name of Object.keys(geometry.attributes)) if (!['position', 'normal', 'uv'].includes(name)) geometry.deleteAttribute(name);
+    const list = byMaterial.get(object.material) ?? [];
+    list.push(geometry.index ? geometry.toNonIndexed() : geometry);
+    byMaterial.set(object.material, list);
+  });
+  const merged = new THREE.Group();
+  for (const [material, geometries] of byMaterial) {
+    const geometry = mergeGeometries(geometries);
+    for (const g of geometries) g.dispose();
+    if (geometry) merged.add(new THREE.Mesh(geometry, material));
+  }
+  group.traverse((object) => {
+    if (object instanceof THREE.Mesh) object.geometry.dispose();
+  });
+  return merged;
 }
