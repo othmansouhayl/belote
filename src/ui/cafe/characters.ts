@@ -13,7 +13,8 @@ export interface PersonSpec {
   readonly shortSleeves?: boolean;
   readonly trousers: number;
   readonly shoes: number;
-  readonly hair: 'short' | 'bald';
+  /** Cheveux courts, crâne chauve (couronne sur les côtés), ou front dégarni (cheveux en arrière). */
+  readonly hair: 'short' | 'bald' | 'receding';
   readonly hairColor: number;
   readonly hat?: number;
   readonly angry?: boolean;
@@ -55,6 +56,29 @@ export const TAREK: PersonSpec = {
   hairColor: 0x9a948c,
   angry: true,
   belly: 1.18,
+};
+
+/** Khalifa (خليفة), patron du Café Garage : 65 ans, gros, cheveux noirs, le front un peu dégarni. */
+export const KHALIFA: PersonSpec = {
+  height: 1.72,
+  skin: 0xc99a72,
+  shirt: 0x6d5a45,
+  trousers: 0x3a3a40,
+  shoes: 0x2a1c12,
+  hair: 'receding',
+  hairColor: 0x15110d,
+  belly: 1.38,
+};
+
+/** Rochdi (رشدي), serveur du Café Garage : 60 ans, cheveux gris, toujours pressé. */
+export const ROCHDI: PersonSpec = {
+  height: 1.68,
+  skin: 0xb98c62,
+  shirt: 0xf1eee6,
+  trousers: 0x2c2f36,
+  shoes: 0x2a1c12,
+  hair: 'short',
+  hairColor: 0xa8a29a,
 };
 
 /** Clients de la terrasse : des tenues variées, de tous les jours. */
@@ -155,7 +179,13 @@ export function createPerson(spec: PersonSpec): Person {
   body.add(head);
   head.add(new THREE.Mesh(new THREE.SphereGeometry(0.13, 18, 14), skin));
   const hairMat = mat(spec.hairColor);
-  if (spec.hair === 'short') {
+  if (spec.hair === 'receding') {
+    // Front dégarni : les cheveux commencent plus en arrière sur le crâne.
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.137, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), hairMat);
+    hair.rotation.x = -0.75;
+    hair.position.set(0, 0.0, -0.02);
+    head.add(hair);
+  } else if (spec.hair === 'short') {
     const hair = new THREE.Mesh(new THREE.SphereGeometry(0.136, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.52), hairMat);
     hair.rotation.x = -0.25;
     hair.position.set(0, 0.012, -0.012);

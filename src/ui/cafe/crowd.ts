@@ -42,7 +42,7 @@ const cardMaterial = new THREE.MeshStandardMaterial({ color: 0xfbf8f0, roughness
 const backMaterial = new THREE.MeshStandardMaterial({ color: 0x2f5fb3, roughness: 0.6 });
 
 /** Les cartes sur la table : le paquet au milieu et une carte jouée devant chaque joueur. */
-function cardsOnTable(players: number): THREE.Group {
+export function cardsOnTable(players: number): THREE.Group {
   const group = new THREE.Group();
   const pile = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.02, 0.1), backMaterial);
   pile.position.y = 0.01;

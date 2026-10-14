@@ -5,6 +5,8 @@ describe('carte de Oudhref', () => {
   it('quatre cafés, seul le Café Tarek est ouvert pour l’instant', () => {
     expect(TOWN_CAFES.map((c) => c.id)).toEqual(['tarek', 'garage', 'chouaa', 'souk']);
     expect(TOWN_CAFES.filter((c) => c.open).map((c) => c.id)).toEqual(['tarek']);
+    // Le Café Garage se visite déjà en 3D (on n'y joue pas encore).
+    expect(TOWN_CAFES.filter((c) => c.visit).map((c) => c.id)).toEqual(['garage']);
   });
 
   it('chaque café (et son nom) reste dans la zone toujours visible, et pas deux au même endroit', () => {

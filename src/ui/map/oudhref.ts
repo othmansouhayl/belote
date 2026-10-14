@@ -18,6 +18,8 @@ export interface TownCafe {
   readonly y: number;
   /** Ouvert : on peut y entrer et jouer. Sinon, « مازلنا مسكرين ». */
   readonly open: boolean;
+  /** Fermé au jeu, mais on peut déjà le visiter en 3D. */
+  readonly visit?: boolean;
   /** De quel côté du repère s'affiche le nom (pour ne pas chevaucher les autres). */
   readonly labelSide: 'left' | 'right';
 }
@@ -26,7 +28,7 @@ export const TOWN_CAFES: readonly TownCafe[] = [
   // Au bout de l'avenue, au croisement avec la P15 (Cité Assalam).
   { id: 'tarek', ar: 'قهوة طارق', fr: 'Café Tarek', x: 716, y: 494, open: true, labelSide: 'left' },
   // Au coin où l'avenue tourne vers la rue du 13 Août.
-  { id: 'garage', ar: 'قهوة الڨراج', fr: 'Café Garage', x: 566, y: 318, open: false, labelSide: 'right' },
+  { id: 'garage', ar: 'قهوة الڨراج', fr: 'Café Garage', x: 566, y: 318, open: false, visit: true, labelSide: 'right' },
   // À l'ouest, au départ de l'avenue sur la P15 (حي خير الدين).
   { id: 'chouaa', ar: 'قهوة الشعاع', fr: 'Café Chouâa', x: 330, y: 340, open: false, labelSide: 'right' },
   // Au nord, près du jardin et du marché.

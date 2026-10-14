@@ -91,7 +91,7 @@ const SKIN = 0xd9a77c;
  * Textures dessinées (aucun fichier à télécharger)
  * -------------------------------------------------------------------------- */
 
-function seeded(seed: number) {
+export function seeded(seed: number) {
   let s = seed;
   return () => {
     s = (s * 1664525 + 1013904223) % 4294967296;
@@ -99,7 +99,7 @@ function seeded(seed: number) {
   };
 }
 
-function canvasTexture(width: number, height: number, draw: (ctx: CanvasRenderingContext2D) => void, repeat?: [number, number]) {
+export function canvasTexture(width: number, height: number, draw: (ctx: CanvasRenderingContext2D) => void, repeat?: [number, number]) {
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -115,7 +115,7 @@ function canvasTexture(width: number, height: number, draw: (ctx: CanvasRenderin
 }
 
 /** Sol en granito beige, comme sur la maquette. */
-const terrazzo = (base: string, repeat: [number, number]) =>
+export const terrazzo = (base: string, repeat: [number, number]) =>
   canvasTexture(
     256,
     256,
@@ -136,7 +136,7 @@ const terrazzo = (base: string, repeat: [number, number]) =>
   );
 
 /** Murs « blanc sale » : enduit blanc cassé, très légèrement irrégulier. */
-const plaster = (repeat: [number, number]) =>
+export const plaster = (repeat: [number, number]) =>
   canvasTexture(
     128,
     128,
@@ -229,7 +229,7 @@ const signboard = () =>
     ctx.fillText('Café Tarek', 256, 102);
   });
 
-const paving = (repeat: [number, number]) =>
+export const paving = (repeat: [number, number]) =>
   canvasTexture(
     128,
     128,
@@ -267,7 +267,7 @@ const terracotta = () =>
     }
   });
 
-const wcSign = () =>
+export const wcSign = () =>
   canvasTexture(64, 32, (ctx) => {
     ctx.fillStyle = '#f2efe8';
     ctx.fillRect(0, 0, 64, 32);
@@ -282,10 +282,10 @@ const wcSign = () =>
  * Mobilier
  * -------------------------------------------------------------------------- */
 
-const mat = (color: number, options: THREE.MeshStandardMaterialParameters = {}) =>
+export const mat = (color: number, options: THREE.MeshStandardMaterialParameters = {}) =>
   new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0.05, ...options });
 
-const MATERIALS = {
+export const MATERIALS = {
   wood: mat(0x6b4226),
   darkWood: mat(0x3e2614),
   chair: mat(0x4a2c17),
@@ -306,13 +306,22 @@ const MATERIALS = {
   hit: new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
 };
 
-function box(w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number) {
+export function box(w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
   mesh.position.set(x, y, z);
   return mesh;
 }
 
-function cylinder(rTop: number, rBottom: number, h: number, material: THREE.Material, x: number, y: number, z: number, segments = 16) {
+export function cylinder(
+  rTop: number,
+  rBottom: number,
+  h: number,
+  material: THREE.Material,
+  x: number,
+  y: number,
+  z: number,
+  segments = 16,
+) {
   const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBottom, h, segments), material);
   mesh.position.set(x, y, z);
   return mesh;
@@ -321,7 +330,7 @@ function cylinder(rTop: number, rBottom: number, h: number, material: THREE.Mate
 let chairCount = 0;
 
 /** Chaise tournée vers -z (dossier côté +z) ; la rotation l'oriente vers sa table. Blanche ou bordeaux. */
-function chair(x: number, y: number, z: number, rotation: number) {
+export function chair(x: number, y: number, z: number, rotation: number) {
   const group = new THREE.Group();
   const color = chairCount++ % 2 === 0 ? MATERIALS.chairWhite : MATERIALS.chairBordeaux;
   group.add(box(0.42, 0.05, 0.42, color, 0, 0.46, 0));
@@ -339,7 +348,7 @@ function chair(x: number, y: number, z: number, rotation: number) {
   return group;
 }
 
-function squareTable(size: number, x: number, y: number, z: number, top: THREE.Material = MATERIALS.tableBrown) {
+export function squareTable(size: number, x: number, y: number, z: number, top: THREE.Material = MATERIALS.tableBrown) {
   const group = new THREE.Group();
   group.add(box(size, 0.05, size, top, 0, 0.75, 0));
   group.add(cylinder(0.05, 0.05, 0.72, MATERIALS.darkWood, 0, 0.37, 0, 8));
@@ -348,7 +357,7 @@ function squareTable(size: number, x: number, y: number, z: number, top: THREE.M
   return group;
 }
 
-function plant(x: number, y: number, z: number, scale = 1) {
+export function plant(x: number, y: number, z: number, scale = 1) {
   const group = new THREE.Group();
   group.add(cylinder(0.16, 0.12, 0.32, MATERIALS.pot, 0, 0.16, 0, 10));
   const leaves = new THREE.Mesh(new THREE.IcosahedronGeometry(0.34, 0), MATERIALS.plant);

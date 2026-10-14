@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createDeck } from '../engine/index.ts';
 import { preloadCards } from './CardView.tsx';
 import { Home } from './Home.tsx';
+import { GarageVisit } from './map/GarageVisit.tsx';
 import { TownMap } from './map/TownMap.tsx';
 import { setMusicMood } from './music.ts';
 import { LocalGame } from './LocalGame.tsx';
@@ -12,6 +13,7 @@ import type { SavedRoom } from './online/client.ts';
 
 type Screen =
   | { readonly kind: 'map' }
+  | { readonly kind: 'garage' }
   | { readonly kind: 'home' }
   | { readonly kind: 'local'; readonly targetScore: number }
   | { readonly kind: 'online'; readonly room: SavedRoom }
@@ -38,7 +40,10 @@ export function App() {
 
   useEffect(() => preloadCards(createDeck().map((c) => c.id)), []);
   // La musique baisse pendant les parties (et quand on regarde) : la voix passe avant.
-  useEffect(() => setMusicMood(screen.kind === 'home' || screen.kind === 'map' ? 'home' : 'game'), [screen.kind]);
+  useEffect(
+    () => setMusicMood(screen.kind === 'home' || screen.kind === 'map' || screen.kind === 'garage' ? 'home' : 'game'),
+    [screen.kind],
+  );
 
   const enterRoom = async (request: { type: 'create'; table: number } | { type: 'join'; code: string }) => {
     setBusy(true);
@@ -86,6 +91,10 @@ export function App() {
     );
   }
 
+  if (screen.kind === 'garage') {
+    return <GarageVisit onMap={() => setScreen({ kind: 'map' })} onTarek={() => setScreen({ kind: 'home' })} />;
+  }
+
   if (screen.kind === 'map') {
     return (
       <TownMap
@@ -93,7 +102,7 @@ export function App() {
         busy={busy}
         error={error}
         onResume={(room) => void enterRoom({ type: 'join', code: room.code })}
-        onEnter={() => setScreen({ kind: 'home' })}
+        onEnter={(cafe) => setScreen(cafe === 'garage' ? { kind: 'garage' } : { kind: 'home' })}
       />
     );
   }
