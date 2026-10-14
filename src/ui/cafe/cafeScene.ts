@@ -267,7 +267,7 @@ const terracotta = () =>
     }
   });
 
-const wcSign = () =>
+export const wcSign = () =>
   canvasTexture(64, 32, (ctx) => {
     ctx.fillStyle = '#f2efe8';
     ctx.fillRect(0, 0, 64, 32);

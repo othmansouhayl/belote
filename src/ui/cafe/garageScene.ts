@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ambianceAt, currentHour } from './ambiance.ts';
 import type { Ambiance } from './ambiance.ts';
-import { MATERIALS, box, canvasTexture, chair, cylinder, mat, paving, plant, plaster, squareTable, terrazzo } from './cafeScene.ts';
+import { MATERIALS, box, canvasTexture, chair, cylinder, mat, plant, plaster, squareTable, terrazzo, wcSign } from './cafeScene.ts';
 import { SEAT_SIDES, seatOffset } from './cafeLayout.ts';
 import { KHALIFA, ROCHDI, Walker, createPerson, customerSpec, seatedChicha, tray } from './characters.ts';
 import type { Person } from './characters.ts';
@@ -11,10 +11,11 @@ import {
   GARAGE,
   GARAGE_BELOTE_TABLES,
   GARAGE_SMALL_TABLES,
-  GARAGE_TERRACE,
+  GARAGE_PLACE_TABLES,
   GARAGE_VIEW,
   KHALIFA_SPOT,
   ROCHDI_ROUND,
+  garageGroundAt,
 } from './garageLayout.ts';
 import { drinkModel } from './tableProps.ts';
 
@@ -70,20 +71,12 @@ function ground(scene: THREE.Scene, asphalt: THREE.Material) {
     scene.add(mesh);
     return mesh;
   };
-  // Chaussée partout, puis la place pavée et les trottoirs.
+  // Chaussée partout : les rues et la place sont en enrobé.
   flat(90, 90, asphalt, 0, -0.02, 0);
-  const { square } = GARAGE;
-  flat(
-    square.x1 - square.x0,
-    square.z1 - square.z0,
-    new THREE.MeshStandardMaterial({ map: paving([6, 9]), roughness: 0.9 }),
-    (square.x0 + square.x1) / 2,
-    0.005,
-    (square.z0 + square.z1) / 2,
-  );
   const sidewalk = mat(0xb9b2a4, { roughness: 0.95 });
-  // Petit trottoir le long de la façade sud (cour) et du côté de la place.
-  scene.add(box(12.4, 0.08, 2.2, sidewalk, 0, 0.04, GARAGE.halfDepth + 1.2));
+  // Petit trottoir le long de la façade sud (cour).
+  const { room } = GARAGE;
+  scene.add(box(room.x1 - room.x0 + 2.4, 0.08, 1.4, sidewalk, (room.x0 + room.x1) / 2 + 1, 0.04, room.z1 + 0.8));
 }
 
 /** Pâtés de maisons autour du café : simples volumes, enduits clairs, toits plats. */
@@ -110,59 +103,116 @@ function neighbours(scene: THREE.Scene) {
   scene.add(diagonal);
 }
 
-/** Murs du café : portes sur la place et sur la rue du milieu ; façades nord et est basses (vue en coupe). */
+/** Murs du café : portes sur la terrasse d'entrée et sur la rue du milieu ; façades nord et est basses (vue en coupe). */
 function walls(scene: THREE.Scene) {
-  const { halfWidth: W, halfDepth: D, wallHeight: H, mainDoor, sideDoor } = GARAGE;
+  const { room, wallHeight: H, mainDoor, sideDoor } = GARAGE;
+  const { x0, x1, z0, z1 } = room;
   const wall = new THREE.MeshStandardMaterial({ map: plaster([3, 1]), roughness: 0.9 });
   const trim = mat(0x2b5c8a);
-  const piece = (x0: number, x1: number, z0: number, z1: number, h: number, y = 0) => {
-    const w = Math.max(0.2, x1 - x0);
-    const d = Math.max(0.2, z1 - z0);
-    scene.add(box(w, h, d, wall, (x0 + x1) / 2, y + h / 2, (z0 + z1) / 2));
+  const piece = (a0: number, a1: number, b0: number, b1: number, h: number, y = 0) => {
+    const w = Math.max(0.2, a1 - a0);
+    const d = Math.max(0.2, b1 - b0);
+    scene.add(box(w, h, d, wall, (a0 + a1) / 2, y + h / 2, (b0 + b1) / 2));
   };
-  // Mur ouest (derrière le comptoir) : plein.
-  piece(-W - 0.1, -W + 0.1, -D, D, H);
-  // Façades nord (rue du milieu) et est (place) : laissées basses, comme une maquette en coupe,
-  // pour voir la salle depuis la place. Les portes gardent leur encadrement bleu.
+  // Mur ouest (la télé) et mur sud (contre la cour) : pleins.
+  piece(x0 - 0.1, x0 + 0.1, z0, z1, H);
+  piece(x0, x1, z1 - 0.1, z1 + 0.1, H);
+  // Façades nord (rue du milieu) et est (terrasse d'entrée) : laissées basses, comme une maquette en
+  // coupe, pour voir la salle depuis la place. Les portes gardent leur encadrement bleu.
   const low = 1.0;
-  piece(-W, sideDoor.x0, -D - 0.1, -D + 0.1, low);
-  piece(sideDoor.x1, W, -D - 0.1, -D + 0.1, low);
-  piece(W - 0.1, W + 0.1, -D, mainDoor.z0, low);
-  piece(W - 0.1, W + 0.1, mainDoor.z1, D, low);
-  for (const z of [-D, mainDoor.z0, mainDoor.z1, D]) scene.add(box(0.12, H, 0.12, trim, W, H / 2, z));
-  scene.add(box(0.12, H, 0.12, trim, -W, H / 2, -D));
-  // Mur sud, contre la cour : plein.
-  piece(-W, W, D - 0.1, D + 0.1, H);
-  // Encadrement bleu des portes.
-  scene.add(box(0.14, 0.14, mainDoor.z1 - mainDoor.z0 + 0.2, trim, W, H, 0));
-  for (const x of [sideDoor.x0, sideDoor.x1]) scene.add(box(0.12, 2.25, 0.24, trim, x, 1.12, -D));
-  scene.add(box(sideDoor.x1 - sideDoor.x0 + 0.2, 0.14, 0.24, trim, (sideDoor.x0 + sideDoor.x1) / 2, 2.25, -D));
+  piece(x0, sideDoor.x0, z0 - 0.1, z0 + 0.1, low);
+  piece(sideDoor.x1, x1, z0 - 0.1, z0 + 0.1, low);
+  piece(x1 - 0.1, x1 + 0.1, z0, mainDoor.z0, low);
+  piece(x1 - 0.1, x1 + 0.1, mainDoor.z1, z1, low);
+  for (const z of [z0, mainDoor.z0, mainDoor.z1, z1]) scene.add(box(0.12, H, 0.12, trim, x1, H / 2, z));
+  scene.add(box(0.12, H, 0.12, trim, x0, H / 2, z0));
+  scene.add(box(0.14, 0.14, mainDoor.z1 - mainDoor.z0 + 0.2, trim, x1, H, 0));
+  for (const x of [sideDoor.x0, sideDoor.x1]) scene.add(box(0.12, 2.25, 0.24, trim, x, 1.12, z0));
+  scene.add(box(sideDoor.x1 - sideDoor.x0 + 0.2, 0.14, 0.24, trim, (sideDoor.x0 + sideDoor.x1) / 2, 2.25, z0));
   // Enseigne au-dessus de l'entrée principale, tournée vers la place.
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.8), new THREE.MeshStandardMaterial({ map: garageSign(), roughness: 0.6 }));
   sign.rotation.y = Math.PI / 2;
-  sign.position.set(W + 0.16, H + 0.45, 0);
+  sign.position.set(x1 + 0.16, H + 0.45, 0);
   scene.add(sign);
-  scene.add(box(0.08, 0.9, 2.7, mat(0x1d1f22), W + 0.1, H + 0.45, 0));
+  scene.add(box(0.08, 0.9, 2.7, mat(0x1d1f22), x1 + 0.1, H + 0.45, 0));
 }
 
+/** La terrasse d'entrée : 2 m de large, 20 cm plus haut que la place, carrelée, avec sa marche. */
+function entryTerrace(scene: THREE.Scene) {
+  const t = GARAGE.entryTerrace;
+  const tiles = new THREE.MeshStandardMaterial({ map: terrazzo('#c9bfae', [2, 6]), roughness: 0.6 });
+  scene.add(box(t.x1 - t.x0, t.height, t.z1 - t.z0, tiles, (t.x0 + t.x1) / 2, t.height / 2, (t.z0 + t.z1) / 2));
+  // Bordure en pierre côté place.
+  scene.add(
+    box(0.12, t.height + 0.02, t.z1 - t.z0, mat(0xb9b3a7, { roughness: 0.85 }), t.x1 - 0.06, (t.height + 0.02) / 2, (t.z0 + t.z1) / 2),
+  );
+}
+
+/** Le comptoir, le long du mur nord ; Khalifa est derrière, dos au mur. */
 function counter(scene: THREE.Scene) {
-  const { counter: c, halfWidth: W } = GARAGE;
-  const length = c.z1 - c.z0;
-  const mid = (c.z0 + c.z1) / 2;
-  scene.add(box(c.depth, 1.0, length, MATERIALS.wood, c.x, 0.5, mid));
-  scene.add(box(c.depth + 0.1, 0.06, length + 0.05, MATERIALS.marble, c.x, 1.03, mid));
+  const { counter: c, room } = GARAGE;
+  const length = c.x1 - c.x0;
+  const mid = (c.x0 + c.x1) / 2;
+  scene.add(box(length, 1.0, c.depth, MATERIALS.wood, mid, 0.5, c.z));
+  scene.add(box(length + 0.05, 0.06, c.depth + 0.1, MATERIALS.marble, mid, 1.03, c.z));
   // Machine à café et tasses.
-  scene.add(box(0.5, 0.42, 0.7, MATERIALS.metal, c.x - 0.05, 1.27, c.z0 + 0.6));
-  scene.add(box(0.46, 0.1, 0.62, MATERIALS.black, c.x - 0.05, 1.53, c.z0 + 0.6));
-  for (let i = 0; i < 6; i++) scene.add(cylinder(0.045, 0.038, 0.07, MATERIALS.white, c.x + 0.15, 1.1, mid + 0.2 + i * 0.13, 10));
-  // Étagères avec des bouteilles et des boîtes, contre le mur derrière Khalifa.
+  scene.add(box(0.7, 0.42, 0.5, MATERIALS.metal, c.x1 - 0.5, 1.27, c.z - 0.05));
+  scene.add(box(0.62, 0.1, 0.46, MATERIALS.black, c.x1 - 0.5, 1.53, c.z - 0.05));
+  for (let i = 0; i < 6; i++) scene.add(cylinder(0.045, 0.038, 0.07, MATERIALS.white, c.x0 + 0.2 + i * 0.13, 1.1, c.z + 0.15, 10));
+  // Étagères avec des bouteilles, contre le mur nord derrière Khalifa.
   for (const y of [1.4, 1.9]) {
-    scene.add(box(0.25, 0.04, length, MATERIALS.darkWood, -W + 0.2, y, mid));
-    for (let i = 0; i < 8; i++) {
+    scene.add(box(length, 0.04, 0.25, MATERIALS.darkWood, mid, y, room.z0 + 0.2));
+    for (let i = 0; i < 5; i++) {
       const color = [0xc8732a, 0x2f6b3a, 0xe8e0d0, 0x8a1f1f][i % 4]!;
-      scene.add(cylinder(0.04, 0.04, 0.24, mat(color, { roughness: 0.3 }), -W + 0.2, y + 0.14, c.z0 + 0.25 + i * 0.38, 8));
+      scene.add(cylinder(0.04, 0.04, 0.24, mat(color, { roughness: 0.3 }), c.x0 + 0.2 + i * 0.36, y + 0.14, room.z0 + 0.2, 8));
     }
   }
+}
+
+/** Les WC, dans le coin nord-ouest : une petite pièce, sa porte vers la salle et son panneau. */
+function toilets(scene: THREE.Scene) {
+  const t = GARAGE.toilets;
+  const wall = mat(0xd9d4ca);
+  const h = 2.3;
+  scene.add(box(0.1, h, t.z1 - t.z0, wall, t.x1, h / 2, (t.z0 + t.z1) / 2));
+  // Mur côté salle, avec la porte (fermée) au milieu.
+  const doorW = 0.75;
+  const doorX = (t.x0 + t.x1) / 2;
+  scene.add(box(doorX - doorW / 2 - t.x0, h, 0.1, wall, (t.x0 + doorX - doorW / 2) / 2, h / 2, t.z1));
+  scene.add(box(t.x1 - (doorX + doorW / 2), h, 0.1, wall, (doorX + doorW / 2 + t.x1) / 2, h / 2, t.z1));
+  scene.add(box(doorW, h - 2.0, 0.1, wall, doorX, 2.0 + (h - 2.0) / 2, t.z1));
+  scene.add(box(doorW, 2.0, 0.06, mat(0x7a4a2a), doorX, 1.0, t.z1));
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.14), new THREE.MeshStandardMaterial({ map: wcSign(), roughness: 0.6 }));
+  sign.position.set(doorX, 1.65, t.z1 + 0.035);
+  scene.add(sign);
+  scene.add(cylinder(0.17, 0.15, 0.4, MATERIALS.white, t.x0 + 0.4, 0.2, t.z0 + 0.4, 12));
+}
+
+/** La télé, au mur ouest : le match. */
+function television(scene: THREE.Scene) {
+  const { tv, room } = GARAGE;
+  const screen = canvasTexture(256, 144, (ctx) => {
+    ctx.fillStyle = '#2f8a3a';
+    ctx.fillRect(0, 0, 256, 144);
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(10, 10, 236, 124);
+    ctx.beginPath();
+    ctx.moveTo(128, 10);
+    ctx.lineTo(128, 134);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(128, 72, 20, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(150, 60, 5, 5);
+  });
+  const height = tv.width * 0.56;
+  scene.add(box(0.08, height + 0.08, tv.width + 0.08, MATERIALS.black, room.x0 + 0.14, tv.y, tv.z));
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(tv.width, height), new THREE.MeshBasicMaterial({ map: screen }));
+  panel.rotation.y = Math.PI / 2;
+  panel.position.set(room.x0 + 0.19, tv.y, tv.z);
+  scene.add(panel);
 }
 
 /** Un client assis : sur la chaise, tourné vers sa table. */
@@ -203,10 +253,10 @@ export function createGarageScene(container: HTMLElement, labelLayer: HTMLElemen
   const bulbMaterial = new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffc46b, emissiveIntensity: 1.5 });
   const lamps: THREE.PointLight[] = [];
   for (const [x, z] of [
-    [2.7, 2.4],
-    [-1.9, 2.6],
+    [2.6, 2.4],
+    [-2.6, 2.6],
     [1.8, -2.7],
-    [-4.2, -2.5],
+    [-3.5, -2.6],
   ] as const) {
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), bulbMaterial);
     bulb.position.set(x, 2.45, z);
@@ -222,15 +272,19 @@ export function createGarageScene(container: HTMLElement, labelLayer: HTMLElemen
   const asphalt = mat(0x55585b, { roughness: 1 });
   ground(scene, asphalt);
   neighbours(scene);
+  const { room } = GARAGE;
   const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(GARAGE.halfWidth * 2, GARAGE.halfDepth * 2),
+    new THREE.PlaneGeometry(room.x1 - room.x0, room.z1 - room.z0),
     new THREE.MeshStandardMaterial({ map: terrazzo('#b9b2a6', [4, 3]), roughness: 0.55 }),
   );
   floor.rotation.x = -Math.PI / 2;
-  floor.position.y = 0.01;
+  floor.position.set((room.x0 + room.x1) / 2, 0.01, (room.z0 + room.z1) / 2);
   scene.add(floor);
   walls(scene);
+  entryTerrace(scene);
   counter(scene);
+  toilets(scene);
+  television(scene);
   // Le poteau au milieu de la salle.
   const { pillar } = GARAGE;
   scene.add(
@@ -245,12 +299,14 @@ export function createGarageScene(container: HTMLElement, labelLayer: HTMLElemen
     ),
   );
   scene.add(box(pillar.size + 0.04, 0.12, pillar.size + 0.04, MATERIALS.baseboard, pillar.x, 0.06, pillar.z));
-  for (const [x, z] of [
-    [5.5, 4.0],
-    [-5.6, 4.0],
-    [5.5, -4.0],
+  // Plantes : dans la salle et aux deux bouts de la terrasse d'entrée.
+  for (const [x, z, y] of [
+    [3.5, 4.0, 0],
+    [-5.6, 4.0, 0],
+    [5.6, -4.1, GARAGE.entryTerrace.height],
+    [5.6, 4.1, GARAGE.entryTerrace.height],
   ] as const)
-    scene.add(plant(x, 0, z, 0.85));
+    scene.add(plant(x, y, z, 0.85));
 
   // La place : une vieille voiture garée, la plaque de rue et un lampadaire.
   const car = new THREE.Group();
@@ -266,20 +322,20 @@ export function createGarageScene(container: HTMLElement, labelLayer: HTMLElemen
     wheel.rotation.z = Math.PI / 2;
     car.add(wheel);
   }
-  car.position.set(11.5, 0, -6.8);
-  car.rotation.y = 0.45;
+  car.position.set(14, 0, 4.5);
+  car.rotation.y = 0.3;
   scene.add(car);
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.52), new THREE.MeshStandardMaterial({ map: squareSign(), roughness: 0.6 }));
   plate.rotation.y = -Math.PI / 2;
   plate.position.set(17.15, 2.4, -2);
   scene.add(plate);
   const lampHead = new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffd08a, emissiveIntensity: 0 });
-  scene.add(cylinder(0.05, 0.06, 3.4, MATERIALS.black, 9, 1.7, -5));
+  scene.add(cylinder(0.05, 0.06, 3.4, MATERIALS.black, 11.5, 1.7, -4));
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8), lampHead);
-  head.position.set(9, 3.45, -5);
+  head.position.set(11.5, 3.45, -4);
   scene.add(head);
   const streetLight = new THREE.PointLight(0xffd08a, 0, 10, 1.4);
-  streetLight.position.set(9, 3.3, -5);
+  streetLight.position.set(11.5, 3.3, -4);
   scene.add(streetLight);
 
   /* ------------------------------- Les tables ------------------------------- */
@@ -344,8 +400,8 @@ export function createGarageScene(container: HTMLElement, labelLayer: HTMLElemen
     }
   });
 
-  // La terrasse : 4 tables laissées sur la rue du milieu (chaises à l'est et à l'ouest).
-  GARAGE_TERRACE.forEach((t, i) => {
+  // Dehors : 4 tables laissées sur la place, devant la terrasse d'entrée (chaises à l'est et à l'ouest).
+  GARAGE_PLACE_TABLES.forEach((t, i) => {
     scene.add(squareTable(0.7, t.x, 0, t.z));
     scene.add(chair(t.x + 0.55, 0, t.z, Math.PI / 2));
     scene.add(chair(t.x - 0.55, 0, t.z, -Math.PI / 2));
@@ -380,7 +436,7 @@ export function createGarageScene(container: HTMLElement, labelLayer: HTMLElemen
   const khalifa = createPerson(KHALIFA);
   khalifa.walk(0, 0);
   khalifa.root.position.set(KHALIFA_SPOT.x, 0, KHALIFA_SPOT.z);
-  khalifa.root.rotation.y = Math.PI / 2;
+  khalifa.root.rotation.y = 0;
   scene.add(khalifa.root);
   const rochdi = createPerson(ROCHDI);
   const rochdiTray = tray();
@@ -388,7 +444,7 @@ export function createGarageScene(container: HTMLElement, labelLayer: HTMLElemen
   rochdi.root.add(rochdiTray);
   scene.add(rochdi.root);
   // Toujours pressé : il marche presque deux fois plus vite que les serveurs du Café Tarek.
-  const rochdiWalk = new Walker(rochdi, ROCHDI_ROUND, 1.65, () => 0);
+  const rochdiWalk = new Walker(rochdi, ROCHDI_ROUND, 1.65, garageGroundAt);
 
   scene.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;
@@ -471,7 +527,7 @@ export function createGarageScene(container: HTMLElement, labelLayer: HTMLElemen
     khalifa.walk(0, 0);
     const pour = t % 6;
     if (pour < 1.4) khalifa.raiseArm(0.35 * Math.sin((pour / 1.4) * Math.PI));
-    khalifa.root.rotation.y = Math.PI / 2 + 0.12 * Math.sin(t * 0.4);
+    khalifa.root.rotation.y = 0.12 * Math.sin(t * 0.4);
     for (const s of players) {
       const slot = 1.5;
       const active = Math.floor(t / slot) % s.players === s.turn;
