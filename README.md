@@ -13,8 +13,9 @@ Jeu de belote coinchée tunisienne à 4, jouable dans le navigateur.
   exécutée côté serveur dans une Edge Function Supabase.
 - `src/ui/` : l'interface React (accueil, salon, table de jeu).
 - `src/ui/map/` : la carte de Oudhref (écran d'entrée, zoom avec deux doigts) et ses cafés ; seul le
-  Café Tarek est ouvert, le Café Garage se visite en 3D (`src/ui/cafe/garageScene.ts`) avant d'ouvrir au jeu,
-  les autres (Chouâa, Souk) affichent « مازلنا مسكرين ».
+  Café Tarek est ouvert ; les cafés Garage et Chouâa se visitent en 3D (`src/ui/cafe/garageScene.ts`,
+  `src/ui/cafe/chouaaScene.ts`, sur une base commune `visitStage.ts`) avant d'ouvrir au jeu ; le Café du Souk
+  affiche « مازلنا مسكرين ». Le plan du Café Chouâa vient de la maquette Revit « rayon.ifc » (`chouaaLayout.ts`).
 - `src/ui/cafe/` : la maquette 3D du Café Tarek (three.js, chargée seulement sur l'accueil),
   avec un plan 2D de secours si le téléphone n'affiche pas la 3D.
 - `supabase/` : schéma de la base, règles de sécurité (RLS) et fonction serveur `game`.

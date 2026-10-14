@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { createDeck } from '../engine/index.ts';
 import { preloadCards } from './CardView.tsx';
 import { Home } from './Home.tsx';
-import { GarageVisit } from './map/GarageVisit.tsx';
+import { CafeVisit } from './map/CafeVisit.tsx';
+import type { VisitCafeId } from './map/CafeVisit.tsx';
 import { TownMap } from './map/TownMap.tsx';
 import { setMusicMood } from './music.ts';
 import { LocalGame } from './LocalGame.tsx';
@@ -13,7 +14,7 @@ import type { SavedRoom } from './online/client.ts';
 
 type Screen =
   | { readonly kind: 'map' }
-  | { readonly kind: 'garage' }
+  | { readonly kind: 'visit'; readonly cafe: VisitCafeId }
   | { readonly kind: 'home' }
   | { readonly kind: 'local'; readonly targetScore: number }
   | { readonly kind: 'online'; readonly room: SavedRoom }
@@ -41,7 +42,7 @@ export function App() {
   useEffect(() => preloadCards(createDeck().map((c) => c.id)), []);
   // La musique baisse pendant les parties (et quand on regarde) : la voix passe avant.
   useEffect(
-    () => setMusicMood(screen.kind === 'home' || screen.kind === 'map' || screen.kind === 'garage' ? 'home' : 'game'),
+    () => setMusicMood(screen.kind === 'home' || screen.kind === 'map' || screen.kind === 'visit' ? 'home' : 'game'),
     [screen.kind],
   );
 
@@ -91,8 +92,8 @@ export function App() {
     );
   }
 
-  if (screen.kind === 'garage') {
-    return <GarageVisit onMap={() => setScreen({ kind: 'map' })} onTarek={() => setScreen({ kind: 'home' })} />;
+  if (screen.kind === 'visit') {
+    return <CafeVisit key={screen.cafe} cafe={screen.cafe} onMap={() => setScreen({ kind: 'map' })} onTarek={() => setScreen({ kind: 'home' })} />;
   }
 
   if (screen.kind === 'map') {
@@ -102,7 +103,7 @@ export function App() {
         busy={busy}
         error={error}
         onResume={(room) => void enterRoom({ type: 'join', code: room.code })}
-        onEnter={(cafe) => setScreen(cafe === 'garage' ? { kind: 'garage' } : { kind: 'home' })}
+        onEnter={(cafe) => setScreen(cafe === 'garage' || cafe === 'chouaa' ? { kind: 'visit', cafe } : { kind: 'home' })}
       />
     );
   }
