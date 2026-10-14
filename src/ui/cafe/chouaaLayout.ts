@@ -86,8 +86,8 @@ const ROWS = [-2.5, -0.75, 1.0, 2.75, 4.5];
 
 /**
  * Toutes les autres tables : le café est toujours encombré. Dans la salle, des rangées serrées ; un
- * couloir reste libre de l'entrée principale au comptoir, et une allée devant l'estrade. Sur l'estrade,
- * 3 tables. Dehors, la terrasse : le long de la façade sud et le long de la rue de côté.
+ * couloir reste libre de l'entrée principale au comptoir, et une allée devant l'estrade. Dehors, la
+ * terrasse le long de la façade sud. (Les tables hautes de l'estrade sont à part, plus bas.)
  */
 export const CHOUAA_TABLES: readonly ChouaaTable[] = [
   // Salle, côté ouest : 2 colonnes de tables à 4 chaises.
@@ -99,13 +99,32 @@ export const CHOUAA_TABLES: readonly ChouaaTable[] = [
   ...grid([1.9], ROWS, 'ns'),
   // Le long des 8 fenêtres de la rue de côté.
   ...grid([5.3], [-2.6, -0.9, 0.8, 2.5, 4.2], 'ns'),
-  // Sur l'estrade, à gauche du comptoir.
-  { x: -3.45, z: -5.9, chairs: 'four' },
-  { x: -1.8, z: -5.9, chairs: 'four' },
-  { x: -0.3, z: -5.9, chairs: 'ns' },
-  // La terrasse : sur le trottoir de la rue principale (à l'ouest de l'entrée) et de la rue de côté.
+  // La terrasse : sur le trottoir de la rue principale, à l'ouest de l'entrée (rien côté rue de côté).
   ...grid([-6.4, -4.6, -2.8, -1.0, 0.8], [7.35], 'ew'),
-  ...grid([7.15], [-5.6, -3.8, -2.0, -0.2, 1.6, 3.4], 'ns'),
+];
+
+/**
+ * Sur l'estrade, à gauche du comptoir : des tables hautes (1,05 m), deux tabourets hauts à l'est et à
+ * l'ouest, et de la place au nord et au sud pour ceux qui restent debout.
+ */
+export const HIGH_TABLE = { size: 0.6, height: 1.05, stoolDistance: 0.5, stoolSeat: 0.75 } as const;
+export const CHOUAA_HIGH_TABLES: readonly { readonly x: number; readonly z: number }[] = [
+  { x: -3.5, z: -5.85 },
+  { x: -2.0, z: -5.85 },
+  { x: -0.55, z: -5.85 },
+];
+
+/** L'emprise d'une table haute : ses tabourets à l'est et à l'ouest, les gens debout au nord et au sud. */
+export function highTableFootprint(t: { readonly x: number; readonly z: number }) {
+  const rx = HIGH_TABLE.stoolDistance + 0.2;
+  const rz = 0.75;
+  return { x0: t.x - rx, x1: t.x + rx, z0: t.z - rz, z1: t.z + rz };
+}
+
+/** Les clients debout au comptoir (côté salle, à droite du couloir de l'entrée). */
+export const COUNTER_STANDING: readonly { readonly x: number; readonly z: number }[] = [
+  { x: 4.6, z: -4.1 },
+  { x: 5.5, z: -4.1 },
 ];
 
 /** L'emprise d'une table avec ses chaises (vue de dessus). */
@@ -119,25 +138,23 @@ export function tableFootprint(t: { readonly x: number; readonly z: number; read
 
 /**
  * La tournée de Nizar, le serveur : la machine à café derrière le comptoir (par le petit passage le
- * long du mur du fond), l'allée devant l'estrade, le couloir de l'entrée, la terrasse de la rue
- * principale, puis celle de la rue de côté (il marche au bord de la chaussée), et retour au comptoir.
+ * long du mur du fond), les tables hautes de l'estrade, l'allée devant l'estrade, le couloir de l'entrée,
+ * la terrasse de la rue principale (il passe au bord de la chaussée), et retour au comptoir.
  */
 export const NIZAR_ROUND: readonly { readonly x: number; readonly z: number; readonly pause?: number }[] = [
   { x: 3.6, z: -6.1, pause: 2.5 },
   { x: 2.4, z: -7.05 },
   { x: 0.5, z: -7.05 },
-  { x: 0.4, z: -4.9 },
+  { x: 0.4, z: -4.9, pause: 1 },
   { x: 0.4, z: -3.85 },
   { x: -4.0, z: -3.85, pause: 1.2 },
   { x: 3.3, z: -3.85 },
   { x: 3.3, z: 1.0, pause: 1 },
   { x: 3.3, z: 6.0 },
   { x: 3.2, z: 7.4, pause: 1.2 },
-  { x: 5.4, z: 7.4 },
-  { x: 8.3, z: 6.6 },
-  { x: 8.3, z: -1.1, pause: 1.2 },
-  { x: 8.3, z: 6.6 },
-  { x: 5.4, z: 7.4 },
+  { x: 2.0, z: 8.45 },
+  { x: -5.5, z: 8.45, pause: 1.2 },
+  { x: 2.0, z: 8.45 },
   { x: 3.2, z: 7.4 },
   { x: 3.3, z: 5.5 },
   { x: 3.3, z: -3.85 },

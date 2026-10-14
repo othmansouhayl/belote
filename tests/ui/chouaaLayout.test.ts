@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   CHOUAA,
   CHOUAA_BELOTE_TABLES,
+  CHOUAA_HIGH_TABLES,
   CHOUAA_TABLES,
+  COUNTER_STANDING,
   NIZAR_ROUND,
   chouaaGroundAt,
+  highTableFootprint,
   tableFootprint,
 } from '../../src/ui/cafe/chouaaLayout.ts';
 
@@ -14,10 +17,11 @@ const inRect = (p: { x: number; z: number }, r: Rect, margin = 0) =>
   p.x > r.x0 - margin && p.x < r.x1 + margin && p.z > r.z0 - margin && p.z < r.z1 + margin;
 const overlap = (a: Rect, b: Rect) => a.x0 < b.x1 && b.x0 < a.x1 && a.z0 < b.z1 && b.z0 < a.z1;
 
-/** Toutes les tables, avec leurs chaises : les 2 de belote et les autres. */
+/** Toutes les tables, avec leurs chaises : les 2 de belote, les autres, et les tables hautes de l'estrade. */
 const footprints = [
   ...CHOUAA_BELOTE_TABLES.map((t) => tableFootprint({ ...t, chairs: 'four' }, true)),
   ...CHOUAA_TABLES.map((t) => tableFootprint(t)),
+  ...CHOUAA_HIGH_TABLES.map(highTableFootprint),
 ];
 
 /** Les points d'un segment, tous les 5 cm. */
@@ -56,13 +60,23 @@ describe('plan du Café Chouâa (relevé dans rayon.ifc)', () => {
     expect(CHOUAA.tv.x + CHOUAA.tv.width / 2).toBeLessThan(CHOUAA.mainDoor.x0);
   });
 
-  it('café encombré : au moins 4 fois plus de tables qu’avant (9), dont 2 seulement pour la belote, et une terrasse', () => {
+  it('café encombré, 2 tables seulement pour la belote, terrasse sur la rue principale seulement', () => {
     expect(CHOUAA_BELOTE_TABLES).toHaveLength(2);
-    expect(CHOUAA_TABLES.length + CHOUAA_BELOTE_TABLES.length).toBeGreaterThanOrEqual(36);
+    expect(CHOUAA_TABLES.length + CHOUAA_BELOTE_TABLES.length + CHOUAA_HIGH_TABLES.length).toBeGreaterThanOrEqual(30);
     const outside = CHOUAA_TABLES.filter((t) => !inRect(t, room));
-    expect(outside.length).toBeGreaterThanOrEqual(8);
-    // Les tables de la terrasse sont sur les trottoirs.
-    for (const t of outside) expect(chouaaGroundAt(t.x, t.z)).toBeCloseTo(CHOUAA.sidewalk.height);
+    expect(outside.length).toBeGreaterThanOrEqual(5);
+    for (const t of outside) {
+      // Sur le trottoir de la façade sud, et plus rien le long de la rue de côté (les 8 fenêtres).
+      expect(chouaaGroundAt(t.x, t.z)).toBeCloseTo(CHOUAA.sidewalk.height);
+      expect(t.z).toBeGreaterThan(room.z1);
+      expect(t.x).toBeLessThan(room.x1);
+    }
+  });
+
+  it('sur l’estrade : seulement des tables hautes (plus aucune petite table)', () => {
+    expect(CHOUAA_HIGH_TABLES.length).toBeGreaterThanOrEqual(3);
+    for (const t of CHOUAA_HIGH_TABLES) expect(chouaaGroundAt(t.x, t.z)).toBeCloseTo(estrade.height);
+    for (const t of CHOUAA_TABLES) expect(chouaaGroundAt(t.x, t.z)).not.toBeCloseTo(estrade.height);
   });
 
   it('aucune table ne touche une autre, un poteau, un mur, le comptoir, les WC ni le bord de l’estrade', () => {
@@ -100,6 +114,7 @@ describe('plan du Café Chouâa (relevé dans rayon.ifc)', () => {
         for (const pillar of CHOUAA.pillars) expect(Math.hypot(p.x - pillar.x, p.z - pillar.z)).toBeGreaterThan(0.45);
         for (const c of [counter.front, counter.back, toilets]) expect(inRect(p, c, 0.15)).toBe(false);
         for (const r of footprints) expect(inRect(p, r)).toBe(false);
+        for (const c of COUNTER_STANDING) expect(Math.hypot(p.x - c.x, p.z - c.z)).toBeGreaterThan(0.5);
         const alongSouth = p.x > room.x0 - 0.2 && p.x < room.x1 + 0.2;
         if (alongSouth && Math.abs(p.z - CHOUAA.mainDoor.z) < 0.12) {
           expect(p.x).toBeGreaterThan(CHOUAA.mainDoor.x0 + 0.2);
@@ -108,12 +123,11 @@ describe('plan du Café Chouâa (relevé dans rayon.ifc)', () => {
         // Jamais à travers le mur est, le mur du fond ni le mur ouest.
         if (p.z > room.z0 - 0.2 && p.z < CHOUAA.eastWallEnd) expect(Math.abs(p.x - (room.x1 + 0.1))).toBeGreaterThan(0.15);
         expect(p.z).toBeGreaterThan(room.z0 + 0.2);
-        expect(p.x).toBeGreaterThan(room.x0 + 0.2);
+        if (p.z < room.z1 + 0.2) expect(p.x).toBeGreaterThan(room.x0 + 0.2);
       }
     }
-    // Il passe bien derrière le comptoir, et sur les deux terrasses.
+    // Il passe bien derrière le comptoir, et dehors devant la terrasse.
     expect(NIZAR_ROUND.some((p) => inRect(p, { x0: counter.back.x1, x1: room.x1, z0: room.z0, z1: counter.front.z0 }))).toBe(true);
     expect(NIZAR_ROUND.some((p) => p.z > CHOUAA.sidewalk.z0)).toBe(true);
-    expect(NIZAR_ROUND.some((p) => p.x > CHOUAA.sideSidewalk.x0 && p.z < 0)).toBe(true);
   });
 });

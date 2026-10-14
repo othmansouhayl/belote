@@ -4,7 +4,19 @@ import { seatOffset } from './cafeLayout.ts';
 import type { SeatSide } from './cafeLayout.ts';
 import { NIZAR, Walker, createPerson, customerSpec, tray } from './characters.ts';
 import type { Person } from './characters.ts';
-import { BELOTE_TABLE, CHOUAA, CHOUAA_BELOTE_TABLES, CHOUAA_TABLES, CHOUAA_VIEW, NIZAR_ROUND, SMALL_TABLE, chouaaGroundAt } from './chouaaLayout.ts';
+import {
+  BELOTE_TABLE,
+  CHOUAA,
+  CHOUAA_BELOTE_TABLES,
+  CHOUAA_HIGH_TABLES,
+  CHOUAA_TABLES,
+  CHOUAA_VIEW,
+  COUNTER_STANDING,
+  HIGH_TABLE,
+  NIZAR_ROUND,
+  SMALL_TABLE,
+  chouaaGroundAt,
+} from './chouaaLayout.ts';
 import type { ChairLayout } from './chouaaLayout.ts';
 import { cardsOnTable } from './crowd.ts';
 import { drinkModel } from './tableProps.ts';
@@ -262,6 +274,32 @@ function television(scene: THREE.Scene) {
   scene.add(box(0.06, wallHeight - top, 0.06, MATERIALS.black, tv.x, (top + wallHeight) / 2, tv.z + 0.02));
 }
 
+/** Une table haute (mange-debout) : plateau carré, pied central, socle. */
+function highTable(x: number, y: number, z: number) {
+  const group = new THREE.Group();
+  const { size, height } = HIGH_TABLE;
+  group.add(box(size, 0.05, size, MATERIALS.tableBrown, 0, height - 0.025, 0));
+  group.add(cylinder(0.04, 0.04, height - 0.05, MATERIALS.metal, 0, (height - 0.05) / 2, 0, 8));
+  group.add(cylinder(0.24, 0.26, 0.03, MATERIALS.black, 0, 0.015, 0, 14));
+  group.position.set(x, y, z);
+  return group;
+}
+
+/** Un tabouret haut : assise ronde, pied central, repose-pieds. */
+function stool(x: number, y: number, z: number) {
+  const group = new THREE.Group();
+  const seat = HIGH_TABLE.stoolSeat;
+  group.add(cylinder(0.18, 0.17, 0.06, MATERIALS.chairBordeaux, 0, seat - 0.03, 0, 14));
+  group.add(cylinder(0.03, 0.03, seat - 0.06, MATERIALS.metal, 0, (seat - 0.06) / 2, 0, 8));
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.012, 6, 16), MATERIALS.metal);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.3;
+  group.add(ring);
+  group.add(cylinder(0.17, 0.19, 0.02, MATERIALS.black, 0, 0.01, 0, 14));
+  group.position.set(x, y, z);
+  return group;
+}
+
 /** Où sont les chaises selon la disposition, deux à deux face à face (les deux premières se font face). */
 const SIDES: Record<ChairLayout, readonly SeatSide[]> = {
   four: ['south', 'north', 'east', 'west'],
@@ -401,6 +439,61 @@ export function createChouaaScene(container: HTMLElement, labelLayer: HTMLElemen
         break;
     }
   });
+
+  // Sur l'estrade, les tables hautes : un ou deux sur les tabourets, d'autres debout autour.
+  const up = CHOUAA.estrade.height;
+  /** Assis sur un tabouret haut : la pose assise, posée plus haut (les jambes pendent). */
+  const perch = (x: number, z: number, rotation: number) => {
+    const person = customer();
+    seatPerson(scene, person, x, up + HIGH_TABLE.stoolSeat - 0.46, z, rotation);
+    return person;
+  };
+  const standAt = (x: number, y: number, z: number, rotation: number) => {
+    const person = customer();
+    person.walk(0, 0);
+    person.root.position.set(x, y, z);
+    person.root.rotation.y = rotation;
+    scene.add(person.root);
+    return person;
+  };
+  CHOUAA_HIGH_TABLES.forEach((t, i) => {
+    furniture.add(highTable(t.x, up, t.z));
+    const d = HIGH_TABLE.stoolDistance;
+    furniture.add(stool(t.x - d, up, t.z), stool(t.x + d, up, t.z));
+    const top = up + HIGH_TABLE.height;
+    if (i === 0) {
+      const a = perch(t.x - d, t.z, Math.PI / 2);
+      const b = standAt(t.x, up, t.z + 0.5, Math.PI);
+      const glass = drinkModel('tey');
+      glass.position.set(t.x, top, t.z);
+      scene.add(glass);
+      talkers.push({ person: a, offset: 0.7 }, { person: b, offset: 3.1 });
+    } else if (i === 1) {
+      // Deux debout qui jouent aux cartes sur la table haute, un troisième regarde.
+      const a = standAt(t.x, up, t.z - 0.5, 0);
+      const b = standAt(t.x, up, t.z + 0.5, Math.PI);
+      standAt(t.x + d + 0.05, up, t.z + 0.45, -2.3);
+      const cards = cardsOnTable(2);
+      cards.position.set(t.x, top, t.z);
+      scene.add(cards);
+      players.push({ person: a, turn: 0, players: 2 }, { person: b, turn: 1, players: 2 });
+    } else {
+      const a = perch(t.x + d, t.z, -Math.PI / 2);
+      const cup = drinkModel('express');
+      cup.position.set(t.x + 0.12, top, t.z);
+      scene.add(cup);
+      talkers.push({ person: a, offset: 1.9 });
+    }
+  });
+  // Au comptoir, côté salle : deux clients debout avec leur express.
+  COUNTER_STANDING.forEach((c, i) => {
+    const person = standAt(c.x, 0, c.z, Math.PI);
+    if (i === 0) talkers.push({ person, offset: 4.2 });
+    const cup = drinkModel('express');
+    cup.position.set(c.x, CHOUAA.estrade.height + CHOUAA.counter.height, CHOUAA.counter.front.z1 - 0.2);
+    scene.add(cup);
+  });
+
   scene.add(mergeByMaterial(furniture));
 
   // Un habitué debout près d'une table de belote : il attend qu'elle ouvre.
