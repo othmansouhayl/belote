@@ -1,8 +1,7 @@
 import { Component, Suspense, lazy, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { CAFE_TABLE_COUNT, ROOM_CODE_LENGTH, TARGET_SCORES } from '../server/rooms.ts';
-import { SoundToggle } from './SoundToggle.tsx';
-import { BrandMark } from './icons.tsx';
+import { BrandHeader, SiteFooter } from './BrandHeader.tsx';
 import { Remote } from './Remote.tsx';
 import { CHANNELS, useMusic } from './music.ts';
 import { promptInstall, useInstallState } from './install.ts';
@@ -28,6 +27,8 @@ interface HomeProps {
   readonly onJoin: (code: string) => void;
   readonly onResume: (room: SavedRoom) => void;
   readonly onWatch: (roomId: string, table: number) => void;
+  /** Retour à la carte de Oudhref (choix du café). */
+  readonly onMap: () => void;
 }
 
 /** Si la 3D ne peut pas se charger (vieux téléphone, hors ligne), on affiche le plan en 2D. */
@@ -57,7 +58,7 @@ function toSceneTables(tables: readonly CafeTable[]): SceneTable[] {
 }
 
 export function Home(props: HomeProps) {
-  const { nickname, onNickname, initialCode, savedRoom, busy, error, onLocal, onCreate, onJoin, onResume, onWatch } = props;
+  const { nickname, onNickname, initialCode, savedRoom, busy, error, onLocal, onCreate, onJoin, onResume, onWatch, onMap } = props;
   const { tables, endings } = useCafeTables();
   const music = useMusic();
   const nowPlaying = music.on ? CHANNELS[music.channel]! : null;
@@ -260,22 +261,7 @@ export function Home(props: HomeProps) {
 
   return (
     <div className="home-cafe">
-      <header className="cafe-header">
-        <div className="brand">
-          <BrandMark />
-          <div className="brand__titles">
-            <h1 className="brand__name">Kaboot Dineri</h1>
-            <p className="brand__tag">
-              <span lang="ar" dir="rtl">
-                كبوط ديناري
-              </span>
-              <span aria-hidden="true"> · </span>
-              <span>Belote au Café Tarek</span>
-            </p>
-          </div>
-        </div>
-        <SoundToggle className="cafe-header__sound" />
-      </header>
+      <BrandHeader place="Belote au Café Tarek" />
 
       <div className="cafe-stage">
         {webgl ? (
@@ -308,6 +294,9 @@ export function Home(props: HomeProps) {
           </button>
         )}
         <Remote />
+        <button type="button" className="cafe-back" onClick={onMap} aria-label="Revenir à la carte de Oudhref">
+          ‹ <span lang="ar">وذرف</span>
+        </button>
         {full && !selected && (
           <p className="cafe-full" role="status">
             Café complet · touche une table pour regarder en spectateur
@@ -338,12 +327,7 @@ export function Home(props: HomeProps) {
           </button>
         )}
         {sheet}
-        <footer className="site-footer">
-          Ce jeu est développé par{' '}
-          <a href="https://www.linkedin.com/in/souhayl-othman/" target="_blank" rel="noopener noreferrer">
-            Souhayl Othman
-          </a>
-        </footer>
+        <SiteFooter />
         {error && (
           <p className="screen__error" role="alert">
             {error}

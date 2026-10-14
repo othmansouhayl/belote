@@ -3241,3 +3241,289 @@ button:focus-visible {
 .order__pen s {
   opacity: 0.7;
 }
+
+/* ---------------------------------------------------------------------------
+ * Carte de Oudhref (écran d'entrée) : les cafés de la ville
+ * ------------------------------------------------------------------------- */
+
+.town__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px 8px;
+  background: radial-gradient(ellipse at 50% 40%, #1d3a2b, #0d2219 70%);
+}
+
+.town__map {
+  width: 100%;
+  height: 100%;
+  max-width: 560px;
+  border-radius: 18px;
+  font-family: 'Cairo Variable', sans-serif;
+}
+
+.town__fields {
+  fill: #d9e4c7;
+}
+
+.town__city {
+  fill: #f5efe2;
+  stroke: #e3d8c2;
+  stroke-width: 2;
+}
+
+.town__water {
+  fill: #9fd1ea;
+}
+
+.town__park {
+  fill: #a7d08f;
+}
+
+.town__street {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.town__road-edge {
+  fill: none;
+  stroke: #9aa4ad;
+  stroke-width: 11;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.town__road-edge--main {
+  stroke: #7d8a96;
+  stroke-width: 15;
+}
+
+.town__road {
+  fill: none;
+  stroke: #ffe7a3;
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.town__road--main {
+  stroke: #ffffff;
+  stroke-width: 10;
+}
+
+.town__shield rect {
+  fill: #c62828;
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+
+.town__shield--green rect {
+  fill: #2e7d32;
+}
+
+.town__shield text {
+  fill: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.town__title {
+  fill: rgba(60, 50, 35, 0.32);
+  font-family: 'Lalezar', 'Cairo Variable', sans-serif;
+  font-size: 40px;
+}
+
+.town__subtitle {
+  fill: rgba(60, 50, 35, 0.4);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+
+.town-pin {
+  cursor: pointer;
+  outline: none;
+}
+
+.town-pin__hit {
+  fill: transparent;
+}
+
+.town-pin__drop {
+  fill: #9aa0a6;
+  stroke: #ffffff;
+  stroke-width: 2;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
+}
+
+.town-pin--open .town-pin__drop {
+  fill: #c62828;
+}
+
+.town-pin__icon {
+  font-size: 13px;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.town-pin__name {
+  fill: #2b2118;
+  font-size: 15px;
+  font-weight: 800;
+  paint-order: stroke;
+  stroke: #fffaf0;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.town-pin__fr {
+  fill: #5a4d3e;
+  font-size: 10px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #fffaf0;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.town-pin--locked .town-pin__name,
+.town-pin--locked .town-pin__fr {
+  fill: #6f675d;
+}
+
+.town-pin__pulse {
+  fill: none;
+  stroke: #c62828;
+  stroke-width: 3;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: town-pulse 1.8s ease-out infinite;
+}
+
+@keyframes town-pulse {
+  from {
+    opacity: 0.8;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+.town-pin:focus-visible .town-pin__drop,
+.town-pin--selected .town-pin__drop {
+  stroke: var(--gold);
+  stroke-width: 3;
+}
+
+.town__closed {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(10, 22, 16, 0.9);
+  border: 1px solid rgba(240, 195, 90, 0.6);
+  color: var(--gold);
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.town__sign {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  text-align: center;
+  color: var(--gold);
+}
+
+.town__list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.town__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink-soft);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.town__item--open {
+  border-color: rgba(240, 195, 90, 0.7);
+  background: rgba(240, 195, 90, 0.12);
+  color: var(--ink);
+}
+
+.town__item-name {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.town__item-name [lang='ar'] {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.town__item-name small {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.town__item-state {
+  font-size: 0.85rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.town__item--open .town__item-state {
+  color: var(--gold);
+}
+
+.cafe-back {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 4;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid rgba(240, 195, 90, 0.6);
+  border-radius: 999px;
+  background: rgba(10, 22, 16, 0.85);
+  color: var(--gold);
+  font: inherit;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .town-pin__pulse {
+    animation: none;
+    opacity: 0;
+  }
+}
