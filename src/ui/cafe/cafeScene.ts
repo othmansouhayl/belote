@@ -32,8 +32,6 @@ export interface CafeSceneHandle {
   focusTable(number: number): void;
   /** Une partie vient de finir à cette table : le patron y va et dit « اللي شاح يلبس ». */
   announceEnd(number: number): void;
-  /** La télé passe la musique choisie à la télécommande, ou le match. */
-  showOnTv(nowPlaying: { readonly artist: string; readonly title: string } | null): void;
   dispose(): void;
 }
 
@@ -48,7 +46,7 @@ interface Callbacks {
 /**
  * Petites scènes pendant le match, à la table des joueurs :
  * - « order » : Mohamed Naceur apporte tapis, carton et stylo, et prend la commande ;
- * - « drinks » : à 500 points, Nader apporte les boissons (toujours les mauvaises) ;
+ * - « drinks » : à 500 points, Nader apporte les boissons (il se trompe pour une seule personne) ;
  * - « hung » : à 1000 points, Nader vient presser la table, le match à la télé va commencer.
  */
 export interface Cutscene {
@@ -164,31 +162,10 @@ const garageDoor = () =>
     }
   });
 
-/** Le match (par défaut) ou la musique en cours, dessinés sur l'écran de la télé. */
-function drawTv(ctx: CanvasRenderingContext2D, nowPlaying: { readonly artist: string; readonly title: string } | null) {
+/** La télé du café : le match. */
+function drawTv(ctx: CanvasRenderingContext2D) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, 512, 288);
-  if (nowPlaying) {
-    const sky = ctx.createLinearGradient(0, 0, 0, 288);
-    sky.addColorStop(0, '#3a1420');
-    sky.addColorStop(1, '#120a10');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, 512, 288);
-    ctx.fillStyle = '#f0c35a';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = 'bold 64px sans-serif';
-    ctx.fillText('♫', 256, 70);
-    ctx.font = 'bold 46px "Noto Naskh Arabic", "Geeza Pro", "Segoe UI", sans-serif';
-    ctx.direction = 'rtl';
-    ctx.fillText(nowPlaying.artist, 256, 148);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '600 36px "Noto Naskh Arabic", "Geeza Pro", "Segoe UI", sans-serif';
-    ctx.direction = nowPlaying.title.match(/[\u0600-\u06ff]/) ? 'rtl' : 'ltr';
-    ctx.fillText(nowPlaying.title, 256, 220);
-    ctx.direction = 'ltr';
-    return;
-  }
   // Le match : terrain dessiné en 256 × 144, agrandi ×2.
   ctx.scale(2, 2);
   ctx.fillStyle = '#2f8f3a';
@@ -587,7 +564,7 @@ function buildRoom(scene: THREE.Scene): RoomHandles {
   const tvCanvas = document.createElement('canvas');
   tvCanvas.width = 512;
   tvCanvas.height = 288;
-  drawTv(tvCanvas.getContext('2d')!, null);
+  drawTv(tvCanvas.getContext('2d')!);
   const tvTexture = new THREE.CanvasTexture(tvCanvas);
   tvTexture.colorSpace = THREE.SRGBColorSpace;
   const screen = new THREE.Mesh(
@@ -1609,12 +1586,6 @@ export function createCafeScene(
     update,
     goTo,
     focusTable,
-    showOnTv(nowPlaying) {
-      const canvas = room.tv.image as HTMLCanvasElement;
-      drawTv(canvas.getContext('2d')!, nowPlaying);
-      room.tv.needsUpdate = true;
-      requestRender();
-    },
     announceEnd(number: number) {
       const spot = BELOTE_TABLES.find((t) => t.number === number);
       if (spot && !pendingVisits.includes(spot)) pendingVisits.push(spot);

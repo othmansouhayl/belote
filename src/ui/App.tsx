@@ -5,7 +5,7 @@ import { Home } from './Home.tsx';
 import { CafeVisit } from './map/CafeVisit.tsx';
 import type { VisitCafeId } from './map/CafeVisit.tsx';
 import { TownMap } from './map/TownMap.tsx';
-import { setMusicMood } from './music.ts';
+import { setAmbienceMood } from './ambience.ts';
 import { LocalGame } from './LocalGame.tsx';
 import { OnlineRoom } from './online/OnlineRoom.tsx';
 import { WatchRoom } from './online/WatchRoom.tsx';
@@ -40,9 +40,9 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => preloadCards(createDeck().map((c) => c.id)), []);
-  // La musique baisse pendant les parties (et quand on regarde) : la voix passe avant.
+  // L'ambiance du café baisse pendant les parties (et quand on regarde) : la voix passe avant.
   useEffect(
-    () => setMusicMood(screen.kind === 'home' || screen.kind === 'map' || screen.kind === 'visit' ? 'home' : 'game'),
+    () => setAmbienceMood(screen.kind === 'home' || screen.kind === 'map' || screen.kind === 'visit' ? 'home' : 'game'),
     [screen.kind],
   );
 

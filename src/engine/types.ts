@@ -36,6 +36,8 @@ export interface BiddingState {
   readonly consecutivePasses: number;
   /** Joueurs de l'équipe preneuse qui peuvent encore surcoincher, dans l'ordre. */
   readonly pendingSurcoinche: readonly Seat[];
+  /** « Couleur prise » (règle [37]) : les enchères se sont arrêtées net, la manche se joue sur cette donne. */
+  readonly winsGame?: boolean;
 }
 
 export interface PlayedCard {
@@ -57,8 +59,8 @@ export interface FinalContract extends Contract {
   readonly coinchedBy: Seat | null;
   readonly surcoinchedBy: Seat | null;
   /**
-   * Couleur prise à l'adversaire (règle [37]) : après « 90 » d'un adversaire, le preneur a annoncé
-   * la même couleur à 110 ou plus. S'il réussit, son équipe gagne directement la manche.
+   * Couleur prise à l'adversaire (règle [37]) : sur « 90 » ou « 100 » d'un adversaire, le preneur a
+   * annoncé la même couleur à 110 ou plus. S'il réussit, son équipe gagne directement la manche.
    */
   readonly winsGame?: boolean;
 }

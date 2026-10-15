@@ -4,7 +4,7 @@ export { createRng, randomInt, type Rng } from './random.ts';
 export { SEATS, nextSeat, partnerOf, teamOf } from './seats.ts';
 export { SUITS, RANKS, SUIT_LABELS, cardId, cardLabel, cardPoints, cardStrength, createDeck, shuffleDeck } from './deck.ts';
 export { CARDS_PER_PLAYER, dealCards, validateDealPattern } from './deal.ts';
-export { applyBid, bidLabel, bidValues, createBiddingState, getLegalBids, getOutOfTurnBids, takesOpponentSuit, validateBid, validateCoinche } from './bidding.ts';
+export { applyBid, bidLabel, bidValues, createBiddingState, getLegalBids, getOutOfTurnBids, isStolenSuitBid, trumpMinimumBid, validateBid, validateCoinche } from './bidding.ts';
 export { getLegalCards, resolveTrick, validatePlay, winningCard } from './play.ts';
 export { TOTAL_HAND_POINTS, applyHandScore, calculateHandPoints, resolveContract, roundToTen, type HandRemainder } from './scoring.ts';
 export { applyAction, canClaim, contractLost, createGame, legalBids, legalCards, startNextHand, type CreateGameOptions } from './game.ts';

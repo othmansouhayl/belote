@@ -60,7 +60,7 @@ describe('« تي إفرش عاد » en cours de pli (à son tour de jouer)', ()
   const noTricks = [] as const;
 
   it('Valet + 9 d’atout alors qu’un adversaire a entamé Carreau (cas de la capture)', () => {
-    // Sami (place 1) a entamé le 10 de Carreau ; c'est à la place 2 (Valet + 9 de Cœur, atout).
+    // Belgacem (place 1) a entamé le 10 de Carreau ; c'est à la place 2 (Valet + 9 de Cœur, atout).
     expect(canClaimNow(cards('VC 9C'), noTricks, trick(1, '10K'), 2, 'coeur', rules())).toBe(true);
   });
 

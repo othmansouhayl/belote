@@ -1,4 +1,4 @@
-import { MusicControls } from './MusicControls.tsx';
+import { AmbienceControls } from './AmbienceControls.tsx';
 
 export interface MenuAction {
   readonly label: string;
@@ -7,7 +7,7 @@ export interface MenuAction {
   readonly hint?: string;
 }
 
-/** Menu ☰ de la partie : musique (volume, couper) et les façons de quitter. */
+/** Menu ☰ de la partie : ambiance du café (volume, couper) et les façons de quitter. */
 export function GameMenu({ actions, onClose }: { readonly actions: readonly MenuAction[]; readonly onClose: () => void }) {
   return (
     <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="game-menu-title" onClick={onClose}>
@@ -15,7 +15,7 @@ export function GameMenu({ actions, onClose }: { readonly actions: readonly Menu
         <h2 id="game-menu-title" className="dialog__title">
           Menu
         </h2>
-        <MusicControls mood="game" />
+        <AmbienceControls mood="game" />
         <div className="game-menu__actions">
           {actions.map((action) => (
             <div key={action.label} className="game-menu__action">

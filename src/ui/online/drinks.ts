@@ -38,17 +38,31 @@ function hash(text: string): number {
   return h >>> 0;
 }
 
-/**
- * Ce que Nader apporte vraiment : jamais ce qui a été commandé (il oublie toujours).
- * Le même pour les 4 joueurs (calculé à partir de la table et de la manche), sans passer par le serveur.
- */
+/** La mauvaise boisson que Nader apporte à celui qui n'a pas de chance : jamais celle qu'il a commandée. */
 export function servedDrink(ordered: Drink, key: string): Drink {
   const others = DRINKS.filter((d) => d !== ordered);
   return others[hash(`${key}:${ordered}`) % others.length]!;
 }
 
+/** La place qui reçoit la mauvaise boisson : une seule par table, tirée à partir de la table et de la manche. */
+export function unluckySeat(ordered: Partial<Record<number, Drink>>, key: string): number | null {
+  const seats = Object.keys(ordered)
+    .map(Number)
+    .filter((seat) => ordered[seat])
+    .sort((a, b) => a - b);
+  return seats.length === 0 ? null : seats[hash(`${key}:malchanceux`) % seats.length]!;
+}
+
+/**
+ * Ce que Nader apporte vraiment : il se trompe pour **une seule** personne de la table, les autres
+ * ont ce qu'elles ont commandé. Le même résultat sur les 4 téléphones (calculé à partir de la table
+ * et de la manche), sans passer par le serveur.
+ */
 export function servedDrinks(ordered: Partial<Record<number, Drink>>, key: string): Partial<Record<number, Drink>> {
+  const unlucky = unluckySeat(ordered, key);
   const served: Partial<Record<number, Drink>> = {};
-  for (const [seat, drink] of Object.entries(ordered)) if (drink) served[Number(seat)] = servedDrink(drink, `${key}:${seat}`);
+  for (const [seat, drink] of Object.entries(ordered)) {
+    if (drink) served[Number(seat)] = Number(seat) === unlucky ? servedDrink(drink, `${key}:${seat}`) : drink;
+  }
   return served;
 }

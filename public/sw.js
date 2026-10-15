@@ -1,6 +1,6 @@
 // Service worker : rend le site installable et jouable hors ligne (mode contre les bots).
 // Les appels à Supabase (jeu en ligne, vocal) ne passent jamais par le cache.
-const CACHE = 'belote-v4';
+const CACHE = 'belote-v5';
 const PRECACHE = [
   "./",
   "index.html",
@@ -61,8 +61,6 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
-  // Musique : lue en continu par le navigateur, jamais mise en cache (fichiers lourds).
-  if (url.pathname.includes('/music/')) return;
 
   // Pages : le réseau d'abord (toujours la dernière version), le cache si hors ligne.
   if (request.mode === 'navigate') {

@@ -72,7 +72,7 @@ function maxBidFor(hand: readonly Card[], suit: Suit, config: RulesConfig): numb
 
 function chooseBid(view: BotView): BidAction {
   const { bidding, hand, seat, config } = view;
-  const legal = getLegalBids(bidding, seat, config);
+  const legal = getLegalBids(bidding, seat, config, hand);
   const has = (type: BidAction['type']) => legal.some((a) => a.type === type);
   const contract = bidding.contract;
 

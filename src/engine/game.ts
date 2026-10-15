@@ -15,7 +15,7 @@ import type {
 import { type RulesConfig, makeRules } from './rulesConfig.ts';
 import { shuffleDeck } from './deck.ts';
 import { dealCards, validateDealPattern } from './deal.ts';
-import { applyBid, createBiddingState, getLegalBids, getOutOfTurnBids, takesOpponentSuit, validateBid } from './bidding.ts';
+import { applyBid, createBiddingState, getLegalBids, getOutOfTurnBids, validateBid } from './bidding.ts';
 import { getLegalCards, resolveTrick, validatePlay } from './play.ts';
 import { applyHandScore, resolveContract } from './scoring.ts';
 import type { HandRemainder } from './scoring.ts';
@@ -100,7 +100,7 @@ export function startNextHand(state: GameState, dealPattern?: DealPattern): Acti
 export function legalBids(state: GameState, seat: Seat): BidAction[] {
   if (state.phase !== 'bidding') return [];
   if (state.currentPlayer !== seat) return getOutOfTurnBids(state.bidding, seat, state.config);
-  return getLegalBids(state.bidding, seat, state.config);
+  return getLegalBids(state.bidding, seat, state.config, state.hands[seat]);
 }
 
 const sameBid = (a: BidAction, b: BidAction) =>
@@ -151,7 +151,7 @@ export function applyAction(state: GameState, seat: Seat, action: GameAction): A
 }
 
 function applyBidAction(state: GameState, seat: Seat, bid: BidAction): ActionResult {
-  const check = validateBid(state.bidding, seat, bid, state.config);
+  const check = validateBid(state.bidding, seat, bid, state.config, state.hands[seat]);
   if (!check.ok) return check;
   const step = applyBid(state.bidding, seat, bid, state.config);
 
@@ -177,7 +177,7 @@ function applyBidAction(state: GameState, seat: Seat, bid: BidAction): ActionRes
     multiplier,
     coinchedBy: bidding.coinchedBy,
     surcoinchedBy: bidding.surcoinchedBy,
-    ...(takesOpponentSuit(bidding, bidding.contract, state.config) ? { winsGame: true } : {}),
+    ...(bidding.winsGame ? { winsGame: true } : {}),
   };
   const trump = contract.suit;
   const holder = state.hands.findIndex(

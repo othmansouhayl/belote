@@ -31,11 +31,21 @@ export interface RulesConfig {
   /** À CONFIRMER [3] : si tout le monde passe, la donne est annulée et le donneur suivant redistribue. */
   readonly noBidRedeal: true;
   /**
-   * VALIDÉ [37] : « couleur prise ». Après « 90 » d'un joueur, un adversaire peut annoncer la même
-   * couleur ; s'il l'annonce à 110 ou plus (كبوط compris) et réussit son contrat, son équipe gagne
-   * directement la manche (la partie en 1500). S'il chute : chute normale. null = règle désactivée.
+   * VALIDÉ [37] : « couleur prise ». Sur « 90 » ou « 100 » d'un adversaire (le contrat en cours), on
+   * annonce la même couleur à 110 ou plus (كبوط compris) : pas de retour en arrière, les enchères
+   * s'arrêtent net (plus d'enchère ni de contrée) et la manche se joue sur cette donne. Contrat
+   * réussi : son équipe gagne directement la manche (la partie en 1500) ; chuté : chute normale.
+   * null = règle désactivée.
    */
-  readonly stolenSuitWinsGame: { readonly opponentBid: number; readonly minimum: number } | null;
+  readonly stolenSuitWinsGame: { readonly opponentBids: readonly number[]; readonly minimum: number } | null;
+  /**
+   * VALIDÉ [39] : plus de fausse annonce. Avec, dans la couleur annoncée, le Valet et le 9 plus :
+   * Dame, 7 ou 8 → au moins 90 ; Roi, 10 ou As → au moins 100 ; l'As et le 10 (V + 9 + As + 10,
+   * on ramasse tout l'atout) → au moins 130 avec une seule autre couleur en main, 120 avec deux,
+   * 110 avec les trois. Sans V + 9, on annonce librement ; pour monter sur la couleur de son
+   * partenaire, c'est libre aussi.
+   */
+  readonly trumpBidMinimums: boolean;
 
   // Distribution et rotation
   readonly dealPatterns: readonly DealPattern[];
@@ -156,7 +166,8 @@ export const DEFAULT_RULES: RulesConfig = {
   allowOutOfTurnCoinche: true,
   allowOutOfTurnCapot: true,
   noBidRedeal: true,
-  stolenSuitWinsGame: { opponentBid: 90, minimum: 110 },
+  stolenSuitWinsGame: { opponentBids: [90, 100], minimum: 110 },
+  trumpBidMinimums: true,
 
   dealPatterns: [
     [4, 4],
