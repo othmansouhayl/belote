@@ -1,5 +1,6 @@
 import { DEFAULT_ICE_SERVERS, parseIceServers } from '../voice/protocol.ts';
 import type { IceServer } from '../voice/protocol.ts';
+import { spectatorMode } from './rooms.ts';
 import type { RoomStore } from './types.ts';
 
 export type VoiceConfigResponse =
@@ -38,8 +39,9 @@ const isUuid = (v: unknown): v is string =>
   typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
 /**
- * Donne les serveurs STUN/TURN aux seuls membres du salon : les identifiants TURN
- * ne sont pas publiés dans le site, ce qui limite leur usage abusif.
+ * Donne les serveurs STUN/TURN aux seuls membres du salon (et aux spectateurs inscrits quand les
+ * joueurs les laissent écouter) : les identifiants TURN ne sont pas publiés dans le site, ce qui
+ * limite leur usage abusif.
  */
 export async function handleVoiceConfig(
   store: RoomStore,
@@ -50,7 +52,8 @@ export async function handleVoiceConfig(
   const roomId = typeof raw === 'object' && raw !== null ? (raw as { roomId?: unknown }).roomId : undefined;
   if (!isUuid(roomId)) return { ok: false, error: 'Requête invalide.' };
   const room = await store.loadById(roomId);
-  if (!room || !room.players.some((p) => p.playerId === playerId)) {
+  const listener = room && spectatorMode(room) === 'listen' && (room.spectators ?? []).some((s) => s.userId === playerId);
+  if (!room || (!room.players.some((p) => p.playerId === playerId) && !listener)) {
     return { ok: false, error: 'Vous ne faites pas partie de ce salon.' };
   }
   let turn: readonly IceServer[] | null = null;

@@ -21,6 +21,8 @@ Jeu de belote coinchée tunisienne à 4, jouable dans le navigateur.
 - `supabase/` : schéma de la base, règles de sécurité (RLS) et fonction serveur `game`.
 - `docs/SUPABASE.md` : les étapes à faire une seule fois sur le site de Supabase.
 - `src/voice/`, `src/ui/online/voice/` : le vocal (WebRTC entre les 4 joueurs).
+  Les spectateurs autorisés à écouter reçoivent la voix des joueurs sur un canal à part
+  (`ecoute:<salon>`, `src/voice/listen.ts`), en écoute seule.
 - `docs/VOCAL.md` : fonctionnement du vocal et configuration du serveur TURN.
 
 ## Multijoueur : comment ça marche

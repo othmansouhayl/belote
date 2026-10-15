@@ -89,6 +89,8 @@ export class VoiceMesh {
   private readonly peers = new Map<VoiceSeat, Peer>();
   private speaking = new Set<VoiceSeat>();
   private levelTimer: ReturnType<typeof setInterval> | null = null;
+  /** Ceux qui veulent le micro du joueur (l'envoi aux spectateurs qui écoutent). */
+  private readonly streamListeners = new Set<(stream: MediaStream | null, muted: boolean) => void>();
 
   constructor(
     private mySeat: VoiceSeat,
@@ -130,6 +132,29 @@ export class VoiceMesh {
     this.levelTimer = setInterval(() => this.measureLevels(), 100);
     this.send({ type: 'hello', seat: this.mySeat, session: this.session, muted: this.isMutedForOthers() });
     this.emit();
+    this.notifyStream();
+  }
+
+  /** Suit le micro du joueur (null hors du vocal ou sans micro) ; appelé tout de suite avec l'état actuel. */
+  subscribeLocalStream(listener: (stream: MediaStream | null, muted: boolean) => void): () => void {
+    this.streamListeners.add(listener);
+    listener(this.sharedStream(), this.isMutedForOthers());
+    return () => {
+      this.streamListeners.delete(listener);
+    };
+  }
+
+  /** Les serveurs STUN/TURN obtenus en entrant dans le vocal. */
+  currentIceServers(): readonly IceServer[] {
+    return this.iceServers;
+  }
+
+  private sharedStream(): MediaStream | null {
+    return this.status === 'on' && !this.listenOnly ? this.localStream : null;
+  }
+
+  private notifyStream(): void {
+    for (const listener of this.streamListeners) listener(this.sharedStream(), this.isMutedForOthers());
   }
 
   leave(): void {
@@ -154,6 +179,7 @@ export class VoiceMesh {
     this.speaking = new Set();
     this.session = crypto.randomUUID();
     this.emit();
+    this.notifyStream();
   }
 
   setMuted(muted: boolean): void {
@@ -161,6 +187,7 @@ export class VoiceMesh {
     this.localStream?.getAudioTracks().forEach((t) => (t.enabled = !muted));
     if (this.status === 'on') this.send({ type: 'mute', seat: this.mySeat, session: this.session, muted: this.isMutedForOthers() });
     this.emit();
+    this.notifyStream();
   }
 
   /** Relance la lecture du son (et le micro s'il a été coupé par le téléphone) après un appui. */
@@ -394,6 +421,7 @@ export class VoiceMesh {
       this.micInterrupted = false;
       this.watchLocalTrack();
       this.attachLocalAnalyser();
+      this.notifyStream();
     } catch (error) {
       this.micProblem = micErrorMessage(error);
     }

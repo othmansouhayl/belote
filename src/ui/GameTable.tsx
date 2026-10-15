@@ -35,6 +35,8 @@ interface GameTableProps {
   /** Vrai pendant l'envoi d'une action au serveur : on évite les doubles envois. */
   readonly busy?: boolean;
   readonly banner?: string | null;
+  /** Qui regarde (et écoute) la partie : les joueurs le savent toujours. */
+  readonly audience?: string | null;
   readonly voiceBar?: ReactNode;
   readonly speakingSeats?: ReadonlySet<Seat>;
   readonly voiceMutedSeats?: ReadonlySet<Seat>;
@@ -52,6 +54,7 @@ interface GameTableProps {
 export function GameTable(props: GameTableProps) {
   const { view, names, effects, onAction, cont, menuLabel, onMenu, absentSeats, busy = false, banner } = props;
   const { voiceBar, speakingSeats, voiceMutedSeats, voiceLinks, onHome, spectator = false, match = NEW_MATCH, onEndMatch } = props;
+  const { audience = null } = props;
   const [sheetOpen, setSheetOpen] = useState(false);
   const { pausedTrick, notice, beloteBubble, finale } = effects;
   const mySeat = view.seat;
@@ -146,6 +149,11 @@ export function GameTable(props: GameTableProps) {
       <main className="table">
         {banner && !spectator && <div className="banner" role="status">{banner}</div>}
         {voiceBar}
+        {audience && (
+          <p className="audience" role="status">
+            {audience}
+          </p>
+        )}
         {SEATS.map((seat) => {
           const bidBubble = bidBubbles.get(seat);
           return (

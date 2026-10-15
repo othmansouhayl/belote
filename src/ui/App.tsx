@@ -18,7 +18,7 @@ type Screen =
   | { readonly kind: 'home' }
   | { readonly kind: 'local'; readonly targetScore: number }
   | { readonly kind: 'online'; readonly room: SavedRoom }
-  | { readonly kind: 'watch'; readonly roomId: string; readonly table: number };
+  | { readonly kind: 'watch'; readonly roomId: string; readonly table: number; readonly listen: boolean };
 
 function inviteCodeFromUrl(): string {
   return new URLSearchParams(window.location.search).get('salon')?.toUpperCase() ?? '';
@@ -68,12 +68,39 @@ export function App() {
     setScreen({ kind: 'online', room });
   };
 
+  /** Le spectateur s'inscrit avec son nom ; le serveur vérifie que les joueurs l'acceptent. */
+  const watch = async (roomId: string, table: number) => {
+    setBusy(true);
+    setError(null);
+    const name = nickname.trim() || 'Spectateur';
+    saveNickname(name);
+    const result = await sendRequest({ type: 'watch', roomId, nickname: name });
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setScreen({ kind: 'watch', roomId, table, listen: result.listen === true });
+  };
+
   if (screen.kind === 'local') {
     return <LocalGame targetScore={screen.targetScore} onExit={() => setScreen({ kind: 'home' })} />;
   }
 
   if (screen.kind === 'watch') {
-    return <WatchRoom key={screen.roomId} roomId={screen.roomId} tableNumber={screen.table} onExit={() => setScreen({ kind: 'home' })} />;
+    return (
+      <WatchRoom
+        key={screen.roomId}
+        roomId={screen.roomId}
+        tableNumber={screen.table}
+        listen={screen.listen}
+        onExit={() => {
+          // On se désinscrit (sans attendre) : les joueurs ne voient plus son nom.
+          void sendRequest({ type: 'unwatch', roomId: screen.roomId });
+          setScreen({ kind: 'home' });
+        }}
+      />
+    );
   }
 
   if (screen.kind === 'online') {
@@ -118,7 +145,7 @@ export function App() {
       error={error}
       onLocal={(targetScore) => setScreen({ kind: 'local', targetScore })}
       onCreate={(table) => void enterRoom({ type: 'create', table })}
-      onWatch={(roomId, table) => setScreen({ kind: 'watch', roomId, table })}
+      onWatch={(roomId, table) => void watch(roomId, table)}
       onJoin={(code) => void enterRoom({ type: 'join', code })}
       onResume={(room) => void enterRoom({ type: 'join', code: room.code })}
       onMap={() => setScreen({ kind: 'map' })}

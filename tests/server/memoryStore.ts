@@ -13,8 +13,10 @@ export class MemoryStore implements RoomStore {
   views = new Map<string, Map<string, StoredView>>();
   /** Table publique `cafe_tables` (lisible par tous). */
   cafe = new Map<number, CafeRow>();
-  /** Table publique `room_watch_views` (lisible par tous). */
+  /** Table `room_watch_views` (lisible par les spectateurs inscrits). */
   watch = new Map<string, WatchView>();
+  /** Table `room_spectators` : qui peut lire la partie (et écouter le vocal). */
+  spectators = new Map<string, PublicTableData['spectators']>();
   /** Horloge simulée (millisecondes) pour tester les tables abandonnées. */
   now = 0;
 
@@ -67,8 +69,18 @@ export class MemoryStore implements RoomStore {
   }
 
   private writeWatch(room: RoomAggregate, table: PublicTableData | null) {
-    if (table && table.info.players.length > 0) this.watch.set(room.id, this.clone(table.watch));
-    else this.watch.delete(room.id);
+    if (table?.watch && table.info.players.length > 0) {
+      this.watch.set(room.id, this.clone(table.watch));
+      this.spectators.set(room.id, this.clone(table.spectators));
+    } else {
+      this.watch.delete(room.id);
+      this.spectators.delete(room.id);
+    }
+  }
+
+  /** Ce que la base renverrait à ce spectateur (règle RLS : seulement s'il est inscrit). */
+  watchFor(roomId: string, userId: string): WatchView | undefined {
+    return this.spectators.get(roomId)?.some((s) => s.userId === userId) ? this.watch.get(roomId) : undefined;
   }
 
   /** Ce que la base renverrait au joueur (règle RLS : uniquement sa propre ligne). */

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { CAFE_TABLE_COUNT } from '../../server/rooms.ts';
 import type { CafeTableInfo, WatchView } from '../../server/types.ts';
-import { getClient, onlineConfigured } from './client.ts';
+import { ensureSession, getClient, onlineConfigured } from './client.ts';
 import { splitCafeTables } from './cafeTables.ts';
 import type { CafeEnding, CafeTable } from './cafeTables.ts';
 
@@ -81,12 +81,15 @@ export function useWatch(roomId: string): { readonly view: WatchView | null; rea
     let channel: RealtimeChannel | null = null;
     const load = async () => {
       const client = await getClient();
+      // La partie n'est lisible que par les spectateurs inscrits (même identité anonyme).
+      await ensureSession(client);
       const { data } = await client.from('room_watch_views').select('view').eq('room_id', roomId).maybeSingle();
       if (cancelled) return;
       if (data) setView((data as { view: WatchView }).view);
       else setGone(true);
     };
-    void getClient().then((client) => {
+    void getClient().then(async (client) => {
+      await ensureSession(client);
       if (cancelled) return;
       channel = client
         .channel(`regarder:${roomId}`)
