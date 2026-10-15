@@ -20,7 +20,7 @@ export const CAFE_LINES: Record<CafeCharacter, readonly string[]> = {
     'ما فماش تاي، نجيبلك capucin؟',
     'تعالى هز الولعة وحدك',
   ],
-  naceur: ['بن عمي مازلت نسالك 3 آلاف متاع آمس', 'هي كملتوش الكارطة، الماتش باش يبدا', 'خلصوني باش نبدلو السرفيس'],
+  naceur: ['هي كملتوش الكارطة، الماتش باش يبدا', 'خلصوني باش نبدلو السرفيس'],
 };
 
 /** Le temps de lire la bulle : plus la phrase est longue, plus elle reste. */

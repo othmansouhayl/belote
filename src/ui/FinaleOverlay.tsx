@@ -11,7 +11,10 @@ interface FinaleOverlayProps {
   readonly trump: Suit | null;
 }
 
-/** Fin de manche anticipée : cartes étalées (« تي إفرش عاد ») ou capot chuté (« يروووووووح »). */
+/**
+ * Fin de donne anticipée : cartes étalées (« تي إفرش عاد »), capot chuté (« يروووووووح ») ou contrat
+ * devenu impossible (« دخلت كارطة .. طيش »).
+ */
 export function FinaleOverlay({ finale, mySeat, names, trump }: FinaleOverlayProps) {
   if (finale.kind === 'claim') {
     const who = finale.seat === mySeat ? 'Vous étalez vos cartes' : `${names[finale.seat]} étale ses cartes`;
@@ -32,6 +35,16 @@ export function FinaleOverlay({ finale, mySeat, names, trump }: FinaleOverlayPro
     );
   }
   const who = finale.seat === mySeat ? 'Vous prenez' : `${names[finale.seat]} prend`;
+  if (finale.kind === 'contractLost') {
+    return (
+      <div className="finale finale--capot" role="status">
+        <p className="finale__shout finale__shout--laugh" lang="ar" dir="rtl">
+          دخلت كارطة .. طيش
+        </p>
+        <p className="finale__caption">{who} un pli : le contrat ne peut plus passer, les cartes sont ramassées.</p>
+      </div>
+    );
+  }
   return (
     <div className="finale finale--capot" role="status">
       <p className="finale__shout finale__shout--laugh" lang="ar" dir="rtl">

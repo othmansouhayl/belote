@@ -38,6 +38,7 @@ export function TopBar(props: TopBarProps) {
             <span className="contract__by">
               {names[contract.bidder]}
               {contract.surcoinchedBy !== null ? ' · surcontré ×4' : contract.coinchedBy !== null ? ' · contré ×2' : ''}
+              {contract.winsGame ? ' · manche en jeu' : ''}
             </span>
           </div>
         ) : (

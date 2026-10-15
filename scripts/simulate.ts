@@ -64,7 +64,7 @@ function checkDeal(state: GameState) {
   if (new Set(ids).size !== 32) fail('une carte a été distribuée deux fois', state);
 }
 
-const stats = { hands: 0, redeals: 0, success: 0, failed: 0, coinche: 0, surcoinche: 0, capotAnnonce: 0, capotNonAnnonce: 0, belote: 0, early: { claim: 0, capotFailed: 0 } };
+const stats = { hands: 0, redeals: 0, success: 0, failed: 0, coinche: 0, surcoinche: 0, capotAnnonce: 0, capotNonAnnonce: 0, belote: 0, early: { claim: 0, capotFailed: 0, contractLost: 0 } };
 const rng = createRng(seed);
 
 for (let g = 0; g < games; g++) {
@@ -129,14 +129,16 @@ for (let g = 0; g < games; g++) {
   }
 
   stats.redeals += state.redeals;
-  if (state.winner === null || state.scores[state.winner] < state.config.targetScore) {
+  // Une « couleur prise » réussie (règle [37]) gagne la manche avant le score cible.
+  const stolenSuitWin = state.lastHandResult?.winsGame === true && state.lastHandResult.takerTeam === state.winner;
+  if (state.winner === null || (state.scores[state.winner] < state.config.targetScore && !stolenSuitWin)) {
     fail('partie terminée sans vainqueur valide', state);
   }
 }
 
 console.log(`${games} parties simulées sans erreur.`);
 console.log(`Manches jouées : ${stats.hands} (toutes à 162 points)`);
-console.log(`Cartes étalées : ${stats.early.claim} — capots chutés arrêtés : ${stats.early.capotFailed}`);
+console.log(`Cartes étalées : ${stats.early.claim} — capots chutés arrêtés : ${stats.early.capotFailed} — « طيش » (contrat perdu, cartes ramassées) : ${stats.early.contractLost}`);
 console.log(`Donnes annulées (4 passes) : ${stats.redeals}`);
 console.log(`Contrats réussis : ${stats.success} — chutés : ${stats.failed}`);
 console.log(`Coinches : ${stats.coinche} — surcoinches : ${stats.surcoinche}`);

@@ -30,6 +30,12 @@ export interface RulesConfig {
   readonly allowOutOfTurnCapot: boolean;
   /** À CONFIRMER [3] : si tout le monde passe, la donne est annulée et le donneur suivant redistribue. */
   readonly noBidRedeal: true;
+  /**
+   * VALIDÉ [37] : « couleur prise ». Après « 90 » d'un joueur, un adversaire peut annoncer la même
+   * couleur ; s'il l'annonce à 110 ou plus (كبوط compris) et réussit son contrat, son équipe gagne
+   * directement la manche (la partie en 1500). S'il chute : chute normale. null = règle désactivée.
+   */
+  readonly stolenSuitWinsGame: { readonly opponentBid: number; readonly minimum: number } | null;
 
   // Distribution et rotation
   readonly dealPatterns: readonly DealPattern[];
@@ -123,6 +129,12 @@ export interface RulesConfig {
   readonly capotUnannouncedPoints: number;
   /** À CONFIRMER [17] : le capot est multiplié par la coinche / surcoinche. */
   readonly capotMultiplied: boolean;
+  /**
+   * VALIDÉ [38] : « دخلت كارطة .. طيش ». Dès que le preneur ne peut plus atteindre son contrat, même
+   * en gagnant tous les plis restants et en comptant sa belote s'il l'a, on ramasse les cartes : la
+   * donne s'arrête et compte comme chutée. Par ex. 150 sans belote : un pli de 20 pour la défense suffit.
+   */
+  readonly endHandWhenContractLost: boolean;
 
   // Fin de partie
   /** VALIDÉ [15] : 1500 points (paramètre de salon). */
@@ -144,6 +156,7 @@ export const DEFAULT_RULES: RulesConfig = {
   allowOutOfTurnCoinche: true,
   allowOutOfTurnCapot: true,
   noBidRedeal: true,
+  stolenSuitWinsGame: { opponentBid: 90, minimum: 110 },
 
   dealPatterns: [
     [4, 4],
@@ -179,6 +192,7 @@ export const DEFAULT_RULES: RulesConfig = {
   capotAnnouncedFailurePoints: 500,
   capotUnannouncedPoints: 250,
   capotMultiplied: true,
+  endHandWhenContractLost: true,
 
   targetScore: 1500,
   tieBreakRule: 'extraHand',

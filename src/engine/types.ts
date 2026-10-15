@@ -56,6 +56,11 @@ export interface FinalContract extends Contract {
   readonly multiplier: number;
   readonly coinchedBy: Seat | null;
   readonly surcoinchedBy: Seat | null;
+  /**
+   * Couleur prise à l'adversaire (règle [37]) : après « 90 » d'un adversaire, le preneur a annoncé
+   * la même couleur à 110 ou plus. S'il réussit, son équipe gagne directement la manche.
+   */
+  readonly winsGame?: boolean;
 }
 
 export type BeloteEvent = { readonly seat: Seat; readonly announce: 'belote' | 'rebelote' };
@@ -66,11 +71,15 @@ export type BeloteEvent = { readonly seat: Seat; readonly announce: 'belote' | '
  *   son équipe remporte les plis restants. Ses cartes sont montrées à tous (GameState.revealed).
  * - 'capotFailed' : la défense a gagné un pli contre un capot annoncé (« يروووووووح ») ;
  *   la manche s'arrête aussitôt.
+ * - 'contractLost' : le preneur ne peut plus atteindre son contrat, même en gagnant tous les plis
+ *   restants et en comptant sa belote (« دخلت كارطة .. طيش ») ; les cartes sont ramassées.
+ *   `seat` a gagné le pli qui a fait chuter le contrat.
  */
 export type HandEnding =
   | { readonly type: 'normal' }
   | { readonly type: 'claim'; readonly seat: Seat }
-  | { readonly type: 'capotFailed'; readonly seat: Seat };
+  | { readonly type: 'capotFailed'; readonly seat: Seat }
+  | { readonly type: 'contractLost'; readonly seat: Seat };
 
 export interface HandResult {
   readonly contract: FinalContract;
@@ -94,6 +103,8 @@ export interface HandResult {
   /** Points ajoutés au score général pour cette manche. */
   readonly handScore: readonly [number, number];
   readonly ending: HandEnding;
+  /** Contrat « couleur prise » réussi (règle [37]) : l'équipe du preneur gagne directement la manche. */
+  readonly winsGame?: boolean;
 }
 
 export type Phase = 'bidding' | 'playing' | 'handOver' | 'gameOver';

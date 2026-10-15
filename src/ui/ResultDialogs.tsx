@@ -59,6 +59,15 @@ export function HandResultDialog(props: HandResultDialogProps) {
           </p>
         )}
         {result.ending.type === 'capotFailed' && <p className="dialog__note">كبوط chuté dès le premier pli perdu.</p>}
+        {result.ending.type === 'contractLost' && (
+          <p className="dialog__note">
+            <span lang="ar" dir="rtl">
+              دخلت كارطة .. طيش
+            </span>{' '}
+            : le contrat ne pouvait plus passer, les cartes ont été ramassées.
+          </p>
+        )}
+        {result.winsGame && <p className="dialog__badge">Couleur prise : la manche est gagnée !</p>}
         <p className="hand-summary">
           Donne : {teamLabels[0]} +{result.handScore[myTeam]} · {teamLabels[1]} +{result.handScore[them]}
           {result.roundedPoints && result.success && !result.capot && result.contract.coinchedBy === null && (

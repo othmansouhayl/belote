@@ -1,4 +1,4 @@
-import type { BidAction, BiddingState, Seat, Validation } from './types.ts';
+import type { BidAction, BiddingState, Contract, Seat, Validation } from './types.ts';
 import type { RulesConfig } from './rulesConfig.ts';
 import { SUITS, SUIT_LABELS } from './deck.ts';
 import { nextSeat, partnerOf, teamOf } from './seats.ts';
@@ -142,6 +142,21 @@ export function getOutOfTurnBids(bidding: BiddingState, seat: Seat, config: Rule
     }
   }
   return options;
+}
+
+/**
+ * « Couleur prise » (règle [37]) : vrai si le contrat final reprend, à `minimum` ou plus (كبوط compris),
+ * la couleur qu'un adversaire du preneur avait annoncée à `opponentBid` (90) pendant ces enchères.
+ */
+export function takesOpponentSuit(bidding: BiddingState, contract: Contract, config: RulesConfig): boolean {
+  const rule = config.stolenSuitWinsGame;
+  if (!rule) return false;
+  if (contract.value !== 'capot' && contract.value < rule.minimum) return false;
+  const takerTeam = teamOf(contract.bidder);
+  return bidding.history.some(
+    ({ seat, action }) =>
+      action.type === 'bid' && action.value === rule.opponentBid && action.suit === contract.suit && teamOf(seat) !== takerTeam,
+  );
 }
 
 export type BiddingStep =

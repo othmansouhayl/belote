@@ -9,12 +9,13 @@ import type {
   GameState,
   HandEnding,
   Seat,
+  Team,
   Trick,
 } from './types.ts';
 import { type RulesConfig, makeRules } from './rulesConfig.ts';
 import { shuffleDeck } from './deck.ts';
 import { dealCards, validateDealPattern } from './deal.ts';
-import { applyBid, createBiddingState, getLegalBids, getOutOfTurnBids, validateBid } from './bidding.ts';
+import { applyBid, createBiddingState, getLegalBids, getOutOfTurnBids, takesOpponentSuit, validateBid } from './bidding.ts';
 import { getLegalCards, resolveTrick, validatePlay } from './play.ts';
 import { applyHandScore, resolveContract } from './scoring.ts';
 import type { HandRemainder } from './scoring.ts';
@@ -176,6 +177,7 @@ function applyBidAction(state: GameState, seat: Seat, bid: BidAction): ActionRes
     multiplier,
     coinchedBy: bidding.coinchedBy,
     surcoinchedBy: bidding.surcoinchedBy,
+    ...(takesOpponentSuit(bidding, bidding.contract, state.config) ? { winsGame: true } : {}),
   };
   const trump = contract.suit;
   const holder = state.hands.findIndex(
@@ -232,6 +234,14 @@ function applyPlayAction(state: GameState, seat: Seat, cardId: string): ActionRe
       state: endHand(base, completedTricks, { team: teamOf(winner), cards: hands.flat() }, { type: 'capotFailed', seat: winner }),
     };
   }
+  if (completedTricks.length < 8 && state.config.endHandWhenContractLost && contractLost(base, completedTricks, hands.flat())) {
+    // « دخلت كارطة .. طيش » : le contrat ne peut plus être atteint, on ramasse les cartes.
+    const defense = (1 - teamOf(contract.bidder)) as Team;
+    return {
+      ok: true,
+      state: endHand(base, completedTricks, { team: defense, cards: hands.flat() }, { type: 'contractLost', seat: winner }),
+    };
+  }
   if (completedTricks.length < 8) {
     return {
       ok: true,
@@ -240,6 +250,21 @@ function applyPlayAction(state: GameState, seat: Seat, cardId: string): ActionRe
   }
 
   return { ok: true, state: endHand(base, completedTricks, null, { type: 'normal' }) };
+}
+
+/**
+ * Vrai si le preneur ne peut plus réussir son contrat (chiffré), même en gagnant tous les plis
+ * restants (avec le dix de der) et en comptant sa belote s'il l'a : on juge le meilleur cas possible
+ * avec exactement le même calcul que la fin de donne (arrondi à la dizaine compris).
+ */
+export function contractLost(state: GameState, completedTricks: readonly CompletedTrick[], remainingCards: readonly Card[]): boolean {
+  const contract = state.contract;
+  if (!contract || contract.value === 'capot') return false;
+  const bestCase = resolveContract(completedTricks, contract, state.beloteHolder, state.config, {
+    team: teamOf(contract.bidder),
+    cards: remainingCards,
+  });
+  return !bestCase.success;
 }
 
 /** Termine la manche : score, cartes restantes ramassées, partie éventuellement gagnée. */
