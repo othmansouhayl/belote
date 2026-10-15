@@ -141,14 +141,15 @@ do $$ declare n int; begin
   assert n = 0, 'le salon refusé ne doit pas être créé';
 end $$;
 
--- Un inconnu, même non connecté, voit la table et la vue spectateur, mais rien de secret.
+-- Un inconnu, même non connecté, voit la table (sans rien de secret), mais pas la partie :
+-- seuls les spectateurs inscrits la regardent.
 set role anon;
-do $$ declare t jsonb; w jsonb; begin
+do $$ declare t jsonb; begin
   select to_jsonb(c) into t from public.cafe_tables c where table_number = 3;
   assert t -> 'info' -> 'players' -> 0 ->> 'nickname' = 'Tarek', 'anon devrait voir les pseudos de la table';
   assert t::text not like '%CAF234%' and t::text not like '%main-cachee%', 'la table ne doit révéler ni code ni état';
-  select view into w from public.room_watch_views;
-  assert w ->> 'spectateur' = 'public', 'anon devrait voir la vue spectateur';
+  begin perform * from public.room_watch_views; raise exception 'ÉCHEC : anon lit la partie';
+  exception when insufficient_privilege then null; end;
   begin update public.cafe_tables set info = '{}'; raise exception 'ÉCHEC : table du café modifiable';
   exception when insufficient_privilege then null; end;
   begin insert into public.room_watch_views values ('33333333-3333-4333-8333-333333333333', '{}');
@@ -216,6 +217,96 @@ reset role;
 do $$ declare st text; begin
   select info ->> 'status' into st from public.cafe_tables where table_number = 4;
   assert st = 'playing', 'la revanche devrait reprendre sa propre table';
+end $$;
+
+-- Spectateurs : le serveur inscrit S1 (peut écouter) et S2 (regarder seulement) à une table.
+\set spec '77777777-7777-4777-8777-777777777777'
+\set s1 'e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1'
+\set s2 'e2e2e2e2-e2e2-4e2e-8e2e-e2e2e2e2e2e2'
+set role service_role;
+select public.save_room_v3(:'spec', 'SPE234', null, '{"secret":"main-cachee"}',
+  jsonb_build_array(jsonb_build_object('player_id', :'a', 'seat', 0, 'view', '{"main":"A"}'::jsonb)),
+  5::smallint, '{"players":[{"seat":0,"nickname":"Tarek"}]}', '{"partie":"visible"}',
+  jsonb_build_array(
+    jsonb_build_object('user_id', :'s1', 'name', 'Sami', 'can_listen', true),
+    jsonb_build_object('user_id', :'s2', 'name', 'Mounir', 'can_listen', false)
+  )) as spectateurs \gset
+reset role;
+select :'spectateurs' = 'ok' as spectateurs_ok \gset
+\if :spectateurs_ok
+\else
+  \echo 'ÉCHEC : inscription des spectateurs (' :'spectateurs' ')'
+  \quit 1
+\endif
+
+set role authenticated;
+-- S2 regarde la partie, mais n'entre pas dans le canal d'écoute.
+select set_config('request.jwt.claim.sub', :'s2', false);
+select set_config('realtime.topic', 'ecoute:' || :'spec', false);
+do $$ declare n int; begin
+  select count(*) into n from public.room_watch_views where room_id = '77777777-7777-4777-8777-777777777777';
+  assert n = 1, 'S2 inscrit devrait voir la partie';
+  begin
+    insert into realtime.messages (topic, payload) values ('ecoute:77777777-7777-4777-8777-777777777777', '{}');
+    raise exception 'ÉCHEC : S2 (regarder seulement) a écrit sur le canal d''écoute';
+  exception when insufficient_privilege then null; end;
+  begin perform * from public.room_spectators; raise exception 'ÉCHEC : liste des spectateurs lisible';
+  exception when insufficient_privilege then null; end;
+  begin perform public.save_room_v3(null, null, null, null, null, null, null, null, null);
+    raise exception 'ÉCHEC : save_room_v3 appelable';
+  exception when insufficient_privilege then null; end;
+end $$;
+
+-- S1 regarde et rejoint le canal d'écoute ; un joueur (A) aussi.
+select set_config('request.jwt.claim.sub', :'s1', false);
+insert into realtime.messages (topic, payload) values ('ecoute:' || :'spec', '{"type":"listen-hello"}');
+do $$ declare n int; begin
+  select count(*) into n from public.room_watch_views where room_id = '77777777-7777-4777-8777-777777777777';
+  assert n = 1, 'S1 inscrit devrait voir la partie';
+  select count(*) into n from realtime.messages where topic like 'ecoute:%';
+  assert n = 1, 'S1 devrait lire le canal d''écoute';
+end $$;
+select set_config('request.jwt.claim.sub', :'a', false);
+insert into realtime.messages (topic, payload) values ('ecoute:' || :'spec', '{"type":"player-hello"}');
+
+-- Mais un auditeur n'entre jamais dans le canal des joueurs.
+select set_config('request.jwt.claim.sub', :'s1', false);
+select set_config('realtime.topic', 'salon:' || :'spec', false);
+do $$ declare n int; begin
+  select count(*) into n from realtime.messages;
+  assert n = 0, 'un auditeur ne devrait rien lire du canal des joueurs';
+  begin
+    insert into realtime.messages (topic, payload) values ('salon:77777777-7777-4777-8777-777777777777', '{}');
+    raise exception 'ÉCHEC : un auditeur a écrit sur le canal des joueurs';
+  exception when insufficient_privilege then null; end;
+end $$;
+
+-- Un inconnu (D) ne voit pas la partie et n'entre pas dans le canal d'écoute.
+select set_config('request.jwt.claim.sub', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', false);
+select set_config('realtime.topic', 'ecoute:' || :'spec', false);
+do $$ declare n int; begin
+  select count(*) into n from public.room_watch_views;
+  assert n = 0, 'un inconnu ne devrait voir aucune partie';
+  select count(*) into n from realtime.messages;
+  assert n = 0, 'un inconnu ne devrait rien lire du canal d''écoute';
+  begin
+    insert into realtime.messages (topic, payload) values ('ecoute:77777777-7777-4777-8777-777777777777', '{}');
+    raise exception 'ÉCHEC : un inconnu a écrit sur le canal d''écoute';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+-- Le créateur refuse les spectateurs : plus de partie publiée, plus d'inscrits.
+set role service_role;
+select public.save_room_v3(:'spec', 'SPE234', 1, '{}',
+  jsonb_build_array(jsonb_build_object('player_id', :'a', 'seat', 0, 'view', '{"main":"A"}'::jsonb)),
+  5::smallint, '{"players":[{"seat":0,"nickname":"Tarek"}]}', null, '[]') as refuses \gset
+reset role;
+do $$ declare n int; begin
+  select count(*) into n from public.room_spectators;
+  assert n = 0, 'les spectateurs devraient être désinscrits';
+  select count(*) into n from public.room_watch_views where room_id = '77777777-7777-4777-8777-777777777777';
+  assert n = 0, 'la partie ne devrait plus être publiée';
 end $$;
 
 \o

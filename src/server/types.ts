@@ -19,10 +19,29 @@ export interface RoomPlayer {
   readonly ready: boolean;
 }
 
+/**
+ * Spectateurs, choisis par le créateur du salon : refusés, autorisés à regarder la partie, ou à la
+ * regarder et à écouter le vocal (en écoute seule : ils ne parlent jamais).
+ */
+export const SPECTATOR_MODES = ['none', 'watch', 'listen'] as const;
+export type SpectatorMode = (typeof SPECTATOR_MODES)[number];
+/** Salons créés avant ce réglage : on peut regarder, sans écouter. */
+export const DEFAULT_SPECTATOR_MODE: SpectatorMode = 'watch';
+
 export interface RoomSettings {
   readonly rules: Partial<RulesConfig>;
   /** Délai (secondes) avant d'afficher un joueur déconnecté comme absent (§11.5). */
   readonly absenceDelaySeconds: number;
+  /** Spectateurs : refusés, regarder, ou regarder et écouter (absent des anciens salons : 'watch'). */
+  readonly spectators?: SpectatorMode;
+}
+
+/** Un spectateur inscrit (avec son nom) : son identifiant anonyme n'est jamais montré aux autres. */
+export interface RoomSpectator {
+  readonly userId: string;
+  readonly name: string;
+  /** Arrivée (millisecondes, horloge du serveur). */
+  readonly since: number;
 }
 
 /** État complet d'un salon, conservé uniquement côté serveur. */
@@ -48,6 +67,8 @@ export interface RoomAggregate {
   readonly order?: DrinkOrder | null;
   /** Boissons commandées, par place (pour tout le match). */
   readonly drinks?: Partial<Record<Seat, Drink>>;
+  /** Spectateurs inscrits (avec leur nom). */
+  readonly spectators?: readonly RoomSpectator[];
 }
 
 /**
@@ -59,6 +80,8 @@ export interface CafeTableInfo {
   readonly players: readonly { readonly seat: Seat; readonly nickname: string }[];
   readonly scores: readonly [number, number] | null;
   readonly targetScore: number;
+  /** Ce que les joueurs permettent aux spectateurs (absent des anciennes tables : 'watch'). */
+  readonly spectators?: SpectatorMode;
 }
 
 /** Ce que reçoit un spectateur : uniquement les informations publiques de la partie. */
@@ -69,13 +92,24 @@ export interface WatchView {
   readonly players: RoomView['players'];
   readonly game: PlayerView | null;
   readonly match: MatchState;
+  /** Regarder seulement, ou regarder et écouter le vocal. */
+  readonly spectatorMode?: SpectatorMode;
+  /** Les noms des spectateurs (eux aussi se voient). */
+  readonly spectators?: readonly string[];
 }
 
-/** Données publiques d'un salon installé à une table du café. */
+/** Données d'un salon installé à une table du café, pour la base. */
 export interface PublicTableData {
   readonly tableNumber: number;
+  /** Lisible par tous (la maquette 3D de l'accueil). */
   readonly info: CafeTableInfo;
-  readonly watch: WatchView;
+  /** Lisible uniquement par les spectateurs inscrits ; null si les joueurs refusent les spectateurs. */
+  readonly watch: WatchView | null;
+  /**
+   * Spectateurs inscrits, pour les droits de la base (lire la partie, écouter le vocal) :
+   * jamais publiés tels quels.
+   */
+  readonly spectators: readonly { readonly userId: string; readonly name: string; readonly canListen: boolean }[];
 }
 
 /** Ce que chaque joueur reçoit : informations du salon + sa vue filtrée de la partie. */
@@ -102,6 +136,8 @@ export interface RoomView {
   /** Commande en cours : échéance et ce que chacun a déjà choisi. */
   readonly order: { readonly deadline: number; readonly chosen: Partial<Record<Seat, Drink>> } | null;
   readonly drinks: Partial<Record<Seat, Drink>>;
+  /** Qui regarde la partie (les joueurs savent toujours qui les regarde ou les écoute). */
+  readonly spectators?: readonly string[];
 }
 
 export type RoomRequest =
@@ -118,10 +154,15 @@ export type RoomRequest =
   /** Arrêter le match après une manche (au lieu de jouer la suivante). */
   | { readonly type: 'endMatch'; readonly roomId: string }
   | { readonly type: 'game'; readonly roomId: string; readonly action: GameAction }
-  | { readonly type: 'continue'; readonly roomId: string };
+  | { readonly type: 'continue'; readonly roomId: string }
+  /** S'inscrire comme spectateur d'une table, avec son nom (si les joueurs l'acceptent). */
+  | { readonly type: 'watch'; readonly roomId: string; readonly nickname: string }
+  /** Ne plus regarder. */
+  | { readonly type: 'unwatch'; readonly roomId: string };
 
 export type RoomResponse =
-  | { readonly ok: true; readonly roomId: string; readonly code: string }
+  /** Pour un spectateur, `code` est vide (le code du salon reste aux joueurs) et `listen` dit s'il peut écouter. */
+  | { readonly ok: true; readonly roomId: string; readonly code: string; readonly listen?: boolean }
   | { readonly ok: false; readonly error: string };
 
 /** Sources de hasard et d'identifiants fournies par l'environnement (crypto sur le serveur). */

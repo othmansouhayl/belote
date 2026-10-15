@@ -1,10 +1,10 @@
-import { applyRoomRequest, buildPublicTable, buildViews, createRoom, joinRoom, parseRequest } from './rooms.ts';
+import { applyRoomRequest, buildPublicTable, buildViews, createRoom, joinRoom, parseRequest, spectatorMode, unwatchRoom, watchRoom } from './rooms.ts';
 import type { RoomResponse, RoomStore, ServerDeps } from './types.ts';
 
 const MAX_ATTEMPTS = 6;
 
 /**
- * Traite une requête d'un joueur authentifié. Le serveur est la seule source de
+ * Traite une requête d'un joueur (ou d'un spectateur) authentifié. Le serveur est la seule source de
  * vérité : il relit l'état, applique le moteur, puis enregistre l'état et les vues
  * filtrées en une seule opération (avec contrôle de version contre les accès simultanés).
  */
@@ -32,11 +32,20 @@ export async function handleRequest(
     if (!room) return { ok: false, error: request.type === 'join' ? 'Aucun salon ne correspond à ce code.' : 'Salon introuvable.' };
 
     const result =
-      request.type === 'join' ? joinRoom(room, playerId, request.nickname) : applyRoomRequest(room, playerId, request, deps);
+      request.type === 'join'
+        ? joinRoom(room, playerId, request.nickname)
+        : request.type === 'watch'
+          ? watchRoom(room, playerId, request.nickname, (deps.now ?? Date.now)())
+          : request.type === 'unwatch'
+            ? unwatchRoom(room, playerId)
+            : applyRoomRequest(room, playerId, request, deps);
     if (!result.ok) return result;
 
     const next = { ...result.room, version: room.version + 1 };
     if (await store.save(next, room.version, buildViews(next), buildPublicTable(next))) {
+      // Le spectateur ne reçoit jamais le code du salon (il permettrait de s'asseoir à la table).
+      if (request.type === 'watch') return { ok: true, roomId: next.id, code: '', listen: spectatorMode(next) === 'listen' };
+      if (request.type === 'unwatch') return { ok: true, roomId: next.id, code: '' };
       return { ok: true, roomId: next.id, code: next.code };
     }
   }

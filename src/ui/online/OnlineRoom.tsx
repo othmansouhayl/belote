@@ -12,6 +12,8 @@ import { useAbsentSeats, useRoom } from './useRoom.ts';
 import { VoiceBar } from './voice/VoiceBar.tsx';
 import { SuitText } from '../SuitText.tsx';
 import { useVoice } from './voice/useVoice.ts';
+import { useListenChannel } from './voice/useListenChannel.ts';
+import { audienceText } from './audience.ts';
 import { voiceLinkOf } from './voice/voiceLink.ts';
 import type { VoiceLinkState } from '../VoiceDot.tsx';
 import { CafeCutscene } from './CafeCutscene.tsx';
@@ -57,6 +59,9 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
     connection === 'online',
   );
 
+  // Spectateurs autorisés à écouter : on ouvre le canal d'écoute pendant la partie.
+  const spectatorMode = view?.settings.spectators ?? 'watch';
+  const listenChannel = useListenChannel(roomId, spectatorMode === 'listen' && view?.status === 'playing');
   const voice = useVoice({
     roomId,
     mySeat: view?.mySeat ?? null,
@@ -64,7 +69,9 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
     presentSeats,
     sendVoice,
     onVoice,
+    listenChannel: spectatorMode === 'listen' ? listenChannel : null,
   });
+  const audience = audienceText(view?.spectators ?? [], spectatorMode, voice.listeners);
 
   const voiceLinks = useMemo(() => {
     const links = new Map<Seat, VoiceLinkState>();
@@ -212,6 +219,7 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
         busy={busy}
         absentSeats={absentSeats}
         banner={banner}
+        audience={audience}
         voiceBar={<VoiceBar voice={voice} className="voice--table" />}
         speakingSeats={voice.snapshot.speaking}
         voiceMutedSeats={voice.snapshot.mutedSeats}

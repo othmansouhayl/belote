@@ -67,7 +67,7 @@ async function saveRoom(
   views: readonly StoredView[],
   table: PublicTableData | null,
 ): Promise<'ok' | 'conflict' | 'tableTaken'> {
-  const { data, error } = await admin.rpc('save_room_v2', {
+  const { data, error } = await admin.rpc('save_room_v3', {
     p_id: room.id,
     p_code: room.code,
     p_expected_version: expectedVersion,
@@ -76,6 +76,8 @@ async function saveRoom(
     p_table: table?.tableNumber ?? null,
     p_table_info: table?.info ?? null,
     p_watch: table?.watch ?? null,
+    // Spectateurs inscrits : qui peut lire la partie et écouter le vocal (droits de la base).
+    p_spectators: (table?.spectators ?? []).map((s) => ({ user_id: s.userId, name: s.name, can_listen: s.canListen })),
   });
   if (error) throw new Error(`Enregistrement du salon impossible : ${error.message}`);
   return data === 'ok' ? 'ok' : data === 'table_taken' ? 'tableTaken' : 'conflict';

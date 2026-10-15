@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_ICE_SERVERS, parseIceServers, parseVoiceMessage } from '../../../voice/protocol.ts';
 import type { IceServer, VoiceSeat } from '../../../voice/protocol.ts';
 import { ensureSession, getClient } from '../client.ts';
+import { ListenerHub } from './ListenerHub.ts';
 import { VOICE_OFF, VoiceMesh } from './VoiceMesh.ts';
 import type { VoiceSnapshot } from './VoiceMesh.ts';
+import type { ListenChannel } from './useListenChannel.ts';
 
-async function fetchIceServers(roomId: string): Promise<readonly IceServer[]> {
+export async function fetchIceServers(roomId: string): Promise<readonly IceServer[]> {
   const client = await getClient();
   await ensureSession(client);
   const { data } = await client.functions.invoke<{ ok: boolean; iceServers?: unknown }>('game', {
@@ -21,6 +23,8 @@ interface UseVoiceOptions {
   readonly presentSeats: ReadonlySet<VoiceSeat>;
   readonly sendVoice: (payload: unknown) => void;
   readonly onVoice: (listener: (payload: unknown) => void) => () => void;
+  /** Canal d'écoute des spectateurs, quand les joueurs les laissent écouter (sinon null). */
+  readonly listenChannel?: ListenChannel | null;
 }
 
 export interface VoiceControls {
@@ -29,11 +33,15 @@ export interface VoiceControls {
   readonly leave: () => void;
   readonly toggleMute: () => void;
   readonly resume: () => void;
+  /** Spectateurs qui entendent ce joueur en ce moment. */
+  readonly listeners: number;
 }
 
-export function useVoice({ roomId, mySeat, online, presentSeats, sendVoice, onVoice }: UseVoiceOptions): VoiceControls {
+export function useVoice({ roomId, mySeat, online, presentSeats, sendVoice, onVoice, listenChannel = null }: UseVoiceOptions): VoiceControls {
   const [snapshot, setSnapshot] = useState<VoiceSnapshot>(VOICE_OFF);
+  const [listeners, setListeners] = useState(0);
   const mesh = useRef<VoiceMesh | null>(null);
+  const hub = useRef<ListenerHub | null>(null);
 
   // Le maillage est créé dès que la place est connue, mais n'utilise le micro qu'après « Rejoindre ».
   useEffect(() => {
@@ -60,6 +68,36 @@ export function useVoice({ roomId, mySeat, online, presentSeats, sendVoice, onVo
     if (online) mesh.current?.announce();
   }, [online]);
 
+  // Spectateurs autorisés à écouter : le micro du joueur leur est aussi envoyé (en envoi seul).
+  const listenSend = listenChannel?.send;
+  const onListen = listenChannel?.onMessage;
+  const hasSeat = mySeat !== null;
+  useEffect(() => {
+    const voice = mesh.current;
+    if (!listenSend || !onListen || !voice || mySeat === null) return;
+    const h = new ListenerHub(mySeat, listenSend, () => voice.currentIceServers(), setListeners);
+    hub.current = h;
+    const offStream = voice.subscribeLocalStream((stream, muted) => h.setStream(stream, muted));
+    const offMessages = onListen((message) => h.handleMessage(message));
+    return () => {
+      offStream();
+      offMessages();
+      h.destroy();
+      hub.current = null;
+      setListeners(0);
+    };
+    // La place est suivie à part (setSeat) : le hub n'est recréé que si le canal change.
+  }, [listenSend, onListen, hasSeat]);
+
+  useEffect(() => {
+    if (mySeat !== null) hub.current?.setSeat(mySeat);
+  }, [mySeat]);
+
+  const listenOnline = listenChannel?.online ?? false;
+  useEffect(() => {
+    if (listenOnline) hub.current?.announce();
+  }, [listenOnline]);
+
   useEffect(() => {
     if (online) mesh.current?.syncPresence(presentSeats);
   }, [presentSeats, online]);
@@ -76,5 +114,5 @@ export function useVoice({ roomId, mySeat, online, presentSeats, sendVoice, onVo
   const toggleMute = useCallback(() => mesh.current?.setMuted(!snapshot.muted), [snapshot.muted]);
   const resume = useCallback(() => void mesh.current?.resumeAudio(), []);
 
-  return { snapshot, join, leave, toggleMute, resume };
+  return { snapshot, join, leave, toggleMute, resume, listeners };
 }

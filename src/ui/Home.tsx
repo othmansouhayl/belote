@@ -185,7 +185,8 @@ export function Home(props: HomeProps) {
   } else if (selected?.kind === 'table' && table) {
     const seatsLeft = 4 - table.info.players.length;
     const canJoin = table.info.status === 'lobby' && seatsLeft > 0;
-    const canWatch = table.info.status !== 'lobby';
+    const spectators = table.info.spectators ?? 'watch';
+    const canWatch = table.info.status !== 'lobby' && spectators !== 'none';
     sheet = (
       <>
         <h2 className="sheet__title">
@@ -223,10 +224,27 @@ export function Home(props: HomeProps) {
             </div>
           </>
         )}
+        {table.info.status !== 'lobby' && spectators === 'none' && (
+          <p className="sheet__text">Les joueurs de cette table ne veulent pas de spectateurs.</p>
+        )}
         {canWatch && (
-          <button type="button" className="btn btn--primary btn--wide" onClick={() => onWatch(table.roomId, table.number)}>
-            Regarder la partie
-          </button>
+          <>
+            <p className="sheet__text">
+              {spectators === 'listen'
+                ? 'Les joueurs te laissent regarder et écouter leur vocal (tu ne pourras pas parler).'
+                : 'Les joueurs te laissent regarder la partie.'}{' '}
+              Ils verront ton nom.
+            </p>
+            {nicknameField}
+            <button
+              type="button"
+              className="btn btn--primary btn--wide"
+              disabled={busy || !nicknameOk}
+              onClick={() => onWatch(table.roomId, table.number)}
+            >
+              {spectators === 'listen' ? 'Regarder et écouter la partie' : 'Regarder la partie'}
+            </button>
+          </>
         )}
       </>
     );

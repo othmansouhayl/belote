@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { makeRules } from '../../engine/index.ts';
 import type { ContractSuccessScoring } from '../../engine/index.ts';
 import { ABSENCE_DELAYS, TARGET_SCORES } from '../../server/rooms.ts';
-import type { RoomSettings } from '../../server/types.ts';
+import { DEFAULT_SPECTATOR_MODE } from '../../server/types.ts';
+import type { RoomSettings, SpectatorMode } from '../../server/types.ts';
 
 const SCORINGS: readonly (readonly [ContractSuccessScoring, string, string])[] = [
   ['realizedPoints', 'Ses points', 'ses points'],
@@ -18,6 +19,13 @@ const TOGGLES: readonly { readonly key: ToggleKey; readonly label: string; reado
   { key: 'requireUndertrump', label: 'Sous-couper obligatoire', hint: 'Sans atout plus fort, on doit quand même jouer atout.' },
   { key: 'beloteAlwaysScored', label: 'Belote de la défense comptée', hint: 'Contrat réussi : la défense garde ses 20 points de belote.' },
   { key: 'capotMultiplied', label: 'كبوط multiplié par la contrée', hint: 'Les 500 / 250 points du كبوط sont doublés ou quadruplés.' },
+];
+
+/** Spectateurs : le créateur du salon choisit pour toute la table. */
+export const SPECTATOR_CHOICES: readonly (readonly [SpectatorMode, string, string])[] = [
+  ['none', 'Refusés', 'personne ne regarde'],
+  ['watch', 'Regarder', 'les spectateurs regardent'],
+  ['listen', 'Regarder et écouter', 'les spectateurs regardent et écoutent'],
 ];
 
 interface RoomSettingsPanelProps {
@@ -45,8 +53,9 @@ export function RoomSettingsPanel({ settings: fromServer, editable, hostName, bu
     beloteAlwaysScored: rules.beloteAlwaysScored,
     capotMultiplied: rules.capotMultiplied,
   };
-  const update = (patch: Partial<typeof current>, absenceDelaySeconds = settings.absenceDelaySeconds) => {
-    const next: RoomSettings = { rules: { ...current, ...patch }, absenceDelaySeconds };
+  const spectators = settings.spectators ?? DEFAULT_SPECTATOR_MODE;
+  const update = (patch: Partial<typeof current>, absenceDelaySeconds = settings.absenceDelaySeconds, mode = spectators) => {
+    const next: RoomSettings = { rules: { ...current, ...patch }, absenceDelaySeconds, spectators: mode };
     setDraft(next);
     onChange(next);
   };
@@ -57,7 +66,8 @@ export function RoomSettingsPanel({ settings: fromServer, editable, hostName, bu
       <summary className="settings__summary">
         <span className="settings__title">Réglages de la partie</span>
         <span className="settings__short">
-          {rules.targetScore} points · {SCORINGS.find(([v]) => v === rules.contractSuccessScoring)?.[2]}
+          {rules.targetScore} points · {SCORINGS.find(([v]) => v === rules.contractSuccessScoring)?.[2]} ·{' '}
+          {SPECTATOR_CHOICES.find(([v]) => v === spectators)?.[2]}
         </span>
       </summary>
       <div className="settings__body">
@@ -95,6 +105,27 @@ export function RoomSettingsPanel({ settings: fromServer, editable, hostName, bu
               </button>
             ))}
           </div>
+        </fieldset>
+
+        <fieldset className="settings__group" disabled={disabled}>
+          <legend className="settings__label">Spectateurs</legend>
+          <div className="segmented">
+            {SPECTATOR_CHOICES.map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`segmented__option${spectators === value ? ' segmented__option--on' : ''}`}
+                aria-pressed={spectators === value}
+                onClick={() => update({}, settings.absenceDelaySeconds, value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="switch-row__hint">
+            Chaque spectateur donne son nom, et vous voyez qui vous regarde. « Écouter » : ils entendent le vocal, sans jamais
+            pouvoir parler.
+          </p>
         </fieldset>
 
         <fieldset className="settings__group" disabled={disabled}>

@@ -14,7 +14,7 @@ import {
   startNextHand,
 } from '../engine/index.ts';
 import type { BidAction, GameAction, RulesConfig, Seat } from '../engine/index.ts';
-import { DRINKS } from './types.ts';
+import { DEFAULT_SPECTATOR_MODE, DRINKS, SPECTATOR_MODES } from './types.ts';
 import type {
   Drink,
   PublicTableData,
@@ -24,6 +24,7 @@ import type {
   RoomSettings,
   RoomView,
   ServerDeps,
+  SpectatorMode,
   StoredView,
 } from './types.ts';
 
@@ -34,6 +35,10 @@ export const ROOM_CODE_LENGTH = 6;
 export const CAFE_TABLE_COUNT = 6;
 /** Une table sans aucune action depuis ce délai est considérée comme libre. */
 export const CAFE_TABLE_STALE_MINUTES = 10;
+
+/** Au plus 30 spectateurs inscrits par table ; une inscription de plus de 6 heures est oubliée. */
+export const MAX_SPECTATORS = 30;
+export const SPECTATOR_STALE_HOURS = 6;
 
 /** Temps laissé à chacun pour commander sa boisson au début du match. */
 export const ORDER_SECONDS = 30;
@@ -52,7 +57,7 @@ const BOOLEAN_RULES = [
 /** Valide les réglages envoyés par l'hôte : seules les règles prévues, avec des valeurs prévues. */
 export function parseSettings(raw: unknown): RoomSettings | null {
   if (typeof raw !== 'object' || raw === null) return null;
-  const r = raw as { rules?: unknown; absenceDelaySeconds?: unknown };
+  const r = raw as { rules?: unknown; absenceDelaySeconds?: unknown; spectators?: unknown };
   if (typeof r.rules !== 'object' || r.rules === null) return null;
   const rules = r.rules as Record<string, unknown>;
   const target = TARGET_SCORES.find((t) => t === rules.targetScore);
@@ -64,7 +69,16 @@ export function parseSettings(raw: unknown): RoomSettings | null {
     if (typeof rules[key] !== 'boolean') return null;
     parsed[key] = rules[key];
   }
-  return { rules: parsed as Partial<RulesConfig>, absenceDelaySeconds: delay };
+  // Spectateurs : facultatif (un ancien écran ne l'envoie pas, le réglage actuel est alors gardé).
+  if (r.spectators === undefined) return { rules: parsed as Partial<RulesConfig>, absenceDelaySeconds: delay };
+  const spectators = SPECTATOR_MODES.find((m) => m === r.spectators);
+  if (spectators === undefined) return null;
+  return { rules: parsed as Partial<RulesConfig>, absenceDelaySeconds: delay, spectators };
+}
+
+/** Ce que les joueurs permettent aux spectateurs. */
+export function spectatorMode(room: RoomAggregate): SpectatorMode {
+  return room.settings.spectators ?? DEFAULT_SPECTATOR_MODE;
 }
 
 /** Hôte actuel : le créateur, ou à défaut le joueur à la plus petite place. */
@@ -151,7 +165,12 @@ export function parseRequest(raw: unknown): RoomRequest | null {
     case 'quit':
     case 'continue':
     case 'endMatch':
+    case 'unwatch':
       return { type: r.type, roomId };
+    case 'watch': {
+      const nickname = cleanNickname(r.nickname);
+      return nickname ? { type: 'watch', roomId, nickname } : null;
+    }
     case 'drink': {
       if (r.drink === undefined || r.drink === null) return { type: 'drink', roomId };
       const drink = DRINKS.find((d) => d === r.drink);
@@ -217,7 +236,7 @@ function member(room: RoomAggregate, playerId: string): RoomPlayer | undefined {
 export function applyRoomRequest(
   room: RoomAggregate,
   playerId: string,
-  request: Exclude<RoomRequest, { type: 'create' } | { type: 'join' }>,
+  request: Exclude<RoomRequest, { type: 'create' } | { type: 'join' } | { type: 'watch' } | { type: 'unwatch' }>,
   deps: ServerDeps,
 ): RoomResult {
   const me = member(room, playerId);
@@ -245,7 +264,10 @@ export function applyRoomRequest(
       if (hostOf(room)?.playerId !== playerId) return fail("Seul l'hôte du salon peut modifier les réglages.");
       // Chacun doit revoir les réglages avant de se déclarer prêt.
       const players = room.players.map((p) => ({ ...p, ready: false }));
-      return { ok: true, room: { ...room, settings: request.settings, players } };
+      const settings = { ...request.settings, spectators: request.settings.spectators ?? spectatorMode(room) };
+      // Spectateurs refusés : ceux qui étaient inscrits ne voient plus rien.
+      const spectators = settings.spectators === 'none' ? [] : (room.spectators ?? []);
+      return { ok: true, room: { ...room, settings, players, spectators } };
     }
     case 'quit':
     case 'leave': {
@@ -309,9 +331,31 @@ export function applyRoomRequest(
 }
 
 /**
- * Informations publiques d'un salon installé à une table du café : pseudos, état, scores,
- * et la vue des spectateurs (sans aucune main). Jamais le code du salon.
+ * Un spectateur s'inscrit avec son nom, si les joueurs acceptent les spectateurs. On garde au plus
+ * MAX_SPECTATORS inscriptions récentes ; s'inscrire à nouveau met juste son nom à jour.
  */
+export function watchRoom(room: RoomAggregate, userId: string, name: string, now: number): RoomResult {
+  if (room.tableNumber === undefined) return fail('Cette partie ne se regarde pas.');
+  if (spectatorMode(room) === 'none') return fail('Les joueurs de cette table ne veulent pas de spectateurs.');
+  if (room.players.some((p) => p.playerId === userId)) return fail('Vous jouez à cette table : reprenez votre place.');
+  const fresh = (room.spectators ?? []).filter(
+    (s) => s.userId !== userId && now - s.since < SPECTATOR_STALE_HOURS * 3_600_000,
+  );
+  const spectators = [...fresh, { userId, name, since: now }].slice(-MAX_SPECTATORS);
+  return { ok: true, room: { ...room, spectators } };
+}
+
+/** Le spectateur s'en va. */
+export function unwatchRoom(room: RoomAggregate, userId: string): RoomResult {
+  return { ok: true, room: { ...room, spectators: (room.spectators ?? []).filter((s) => s.userId !== userId) } };
+}
+
+/**
+ * Informations d'un salon installé à une table du café : pseudos, état, scores (publics), la vue des
+ * spectateurs (sans aucune main, lisible seulement par les spectateurs inscrits) et la liste des
+ * spectateurs pour les droits de la base. Jamais le code du salon.
+ */
+
 /** Tous les joueurs ont quitté la table (bouton « Quitter la table ») : elle est libre. */
 export function everyoneLeft(room: RoomAggregate): boolean {
   return room.players.length > 0 && room.players.every((p) => room.left?.includes(p.playerId));
@@ -324,6 +368,8 @@ export function buildPublicTable(room: RoomAggregate): PublicTableData | null {
     ? []
     : [...room.players].sort((a, b) => a.seat - b.seat).map(({ seat, nickname, ready }) => ({ seat, nickname, ready }));
   const game = room.game;
+  const mode = spectatorMode(room);
+  const spectators = mode === 'none' ? [] : (room.spectators ?? []);
   return {
     tableNumber: room.tableNumber,
     info: {
@@ -332,15 +378,23 @@ export function buildPublicTable(room: RoomAggregate): PublicTableData | null {
       players: players.map(({ seat, nickname }) => ({ seat, nickname })),
       scores: game ? [game.scores[0], game.scores[1]] : null,
       targetScore: makeRules(room.settings.rules).targetScore,
+      spectators: mode,
     },
-    watch: {
-      roomId: room.id,
-      tableNumber: room.tableNumber,
-      status: room.status,
-      players,
-      game: game ? getSpectatorView(game) : null,
-      match: room.match ?? NEW_MATCH,
-    },
+    // Spectateurs refusés : aucune vue de la partie n'est publiée.
+    watch:
+      mode === 'none'
+        ? null
+        : {
+            roomId: room.id,
+            tableNumber: room.tableNumber,
+            status: room.status,
+            players,
+            game: game ? getSpectatorView(game) : null,
+            match: room.match ?? NEW_MATCH,
+            spectatorMode: mode,
+            spectators: spectators.map((s) => s.name),
+          },
+    spectators: spectators.map((s) => ({ userId: s.userId, name: s.name, canListen: mode === 'listen' })),
   };
 }
 
@@ -376,6 +430,7 @@ export function buildViews(room: RoomAggregate): StoredView[] {
       match: room.match ?? NEW_MATCH,
       order: room.order ? { deadline: room.order.deadline, chosen: chosenBySeat(room) } : null,
       drinks: room.drinks ?? {},
+      spectators: spectatorMode(room) === 'none' ? [] : (room.spectators ?? []).map((s) => s.name),
     };
     return { playerId: p.playerId, seat: p.seat, view };
   });
