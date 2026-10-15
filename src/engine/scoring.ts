@@ -152,6 +152,7 @@ export function resolveContract(
     capot,
     handScore,
     ending,
+    ...(success && contract.winsGame ? { winsGame: true } : {}),
   };
 }
 
@@ -162,6 +163,8 @@ export function applyHandScore(
   config: RulesConfig,
 ): { scores: [number, number]; winner: Team | null } {
   const next: [number, number] = [scores[0] + result.handScore[0], scores[1] + result.handScore[1]];
+  // « Couleur prise » réussie (règle [37]) : l'équipe du preneur gagne la manche tout de suite.
+  if (result.winsGame) return { scores: next, winner: result.takerTeam };
   const reached = next[0] >= config.targetScore || next[1] >= config.targetScore;
   // Égalité au-delà de la cible : une donne de plus (tieBreakRule 'extraHand').
   if (!reached || next[0] === next[1]) return { scores: next, winner: null };

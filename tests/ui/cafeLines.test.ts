@@ -7,7 +7,9 @@ describe('Les phrases du café', () => {
     expect(CAFE_LINES.tarek).toHaveLength(5);
     expect(CAFE_LINES.tarek).toContain(TAREK_END_LINE);
     expect(CAFE_LINES.nader).toHaveLength(4);
-    expect(CAFE_LINES.naceur).toHaveLength(3);
+    expect(CAFE_LINES.naceur).toHaveLength(2);
+    // Retirée à la demande des joueurs.
+    expect(CAFE_LINES.naceur.some((l) => l.includes('3 آلاف'))).toBe(false);
   });
 
   it('les bulles longues restent plus longtemps, sans dépasser 7 secondes', () => {

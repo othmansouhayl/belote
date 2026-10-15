@@ -187,7 +187,7 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
   const scene = scenes[0];
   const mancheKey = `${roomId}:${(view.match?.games.length ?? 0) - (game.phase === 'gameOver' ? 1 : 0)}`;
   const served = servedDrinks(view.drinks ?? {}, mancheKey);
-  // Les boissons : chacun voit la scène de sa place, et Nader lui dit ce qu'il a commandé et ce qu'il apporte.
+  // Les boissons : chacun voit la scène de sa place. Celui qui reçoit la mauvaise boisson a droit à la phrase de Nader.
   const myOrder = view.drinks?.[view.mySeat];
   const myServed = served[view.mySeat];
   const cutscene: Cutscene | null = !scene
@@ -198,7 +198,7 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
           table: tableNumber,
           served,
           viewerSeat: view.mySeat,
-          line: myOrder && myServed ? naderDrinkLine(myOrder, myServed) : undefined,
+          line: myOrder && myServed && myServed !== myOrder ? naderDrinkLine(myOrder, myServed) : undefined,
         }
       : { kind: scene, table: tableNumber, served };
   const waitingNames = acked ? SEATS.filter((s) => !view.ackSeats.includes(s)).map((s) => names[s]) : [];

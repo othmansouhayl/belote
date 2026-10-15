@@ -1,4 +1,4 @@
-import type { BidAction, BiddingState, Seat, Validation } from './types.ts';
+import type { BidAction, BiddingState, Card, Seat, Suit, Validation } from './types.ts';
 import type { RulesConfig } from './rulesConfig.ts';
 import { SUITS, SUIT_LABELS } from './deck.ts';
 import { nextSeat, partnerOf, teamOf } from './seats.ts';
@@ -39,8 +39,53 @@ export function bidLabel(action: BidAction): string {
   }
 }
 
-/** Valide une action d'enchère, en supposant que c'est bien au tour de `seat`. */
-export function validateBid(bidding: BiddingState, seat: Seat, action: BidAction, config: RulesConfig): Validation {
+/**
+ * Règle [39] : contrat minimum imposé par les atouts qu'on a dans la couleur annoncée, ou null si
+ * aucun (pas de Valet + 9, ou rien d'autre avec). V + 9 + (D, 7, 8) → 90 ; V + 9 + (R, 10, As) → 100 ;
+ * V + 9 + As + 10 (on ramasse tout l'atout) → 130, 120 ou 110 selon qu'on a 1, 2 ou 3 autres couleurs.
+ */
+export function trumpMinimumBid(hand: readonly Card[], suit: Suit): number | null {
+  const ranks = new Set(hand.filter((c) => c.suit === suit).map((c) => c.rank));
+  if (!ranks.has('V') || !ranks.has('9')) return null;
+  if (ranks.has('A') && ranks.has('10')) {
+    const otherSuits = new Set(hand.filter((c) => c.suit !== suit).map((c) => c.suit)).size;
+    return otherSuits <= 1 ? 130 : otherSuits === 2 ? 120 : 110;
+  }
+  if (ranks.has('R') || ranks.has('10') || ranks.has('A')) return 100;
+  if (ranks.has('D') || ranks.has('7') || ranks.has('8')) return 90;
+  return null;
+}
+
+/** Le partenaire de `seat` a déjà annoncé cette couleur pendant ces enchères (on peut monter librement). */
+function partnerAnnounced(bidding: BiddingState, seat: Seat, suit: Suit): boolean {
+  return bidding.history.some(
+    ({ seat: s, action }) => s === partnerOf(seat) && action.type === 'bid' && action.suit === suit,
+  );
+}
+
+/**
+ * « Couleur prise » (règle [37]) : le contrat en cours est un « 90 » ou un « 100 » de l'adversaire,
+ * et on reprend sa couleur à 110 ou plus (كبوط compris).
+ */
+export function isStolenSuitBid(bidding: BiddingState, seat: Seat, action: BidAction, config: RulesConfig): boolean {
+  const rule = config.stolenSuitWinsGame;
+  const contract = bidding.contract;
+  if (!rule || !contract || action.type !== 'bid' || bidding.coinchedBy !== null) return false;
+  if (teamOf(contract.bidder) === teamOf(seat) || contract.value === 'capot') return false;
+  return rule.opponentBids.includes(contract.value) && action.suit === contract.suit && bidRank(action.value) >= rule.minimum;
+}
+
+/**
+ * Valide une action d'enchère, en supposant que c'est bien au tour de `seat`. Avec sa main
+ * (`hand`), on vérifie aussi le minimum imposé par ses atouts (règle [39]).
+ */
+export function validateBid(
+  bidding: BiddingState,
+  seat: Seat,
+  action: BidAction,
+  config: RulesConfig,
+  hand?: readonly Card[],
+): Validation {
   const contract = bidding.contract;
 
   if (bidding.coinchedBy !== null) {
@@ -87,6 +132,15 @@ export function validateBid(bidding: BiddingState, seat: Seat, action: BidAction
       ) {
         return { ok: false, error: 'Vous ne pouvez pas surenchérir dans la couleur de votre partenaire.' };
       }
+      if (hand && config.trumpBidMinimums && action.value !== 'capot' && !partnerAnnounced(bidding, seat, action.suit)) {
+        const minimum = trumpMinimumBid(hand, action.suit);
+        if (minimum !== null && action.value < minimum) {
+          return {
+            ok: false,
+            error: `Pas de fausse annonce : avec vos atouts en ${SUIT_LABELS[action.suit]}, il faut annoncer au moins ${minimum}.`,
+          };
+        }
+      }
       return { ok: true };
     }
   }
@@ -111,15 +165,15 @@ function validateSurcoinche(bidding: BiddingState, seat: Seat, config: RulesConf
   return { ok: true };
 }
 
-/** Toutes les actions d'enchère permises pour `seat`, en supposant que c'est son tour. */
-export function getLegalBids(bidding: BiddingState, seat: Seat, config: RulesConfig): BidAction[] {
+/** Toutes les actions d'enchère permises pour `seat` (avec sa main), en supposant que c'est son tour. */
+export function getLegalBids(bidding: BiddingState, seat: Seat, config: RulesConfig, hand?: readonly Card[]): BidAction[] {
   const candidates: BidAction[] = [{ type: 'pass' }];
   const values: (number | 'capot')[] = [...bidValues(config), 'capot'];
   for (const value of values) {
     for (const suit of SUITS) candidates.push({ type: 'bid', value, suit });
   }
   candidates.push({ type: 'coinche' }, { type: 'surcoinche' });
-  return candidates.filter((action) => validateBid(bidding, seat, action, config).ok);
+  return candidates.filter((action) => validateBid(bidding, seat, action, config, hand).ok);
 }
 
 /**
@@ -175,12 +229,18 @@ export function applyBid(bidding: BiddingState, seat: Seat, action: BidAction, c
       if (!bidding.contract && consecutivePasses >= 4) return { status: 'allPassed', bidding: updated };
       return { status: 'continue', bidding: updated, nextPlayer: nextSeat(seat, dir) };
     }
-    case 'bid':
+    case 'bid': {
+      const contract = { value: action.value, suit: action.suit, bidder: seat };
+      // « Couleur prise » : pas de retour en arrière, les enchères s'arrêtent net.
+      if (isStolenSuitBid(bidding, seat, action, config)) {
+        return { status: 'done', bidding: { ...base, contract, consecutivePasses: 0, winsGame: true } };
+      }
       return {
         status: 'continue',
-        bidding: { ...base, contract: { value: action.value, suit: action.suit, bidder: seat }, consecutivePasses: 0 },
+        bidding: { ...base, contract, consecutivePasses: 0 },
         nextPlayer: nextSeat(seat, dir),
       };
+    }
     case 'coinche': {
       if (!config.allowSurcoinche) return { status: 'done', bidding: { ...base, coinchedBy: seat } };
       // Les deux joueurs de l'équipe preneuse, dans l'ordre de jeu, peuvent surcoincher.

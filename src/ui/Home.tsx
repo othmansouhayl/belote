@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import { CAFE_TABLE_COUNT, ROOM_CODE_LENGTH, TARGET_SCORES } from '../server/rooms.ts';
 import { BrandHeader, SiteFooter } from './BrandHeader.tsx';
 import { Remote } from './Remote.tsx';
-import { CHANNELS, useMusic } from './music.ts';
 import { promptInstall, useInstallState } from './install.ts';
 import { onlineConfigured } from './online/client.ts';
 import type { SavedRoom } from './online/client.ts';
@@ -60,8 +59,6 @@ function toSceneTables(tables: readonly CafeTable[]): SceneTable[] {
 export function Home(props: HomeProps) {
   const { nickname, onNickname, initialCode, savedRoom, busy, error, onLocal, onCreate, onJoin, onResume, onWatch, onMap } = props;
   const { tables, endings } = useCafeTables();
-  const music = useMusic();
-  const nowPlaying = music.on ? CHANNELS[music.channel]! : null;
   const sceneTables = useMemo(() => toSceneTables(tables), [tables]);
   const [selected, setSelected] = useState<CafeTarget | null>(null);
   const [view, setView] = useState<Viewpoint>('entrance');
@@ -270,7 +267,6 @@ export function Home(props: HomeProps) {
               <CafeView
                 tables={sceneTables}
                 endings={endings}
-                nowPlaying={nowPlaying}
                 selected={selected}
                 view={view}
                 onSelect={select}

@@ -13,7 +13,7 @@ export function positionOf(seat: Seat, mySeat: Seat): Position {
 
 export type SeatNames = Readonly<Record<Seat, string>>;
 
-export const PLAYER_NAMES: Record<Seat, string> = { 0: 'Vous', 1: 'Karim', 2: 'Leïla', 3: 'Sami' };
+export const PLAYER_NAMES: Record<Seat, string> = { 0: 'Vous', 1: 'Belgacem', 2: 'Romdhan', 3: 'Firas' };
 
 export const SUIT_SYMBOLS: Record<Suit, string> = { pique: '♠', coeur: '♥', carreau: '♦', trefle: '♣' };
 

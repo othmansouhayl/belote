@@ -16,14 +16,15 @@ export interface Bubble {
 /** Fin de manche anticipée, affichée au milieu de la table avant le résultat. */
 export type Finale =
   | { readonly kind: 'claim'; readonly seat: Seat; readonly cards: readonly Card[] }
-  | { readonly kind: 'capotFailed'; readonly seat: Seat };
+  | { readonly kind: 'capotFailed'; readonly seat: Seat }
+  | { readonly kind: 'contractLost'; readonly seat: Seat };
 
 export interface TableEffects {
   /** Pli qui vient d'être terminé, laissé visible un instant. */
   readonly pausedTrick: CompletedTrick | null;
   readonly notice: string | null;
   readonly beloteBubble: Bubble | null;
-  /** « تي إفرش عاد » ou « يروووووووح » : le résultat de la manche attend la fin de l'animation. */
+  /** « تي إفرش عاد », « يروووووووح » ou « دخلت كارطة .. طيش » : le résultat attend la fin de l'animation. */
   readonly finale: Finale | null;
   readonly showNotice: (text: string) => void;
 }
@@ -60,6 +61,9 @@ export function useTableEffects(view: PlayerView | null, names: SeatNames, spect
       } else if (ending.type === 'capotFailed') {
         setFinale({ kind: 'capotFailed', seat: ending.seat });
         playSound('coinche', 0.9);
+      } else if (ending.type === 'contractLost') {
+        setFinale({ kind: 'contractLost', seat: ending.seat });
+        playSound('coinche', 0.9);
       }
     }
     if (!sameHand) setFinale(null);
@@ -67,7 +71,8 @@ export function useTableEffects(view: PlayerView | null, names: SeatNames, spect
       const c = view.contract;
       const doubled = c.surcoinchedBy !== null ? ', surcontré' : c.coinchedBy !== null ? ', contré' : '';
       const who = c.bidder === view.seat && !spectator ? 'Vous prenez' : `${names[c.bidder]} prend`;
-      setNotice(`${who} à ${contractValueLabel(c.value)} ${SUIT_SYMBOLS[c.suit]}${doubled}`);
+      const stake = c.winsGame ? ' : couleur prise, la manche se joue sur cette donne !' : '';
+      setNotice(`${who} à ${contractValueLabel(c.value)} ${SUIT_SYMBOLS[c.suit]}${doubled}${stake}`);
     }
   }, [view, names, spectator]);
 
