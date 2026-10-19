@@ -4,11 +4,13 @@ import {
   SEATS,
   SUITS,
   applyAction,
+  bidTurnKey,
   createGame,
   getPlayerView,
   endMatch,
   getSpectatorView,
   isMatchOver,
+  isThoughtBid,
   makeRules,
   recordGame,
   startNextHand,
@@ -99,6 +101,14 @@ export function cleanNickname(raw: unknown): string | null {
   return [...cleaned].slice(0, 20).join('');
 }
 
+/** Deux pseudos identiques à une même table ? (sans tenir compte des majuscules ni des accents de forme) */
+export function sameNickname(a: string, b: string): boolean {
+  const key = (n: string) => n.normalize('NFKC').toLocaleLowerCase('fr').trim();
+  return key(a) === key(b);
+}
+
+const NICKNAME_TAKEN = 'Ce nom est déjà pris à cette table : choisissez-en un autre.';
+
 export function normalizeCode(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const code = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -178,7 +188,9 @@ export function parseRequest(raw: unknown): RoomRequest | null {
     }
     case 'game': {
       const action = parseAction(r.action);
-      return action ? { type: 'game', roomId, action } : null;
+      if (!action) return null;
+      // Ce que montrait le chrono de réflexion du joueur (vérifié ensuite par le serveur).
+      return typeof r.thought === 'boolean' ? { type: 'game', roomId, action, thought: r.thought } : { type: 'game', roomId, action };
     }
     default:
       return null;
@@ -203,14 +215,17 @@ export function createRoom(playerId: string, nickname: string, deps: ServerDeps,
 /** Rejoindre, ou revenir dans son salon après une coupure (même identité anonyme). */
 export function joinRoom(room: RoomAggregate, playerId: string, nickname: string): RoomResult {
   const existing = room.players.find((p) => p.playerId === playerId);
+  const taken = room.players.some((p) => p.playerId !== playerId && sameNickname(p.nickname, nickname));
   if (existing) {
-    const players = room.players.map((p) => (p.playerId === playerId ? { ...p, nickname } : p));
+    // Revenir n'est jamais refusé : si le nouveau nom est déjà pris par un autre joueur, on garde l'ancien.
+    const players = room.players.map((p) => (p.playerId === playerId && !taken ? { ...p, nickname } : p));
     // Un joueur qui avait quitté la table et revient avec le code reprend sa place.
     return { ok: true, room: { ...room, players, left: (room.left ?? []).filter((id) => id !== playerId) } };
   }
   if (room.status !== 'lobby') return fail('La partie a déjà commencé dans ce salon.');
   const seat = SEATS.find((s) => !room.players.some((p) => p.seat === s));
   if (seat === undefined) return fail('Le salon est complet.');
+  if (taken) return fail(NICKNAME_TAKEN);
   return { ok: true, room: { ...room, players: [...room.players, { playerId, nickname, seat, ready: false }] } };
 }
 
@@ -296,7 +311,14 @@ export function applyRoomRequest(
     }
     case 'game': {
       if (!room.game) return fail("La partie n'a pas commencé.");
-      const result = applyAction(room.game, me.seat, request.action);
+      // Le chrono de réflexion : le temps mesuré par le serveur depuis le début de ce tour d'enchère.
+      const turn = room.bidTurn && room.bidTurn.key === bidTurnKey(room.game) ? room.bidTurn : undefined;
+      const thought = isThoughtBid(
+        room.game.config.bidReflectionSeconds ?? 0,
+        turn ? nowOf(deps) - turn.since : undefined,
+        request.thought,
+      );
+      const result = applyAction(room.game, me.seat, request.action, { thought });
       if (!result.ok) return fail(result.error);
       const state = result.state;
       // Fin de manche : on la note dans le match.
@@ -330,6 +352,17 @@ export function applyRoomRequest(
   }
 }
 
+/** Note l'heure où commence chaque tour d'enchère (à chaque enregistrement du salon). */
+export function trackBidTurn(room: RoomAggregate, now: number): RoomAggregate {
+  const key = room.game ? bidTurnKey(room.game) : null;
+  if (key === null) {
+    if (room.bidTurn === undefined) return room;
+    const { bidTurn: _done, ...rest } = room;
+    return rest;
+  }
+  return room.bidTurn?.key === key ? room : { ...room, bidTurn: { key, since: now } };
+}
+
 /**
  * Un spectateur s'inscrit avec son nom, si les joueurs acceptent les spectateurs. On garde au plus
  * MAX_SPECTATORS inscriptions récentes ; s'inscrire à nouveau met juste son nom à jour.
@@ -341,6 +374,9 @@ export function watchRoom(room: RoomAggregate, userId: string, name: string, now
   const fresh = (room.spectators ?? []).filter(
     (s) => s.userId !== userId && now - s.since < SPECTATOR_STALE_HOURS * 3_600_000,
   );
+  if (room.players.some((p) => sameNickname(p.nickname, name)) || fresh.some((s) => sameNickname(s.name, name))) {
+    return fail(NICKNAME_TAKEN);
+  }
   const spectators = [...fresh, { userId, name, since: now }].slice(-MAX_SPECTATORS);
   return { ok: true, room: { ...room, spectators } };
 }

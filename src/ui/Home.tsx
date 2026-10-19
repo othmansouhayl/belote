@@ -2,7 +2,6 @@ import { Component, Suspense, lazy, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { CAFE_TABLE_COUNT, ROOM_CODE_LENGTH, TARGET_SCORES } from '../server/rooms.ts';
 import { BrandHeader, SiteFooter } from './BrandHeader.tsx';
-import { Remote } from './Remote.tsx';
 import { promptInstall, useInstallState } from './install.ts';
 import { onlineConfigured } from './online/client.ts';
 import type { SavedRoom } from './online/client.ts';
@@ -307,7 +306,6 @@ export function Home(props: HomeProps) {
             {view === 'entrance' ? 'Aller au fond · tables de belote ↑' : '↓ Revenir à l’entrée'}
           </button>
         )}
-        <Remote />
         <button type="button" className="cafe-back" onClick={onMap} aria-label="Revenir à la carte de Oudhref">
           ‹ <span lang="ar">وذرف</span>
         </button>

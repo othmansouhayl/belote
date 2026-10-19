@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DRINKS } from '../../src/server/types.ts';
-import { DRINK_AR, naderDrinkLine, servedDrink, servedDrinks, unluckySeat } from '../../src/ui/online/drinks.ts';
+import { DRINK_AR, NADER_HURRY_LINES, naderDrinkLine, naderHurryLine, servedDrink, servedDrinks, unluckySeat } from '../../src/ui/online/drinks.ts';
 
 describe('Nader apporte les boissons', () => {
   it('la mauvaise boisson n’est jamais celle qui a été commandée', () => {
@@ -33,5 +33,18 @@ describe('Nader apporte les boissons', () => {
   it('la phrase de Nader : ce qui a été commandé, puis ce qu’il a apporté', () => {
     expect(naderDrinkLine('tey', 'capucin')).toBe('مافماش تاي جبتلك كابوسان .. موش عاجبك معادش تجي');
     for (const drink of DRINKS) expect(DRINK_AR[drink]).toBeTruthy();
+  });
+});
+
+describe('À 1000 points, Nader presse la table', () => {
+  it('une des deux phrases, la même sur les 4 téléphones, et les deux finissent par sortir', () => {
+    expect(NADER_HURRY_LINES.map((l) => l.ar)).toEqual(['لاولاد هي فيسع بش نسكرو', 'ديما خاسرين انتم ..']);
+    const seen = new Set<string>();
+    for (let i = 0; i < 40; i++) {
+      const line = naderHurryLine(`salon-${i}:1`);
+      expect(naderHurryLine(`salon-${i}:1`)).toBe(line);
+      seen.add(line.ar);
+    }
+    expect(seen.size).toBe(2);
   });
 });

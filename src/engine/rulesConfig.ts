@@ -46,6 +46,12 @@ export interface RulesConfig {
    * partenaire, c'est libre aussi.
    */
   readonly trumpBidMinimums: boolean;
+  /**
+   * VALIDÉ [41] : la réflexion se voit. Quand c'est son tour d'annoncer, un chrono tourne : annoncer
+   * (ou passer) dans ces secondes, c'est une annonce « directe » (bleue) ; au-delà, une annonce
+   * « réfléchie » (rouge), et tout le monde le voit. 0 = pas de chrono.
+   */
+  readonly bidReflectionSeconds: number;
 
   // Distribution et rotation
   readonly dealPatterns: readonly DealPattern[];
@@ -168,6 +174,7 @@ export const DEFAULT_RULES: RulesConfig = {
   noBidRedeal: true,
   stolenSuitWinsGame: { opponentBids: [90, 100], minimum: 110 },
   trumpBidMinimums: true,
+  bidReflectionSeconds: 5,
 
   dealPatterns: [
     [4, 4],

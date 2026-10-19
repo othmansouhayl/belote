@@ -47,7 +47,7 @@ interface Callbacks {
  * Petites scènes pendant le match, à la table des joueurs :
  * - « order » : Mohamed Naceur apporte tapis, carton et stylo, et prend la commande ;
  * - « drinks » : à 500 points, Nader apporte les boissons (il se trompe pour une seule personne) ;
- * - « hung » : à 1000 points, Nader vient presser la table, le match à la télé va commencer.
+ * - « hung » : à 1000 points, Nader vient presser la table (« لاولاد هي فيسع بش نسكرو » ou « ديما خاسرين انتم .. »).
  */
 export interface Cutscene {
   readonly kind: 'order' | 'drinks' | 'hung';
@@ -79,7 +79,7 @@ function povAt(spot: TableSpot, seat: number) {
 const CUTSCENE_LINES: Record<Cutscene['kind'], string> = {
   order: 'شنو بش تشربو هاي فيسع',
   drinks: 'تفضلو 😅',
-  hung: 'علقتو ؟ ... هيا إكبسو رواحكم الماتش بش يبدا',
+  hung: 'لاولاد هي فيسع بش نسكرو',
 };
 
 const TEAM_COLORS = [0x5aa9e6, 0xf08a68];

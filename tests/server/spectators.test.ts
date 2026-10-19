@@ -115,6 +115,17 @@ describe('Spectateurs : le créateur du salon décide, le spectateur donne son n
     expect((await call(store, 'b', { type: 'watch', roomId, nickname: 'B' })).ok).toBe(false);
   });
 
+  it('un spectateur ne prend pas le nom d’un joueur ni d’un autre spectateur', async () => {
+    const roomId = await table(store, 'watch');
+    const taken = { ok: false, error: 'Ce nom est déjà pris à cette table : choisissez-en un autre.' };
+    expect(await call(store, 'x', { type: 'watch', roomId, nickname: 'hôte' })).toEqual(taken);
+    expect(await call(store, 'x', { type: 'watch', roomId, nickname: 'JOUEUR B' })).toEqual(taken);
+    expect((await call(store, 'x', { type: 'watch', roomId, nickname: 'Sami' })).ok).toBe(true);
+    expect(await call(store, 'y', { type: 'watch', roomId, nickname: 'sami' })).toEqual(taken);
+    // Le même spectateur peut se réinscrire avec son propre nom.
+    expect((await call(store, 'x', { type: 'watch', roomId, nickname: 'Sami' })).ok).toBe(true);
+  });
+
   it('partir : « ne plus regarder » ; revenir met le nom à jour ; liste bornée et oubli après 6 heures', async () => {
     const roomId = await table(store, 'watch');
     await call(store, 'x', { type: 'watch', roomId, nickname: 'Sami' });

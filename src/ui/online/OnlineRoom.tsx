@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NEW_MATCH, SEATS, isMatchOver } from '../../engine/index.ts';
-import type { GameAction, Seat } from '../../engine/index.ts';
+import type { ActionOptions, GameAction, Seat } from '../../engine/index.ts';
 import type { RoomRequest } from '../../server/types.ts';
 import { GameTable } from '../GameTable.tsx';
 import { GameMenu } from '../GameMenu.tsx';
@@ -18,7 +18,7 @@ import { voiceLinkOf } from './voice/voiceLink.ts';
 import type { VoiceLinkState } from '../VoiceDot.tsx';
 import { CafeCutscene } from './CafeCutscene.tsx';
 import { OrderPanel } from './OrderPanel.tsx';
-import { DRINK_LABELS, naderDrinkLine, servedDrinks } from './drinks.ts';
+import { DRINK_LABELS, naderDrinkLine, naderHurryLine, servedDrinks } from './drinks.ts';
 import type { Cutscene } from '../cafe/cafeScene.ts';
 import type { Drink } from '../../server/types.ts';
 
@@ -197,6 +197,8 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
   // Les boissons : chacun voit la scène de sa place. Celui qui reçoit la mauvaise boisson a droit à la phrase de Nader.
   const myOrder = view.drinks?.[view.mySeat];
   const myServed = served[view.mySeat];
+  // À 1000 points : la phrase de Nader, la même pour toute la table.
+  const hurry = naderHurryLine(mancheKey);
   const cutscene: Cutscene | null = !scene
     ? null
     : scene === 'drinks'
@@ -207,7 +209,7 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
           viewerSeat: view.mySeat,
           line: myOrder && myServed && myServed !== myOrder ? naderDrinkLine(myOrder, myServed) : undefined,
         }
-      : { kind: scene, table: tableNumber, served };
+      : { kind: scene, table: tableNumber, served, line: hurry.ar };
   const waitingNames = acked ? SEATS.filter((s) => !view.ackSeats.includes(s)).map((s) => names[s]) : [];
 
   return (
@@ -224,7 +226,9 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
         speakingSeats={voice.snapshot.speaking}
         voiceMutedSeats={voice.snapshot.mutedSeats}
         voiceLinks={voiceLinks}
-        onAction={(action: GameAction) => void send({ type: 'game', action })}
+        onAction={(action: GameAction, options?: ActionOptions) =>
+          void send({ type: 'game', action, ...(options?.thought !== undefined ? { thought: options.thought } : {}) })
+        }
         cont={{
           label:
             game.phase === 'gameOver' ? (isMatchOver(view.match ?? NEW_MATCH) ? 'Nouveau match' : 'Manche suivante') : 'Donne suivante',
@@ -269,6 +273,7 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
             ordered={view.drinks ?? {}}
             served={served}
             names={names}
+            hurry={hurry}
             onClose={closeScene}
           />
         </CafeCutscene>
@@ -277,7 +282,7 @@ export function OnlineRoom({ roomId, onExit }: OnlineRoomProps) {
   );
 }
 
-/** Le panneau sous la scène 3D : ce que Nader a servi (faux), ou « علقتو ؟ ». Se ferme tout seul. */
+/** Le panneau sous la scène 3D : ce que Nader a servi (faux), ou sa phrase pour presser la table. Se ferme tout seul. */
 function ScenePanel(props: {
   readonly kind: Cutscene['kind'];
   /** Le serveur est arrivé à la table : on laisse le temps de lire, puis on revient au jeu. */
@@ -285,9 +290,10 @@ function ScenePanel(props: {
   readonly ordered: Partial<Record<number, Drink>>;
   readonly served: Partial<Record<number, Drink>>;
   readonly names: SeatNames;
+  readonly hurry: { readonly ar: string; readonly fr: string };
   readonly onClose: () => void;
 }) {
-  const { kind, arrived, ordered, served, names, onClose } = props;
+  const { kind, arrived, ordered, served, names, hurry, onClose } = props;
   useEffect(() => {
     // Après l'arrivée du serveur : le temps de lire ; sinon, au plus 40 s (3D très lente).
     const timer = setTimeout(onClose, arrived ? (kind === 'drinks' ? 9000 : 7000) : 40000);
@@ -315,9 +321,9 @@ function ScenePanel(props: {
       ) : (
         <p className="order__title">
           <span lang="ar" dir="rtl">
-            « علقتو ؟ ... هيا إكبسو رواحكم الماتش بش يبدا »
+            « {hurry.ar} »
           </span>
-          <span className="order__hint">Nader presse la table : le match à la télé va commencer.</span>
+          <span className="order__hint">Nader presse la table : {hurry.fr}</span>
         </p>
       )}
       <button type="button" className="btn btn--primary btn--wide" onClick={onClose}>

@@ -204,9 +204,9 @@ export type BiddingStep =
   | { readonly status: 'allPassed'; readonly bidding: BiddingState };
 
 /** Applique une action déjà validée et indique la suite des enchères. */
-export function applyBid(bidding: BiddingState, seat: Seat, action: BidAction, config: RulesConfig): BiddingStep {
+export function applyBid(bidding: BiddingState, seat: Seat, action: BidAction, config: RulesConfig, thought = false): BiddingStep {
   const dir = config.playDirection;
-  const base = { ...bidding, history: [...bidding.history, { seat, action }] };
+  const base = { ...bidding, history: [...bidding.history, { seat, action, ...(thought ? { thought: true as const } : {}) }] };
 
   if (bidding.coinchedBy !== null) {
     if (action.type === 'surcoinche') {

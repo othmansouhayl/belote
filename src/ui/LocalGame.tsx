@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NEW_MATCH, applyAction, createGame, endMatch, getPlayerView, isMatchOver, legalBids, recordGame, startNextHand } from '../engine/index.ts';
-import type { GameAction, GameState, MatchState, Seat } from '../engine/index.ts';
+import type { ActionOptions, GameAction, GameState, MatchState, Seat } from '../engine/index.ts';
 import { botView, chooseBotAction } from '../bots/simpleBot.ts';
 import { GameTable } from './GameTable.tsx';
 import { GameMenu } from './GameMenu.tsx';
@@ -36,13 +36,13 @@ export function LocalGame({ targetScore, onExit }: LocalGameProps) {
   const { showNotice } = effects;
 
   const perform = useCallback(
-    (seat: Seat, action: GameAction) => {
+    (seat: Seat, action: GameAction, options?: ActionOptions) => {
       const before = gameRef.current;
       // Un double appui rapide arrive après que le tour est passé : on l'ignore.
       // La contrée et le كبوط peuvent se dire hors tour : on ne laisse passer que ce que le moteur permet.
       const outOfTurnBid = action.type === 'bid' && legalBids(before, HUMAN).some((b) => JSON.stringify(b) === JSON.stringify(action.bid));
       if (seat === HUMAN && before.currentPlayer !== HUMAN && !outOfTurnBid) return;
-      const result = applyAction(before, seat, action);
+      const result = applyAction(before, seat, action, options);
       if (!result.ok) {
         showNotice(result.error);
         return;
@@ -93,7 +93,7 @@ export function LocalGame({ targetScore, onExit }: LocalGameProps) {
         view={view}
         names={PLAYER_NAMES}
         effects={effects}
-        onAction={(action) => perform(HUMAN, action)}
+        onAction={(action, options) => perform(HUMAN, action, options)}
         cont={{
           label: game.phase === 'gameOver' ? (isMatchOver(match) ? 'Nouveau match' : 'Manche suivante') : 'Donne suivante',
           acked: false,
