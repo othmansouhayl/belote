@@ -26,6 +26,17 @@ export function naderDrinkLine(ordered: Drink, served: Drink): string {
   return `مافماش ${DRINK_AR[ordered]} جبتلك ${DRINK_AR[served]} .. موش عاجبك معادش تجي`;
 }
 
+/** À 1000 points, Nader passe presser la table : une de ces deux phrases (avec sa traduction). */
+export const NADER_HURRY_LINES = [
+  { ar: 'لاولاد هي فيسع بش نسكرو', fr: 'Allez les gars, vite, on va fermer !' },
+  { ar: 'ديما خاسرين انتم ..', fr: 'Toujours perdants, vous…' },
+] as const;
+
+/** La phrase de Nader à 1000 points : la même sur les 4 téléphones (tirée à partir de la table et de la manche). */
+export function naderHurryLine(key: string): (typeof NADER_HURRY_LINES)[number] {
+  return NADER_HURRY_LINES[hash(`${key}:presse`) % NADER_HURRY_LINES.length]!;
+}
+
 function hash(text: string): number {
   let h = 2166136261;
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);

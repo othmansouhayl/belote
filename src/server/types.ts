@@ -69,6 +69,8 @@ export interface RoomAggregate {
   readonly drinks?: Partial<Record<Seat, Drink>>;
   /** Spectateurs inscrits (avec leur nom). */
   readonly spectators?: readonly RoomSpectator[];
+  /** Tour d'enchère en cours et l'heure où il a commencé : le chrono de réflexion (règle [41]). */
+  readonly bidTurn?: { readonly key: string; readonly since: number };
 }
 
 /**
@@ -153,7 +155,7 @@ export type RoomRequest =
   | { readonly type: 'drink'; readonly roomId: string; readonly drink?: Drink }
   /** Arrêter le match après une manche (au lieu de jouer la suivante). */
   | { readonly type: 'endMatch'; readonly roomId: string }
-  | { readonly type: 'game'; readonly roomId: string; readonly action: GameAction }
+  | { readonly type: 'game'; readonly roomId: string; readonly action: GameAction; readonly thought?: boolean }
   | { readonly type: 'continue'; readonly roomId: string }
   /** S'inscrire comme spectateur d'une table, avec son nom (si les joueurs l'acceptent). */
   | { readonly type: 'watch'; readonly roomId: string; readonly nickname: string }

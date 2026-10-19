@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { NEW_MATCH, SEATS, isMatchOver, matchWinner, matchWins, winningCard } from '../engine/index.ts';
-import type { GameAction, MatchState, PlayerView, Seat, Team } from '../engine/index.ts';
+import { NEW_MATCH, SEATS, bidTurnKey, isMatchOver, matchWinner, matchWins, winningCard } from '../engine/index.ts';
+import type { ActionOptions, BidAction, GameAction, MatchState, PlayerView, Seat, Team } from '../engine/index.ts';
 import { ScoreSheet } from './ScoreSheet.tsx';
 import { sheetRows } from './scoreSheet.ts';
 import { BiddingPanel } from './BiddingPanel.tsx';
@@ -11,6 +11,7 @@ import { QuickBids } from './QuickBids.tsx';
 import type { VoiceLinkState } from './VoiceDot.tsx';
 import { Hand } from './Hand.tsx';
 import { PlayerSeat } from './PlayerSeat.tsx';
+import type { BubblePace } from './PlayerSeat.tsx';
 import { EndScreen } from './EndScreen.tsx';
 import { HandResultDialog } from './ResultDialogs.tsx';
 import type { ContinueState } from './ResultDialogs.tsx';
@@ -27,7 +28,8 @@ interface GameTableProps {
   readonly view: PlayerView;
   readonly names: SeatNames;
   readonly effects: TableEffects;
-  readonly onAction: (action: GameAction) => void;
+  /** `options.thought` : l'annonce a été faite après le chrono de réflexion (règle [41]). */
+  readonly onAction: (action: GameAction, options?: ActionOptions) => void;
   readonly cont: ContinueState;
   readonly menuLabel: string;
   readonly onMenu: () => void;
@@ -99,11 +101,24 @@ export function GameTable(props: GameTableProps) {
 
   const canClaim = myTurn && view.phase === 'playing' && view.canClaim;
 
+  // Le chrono de réflexion (règle [41]) : il part à chaque tour d'enchère, sur la place de celui qui parle.
+  const reflectionSeconds = view.config.bidReflectionSeconds ?? 0;
+  const turnKey = reflectionSeconds > 0 ? bidTurnKey(view) : null;
+  const turnStart = useRef<{ key: string | null; at: number }>({ key: null, at: 0 });
+  if (turnStart.current.key !== turnKey) turnStart.current = { key: turnKey, at: Date.now() };
+  const bid = (b: BidAction) =>
+    onAction({ type: 'bid', bid: b }, { thought: turnKey !== null && Date.now() - turnStart.current.at > reflectionSeconds * 1000 });
+
   const bidBubbles = useMemo(() => {
-    const bubbles = new Map<Seat, { text: string; strong: boolean }>();
+    const bubbles = new Map<Seat, { text: string; strong: boolean; pace: BubblePace }>();
     if (view.phase !== 'bidding') return bubbles;
-    for (const { seat, action } of view.bidding.history) {
-      bubbles.set(seat, { text: bidShortLabel(action), strong: action.type === 'coinche' || action.type === 'surcoinche' });
+    const timed = (view.config.bidReflectionSeconds ?? 0) > 0;
+    for (const { seat, action, thought } of view.bidding.history) {
+      bubbles.set(seat, {
+        text: bidShortLabel(action),
+        strong: action.type === 'coinche' || action.type === 'surcoinche',
+        pace: timed ? (thought ? 'thought' : 'direct') : null,
+      });
     }
     return bubbles;
   }, [view]);
@@ -169,6 +184,8 @@ export function GameTable(props: GameTableProps) {
               cardsLeft={view.handCounts[seat] ?? 0}
               bubble={beloteBubble?.seat === seat ? beloteBubble.text : (bidBubble?.text ?? null)}
               highlightBubble={beloteBubble?.seat === seat || (bidBubble?.strong ?? false)}
+              bubblePace={beloteBubble?.seat === seat ? null : (bidBubble?.pace ?? null)}
+              chrono={turnKey !== null && view.currentPlayer === seat ? { key: turnKey, seconds: reflectionSeconds } : null}
               speaking={speakingSeats?.has(seat) ?? false}
               voiceMuted={voiceMutedSeats?.has(seat) ?? false}
               voiceLink={voiceLinks?.get(seat) ?? null}
@@ -205,7 +222,7 @@ export function GameTable(props: GameTableProps) {
           <BiddingPanel
             key={`${view.handNumber}-${view.redeals}-${view.bidding.history.length}`}
             legal={view.legalBids}
-            onBid={(bid) => onAction({ type: 'bid', bid })}
+            onBid={bid}
           />
         )}
         {!myTurn && !spectator && !busy && view.phase === 'bidding' && view.legalBids.length > 0 && (

@@ -6,6 +6,9 @@ import { SpeakingBars, VoiceDot } from './VoiceDot.tsx';
 import type { VoiceLinkState } from './VoiceDot.tsx';
 import { positionOf } from './labels.ts';
 
+/** Annonce directe (bleue) ou réfléchie (rouge) ; null sans chrono de réflexion. */
+export type BubblePace = 'direct' | 'thought' | null;
+
 interface PlayerSeatProps {
   readonly seat: Seat;
   readonly mySeat: Seat;
@@ -19,6 +22,9 @@ interface PlayerSeatProps {
   /** Spectateur : la place du bas montre aussi ses dos de cartes. */
   readonly showOwnBacks?: boolean;
   readonly highlightBubble: boolean;
+  readonly bubblePace?: BubblePace;
+  /** Chrono de réflexion : c'est à ce joueur d'annoncer (bleu pendant `seconds`, puis rouge). */
+  readonly chrono?: { readonly key: string; readonly seconds: number } | null;
   readonly speaking?: boolean;
   readonly voiceMuted?: boolean;
   /** Voyant du vocal (null si on n'est pas dans le vocal, ou ce joueur non plus). */
@@ -60,6 +66,15 @@ export function PlayerSeat(props: PlayerSeatProps) {
             </span>
           )}
         </div>
+        {props.chrono && (
+          // Rejoué à chaque tour d'enchère (clé) : la barre bleue se vide, puis tout passe au rouge.
+          <span
+            key={props.chrono.key}
+            className="seat__chrono"
+            style={{ ['--reflection' as string]: `${props.chrono.seconds}s` }}
+            aria-hidden="true"
+          />
+        )}
         <div className="seat__badge">
           <span className="seat__name">{name}</span>
           {voiceMuted && (
@@ -90,7 +105,16 @@ export function PlayerSeat(props: PlayerSeatProps) {
           ))}
         </div>
       )}
-      {bubble && <div className={`seat__bubble${highlightBubble ? ' seat__bubble--strong' : ''}`}><SuitText text={bubble} /></div>}
+      {bubble && (
+        <div
+          className={['seat__bubble', highlightBubble && 'seat__bubble--strong', props.bubblePace && `seat__bubble--${props.bubblePace}`]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <SuitText text={bubble} />
+          {props.bubblePace === 'thought' && <span className="visually-hidden"> (après réflexion)</span>}
+        </div>
+      )}
     </div>
   );
 }

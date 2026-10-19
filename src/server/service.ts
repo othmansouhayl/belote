@@ -1,4 +1,4 @@
-import { applyRoomRequest, buildPublicTable, buildViews, createRoom, joinRoom, parseRequest, spectatorMode, unwatchRoom, watchRoom } from './rooms.ts';
+import { applyRoomRequest, buildPublicTable, buildViews, createRoom, joinRoom, parseRequest, spectatorMode, trackBidTurn, unwatchRoom, watchRoom } from './rooms.ts';
 import type { RoomResponse, RoomStore, ServerDeps } from './types.ts';
 
 const MAX_ATTEMPTS = 6;
@@ -41,7 +41,8 @@ export async function handleRequest(
             : applyRoomRequest(room, playerId, request, deps);
     if (!result.ok) return result;
 
-    const next = { ...result.room, version: room.version + 1 };
+    // Chaque nouveau tour d'enchère démarre le chrono de réflexion côté serveur.
+    const next = { ...trackBidTurn(result.room, (deps.now ?? Date.now)()), version: room.version + 1 };
     if (await store.save(next, room.version, buildViews(next), buildPublicTable(next))) {
       // Le spectateur ne reçoit jamais le code du salon (il permettrait de s'asseoir à la table).
       if (request.type === 'watch') return { ok: true, roomId: next.id, code: '', listen: spectatorMode(next) === 'listen' };

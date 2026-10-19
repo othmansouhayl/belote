@@ -5,7 +5,6 @@ import { Home } from './Home.tsx';
 import { CafeVisit } from './map/CafeVisit.tsx';
 import type { VisitCafeId } from './map/CafeVisit.tsx';
 import { TownMap } from './map/TownMap.tsx';
-import { setAmbienceMood } from './ambience.ts';
 import { LocalGame } from './LocalGame.tsx';
 import { OnlineRoom } from './online/OnlineRoom.tsx';
 import { WatchRoom } from './online/WatchRoom.tsx';
@@ -40,11 +39,6 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => preloadCards(createDeck().map((c) => c.id)), []);
-  // L'ambiance du café baisse pendant les parties (et quand on regarde) : la voix passe avant.
-  useEffect(
-    () => setAmbienceMood(screen.kind === 'home' || screen.kind === 'map' || screen.kind === 'visit' ? 'home' : 'game'),
-    [screen.kind],
-  );
 
   const enterRoom = async (request: { type: 'create'; table: number } | { type: 'join'; code: string }) => {
     setBusy(true);

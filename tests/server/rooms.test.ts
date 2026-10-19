@@ -55,6 +55,26 @@ describe('Salons privés', () => {
     expect((await call(store, 'x', { type: 'join', code: 'ZZZZZZ', nickname: 'X' })).ok).toBe(false);
   });
 
+  it('deux joueurs d’une même table ne peuvent pas avoir le même nom', async () => {
+    const created = await call(store, PLAYERS[0]!, { type: 'create', nickname: 'Amel' });
+    if (!created.ok) throw new Error(created.error);
+    const code = created.code;
+    for (const nickname of ['Amel', ' amel ', 'AMEL']) {
+      expect(await call(store, PLAYERS[1]!, { type: 'join', code, nickname })).toEqual({
+        ok: false,
+        error: 'Ce nom est déjà pris à cette table : choisissez-en un autre.',
+      });
+    }
+    expect((await call(store, PLAYERS[1]!, { type: 'join', code, nickname: 'Amel B.' })).ok).toBe(true);
+    // Revenir n'est jamais refusé, mais on ne prend pas le nom d'un autre : l'ancien nom est gardé.
+    expect((await call(store, PLAYERS[1]!, { type: 'join', code, nickname: 'amel' })).ok).toBe(true);
+    const view = store.viewFor(created.roomId, PLAYERS[0]!)!.view;
+    expect(view.players.map((p) => p.nickname)).toEqual(['Amel', 'Amel B.']);
+    // Changer pour un nom libre, en revanche, est accepté.
+    await call(store, PLAYERS[1]!, { type: 'join', code, nickname: 'Sonia' });
+    expect(store.viewFor(created.roomId, PLAYERS[0]!)!.view.players.map((p) => p.nickname)).toEqual(['Amel', 'Sonia']);
+  });
+
   it('changer de place avant le début, mais jamais vers une place prise', async () => {
     const { roomId } = await fullRoom(store);
     expect((await call(store, PLAYERS[0]!, { type: 'seat', roomId, seat: 2 })).ok).toBe(false);

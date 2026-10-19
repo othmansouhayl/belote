@@ -120,8 +120,13 @@ export function canClaim(state: GameState, seat: Seat): boolean {
   return canClaimNow(state.hands[seat] ?? [], state.completedTricks, state.trick, seat, state.contract.suit, state.config);
 }
 
+/** Précisions sur une action : `thought`, l'annonce a été faite après réflexion (chrono dépassé, règle [41]). */
+export interface ActionOptions {
+  readonly thought?: boolean;
+}
+
 /** Point d'entrée unique : applique l'action d'un joueur ou explique pourquoi elle est refusée. */
-export function applyAction(state: GameState, seat: Seat, action: GameAction): ActionResult {
+export function applyAction(state: GameState, seat: Seat, action: GameAction, options: ActionOptions = {}): ActionResult {
   if (state.phase === 'gameOver') return { ok: false, error: 'La partie est terminée.' };
   if (state.phase === 'handOver') return { ok: false, error: 'La manche est terminée : lancez la suivante.' };
   // Pendant les enchères, la contrée et le capot se disent sans attendre son tour (premier qui appuie).
@@ -134,7 +139,9 @@ export function applyAction(state: GameState, seat: Seat, action: GameAction): A
 
   if (action.type === 'bid') {
     if (state.phase !== 'bidding') return { ok: false, error: 'Les enchères sont terminées.' };
-    return applyBidAction(state, seat, action.bid);
+    // Le chrono ne concerne que celui dont c'est le tour : une contrée hors tour n'est jamais « réfléchie ».
+    const thought = options.thought === true && !outOfTurn && state.config.bidReflectionSeconds > 0;
+    return applyBidAction(state, seat, action.bid, thought);
   }
   if (state.phase !== 'playing') return { ok: false, error: 'Les enchères ne sont pas terminées.' };
   if (action.type === 'claim') {
@@ -150,10 +157,10 @@ export function applyAction(state: GameState, seat: Seat, action: GameAction): A
   return applyPlayAction(state, seat, action.cardId);
 }
 
-function applyBidAction(state: GameState, seat: Seat, bid: BidAction): ActionResult {
+function applyBidAction(state: GameState, seat: Seat, bid: BidAction, thought: boolean): ActionResult {
   const check = validateBid(state.bidding, seat, bid, state.config, state.hands[seat]);
   if (!check.ok) return check;
-  const step = applyBid(state.bidding, seat, bid, state.config);
+  const step = applyBid(state.bidding, seat, bid, state.config, thought);
 
   if (step.status === 'continue') {
     return { ok: true, state: { ...state, bidding: step.bidding, currentPlayer: step.nextPlayer } };

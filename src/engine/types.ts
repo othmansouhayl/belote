@@ -28,7 +28,8 @@ export interface Contract {
 }
 
 export interface BiddingState {
-  readonly history: readonly { readonly seat: Seat; readonly action: BidAction }[];
+  /** `thought` : annonce (ou passe) faite après réflexion, plus de `bidReflectionSeconds` (règle [41]). */
+  readonly history: readonly { readonly seat: Seat; readonly action: BidAction; readonly thought?: true }[];
   readonly contract: Contract | null;
   readonly coinchedBy: Seat | null;
   readonly surcoinchedBy: Seat | null;
